@@ -1,0 +1,11 @@
+#ifndef PARSE_CONFIG_H
+#define PARSE_CONFIG_H
+
+#include "TokenEnum.h"
+
+constexpr KTL_Punct KTL_PARSE_END_LINE = KTL_PUNCT_NEXT_STR;
+constexpr KTL_Punct KTL_PARSE_STRUCT_LEFT = KTL_PUNCT_LEFT_FIGURE;
+constexpr KTL_Punct KTL_PARSE_STRUCT_RIGHT = KTL_PUNCT_RIGHT_FIGURE;
+
+
+#endif /* PARSE_CONFIG_H */
