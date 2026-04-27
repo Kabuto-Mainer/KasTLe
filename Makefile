@@ -16,33 +16,43 @@ flags = -D_DEBUG -g -O3 \
 # FILES
 # ===================================================================
 # parse_f = Frontend/Parse.cpp
-token_f = Frontend/Tokenize/Token.cpp
+token_f = 		Frontend/Tokenize/Token.cpp
 
-str_map_f = Structs/StrMap/StrMap.cpp
+type_map_f =	Structs/TypeMap/TypeMap.cpp
+sym_map_f = 	Structs/SymMap/SymMap.cpp
+str_map_f = 	Structs/StrMap/StrMap.cpp
 
-common_f = Common/Common.cpp
+common_f = 		Common/Common.cpp
 
 # ===================================================================
 # DIRS
 # ===================================================================
-token_d = Frontend/Tokenize
+token_d = 		Frontend/Tokenize
 
-str_map_d = Structs/StrMap
+type_map_d =	Structs/TypeMap
+sym_map_d =		Structs/SymMap
+str_map_d = 	Structs/StrMap
 
 common_d = Common/
 
-dir_flags = -I$(token_d) -I$(str_map_d) -I$(common_d)
+dir_flags = -I$(token_d) -I$(str_map_d) -I$(common_d) -I$(sym_map_d) -I$(type_map_d)
 
 
 # ===================================================================
 # BUILDS
 # ===================================================================
-build_token:
-	clang Tests/test_token.cpp $(token_f) $(str_map_f) $(common_f) $(flags) $(dir_flags) -o token.elf
+build_test_token:
+	clang Tests/test_token.cpp $(token_f) $(str_map_f) $(common_f) $(flags) $(dir_flags) -o Tests/token_test.elf
+
+build_test_sym:
+	clang Tests/test_sym.cpp $(sym_map_f) $(type_map_f) $(str_map_f) $(common_f) $(flags) $(dir_flags) -o Tests/sym_test.elf
 
 
 # ===================================================================
 # RUN
 # ===================================================================
-run_token:
-	./token.elf
+run_test_token:
+	./Tests/token_test.elf
+
+run_test_sym:
+	./Tests/sym_test.elf

@@ -5,10 +5,6 @@
 
 #include "SymMap.h"
 
-// =======================================================================
-// USAGE CONSTATS
-// =======================================================================
-
 constexpr static int KTL_SYM_INITIAL_CAP = 8;
 constexpr static int KTL_SYM_GROW_MOD    = 2;
 
@@ -17,9 +13,9 @@ constexpr static int KTL_SYM_GROW_MOD    = 2;
 // =======================================================================
 
 static KTL_Error          ktl_sym_grow         (KTL_SymbolMap *map);
-static KTL_SymbolEntry *  ktl_sym_alloc_entry  (KTL_StrID name,
-                                                KTL_SymbolEntryKind kind);
-static KTL_Error          ktl_sym_push         (KTL_SymbolMap *map,
+static KTL_SymbolEntry *  ktl_sym_alloc_entry  (KTL_StrID            name,
+                                                KTL_SymbolEntryKind  kind);
+static KTL_Error          ktl_sym_push         (KTL_SymbolMap   *map,
                                                 KTL_SymbolEntry *entry);
 
 // =======================================================================
@@ -27,7 +23,7 @@ static KTL_Error          ktl_sym_push         (KTL_SymbolMap *map,
 // =======================================================================
 
 KTL_SymbolMap * KTL_SymbolMapInit(KTL_SymbolMap *parent) {
-    assert(parent);
+    // there is not 'assert(parent)' because global_map has not parent
 
     KTL_SymbolMap *map = (KTL_SymbolMap *)calloc(1, sizeof(KTL_SymbolMap));
     if (map == NULL)    ExitF("NULL Calloc", NULL);
@@ -65,14 +61,14 @@ KTL_Error KTL_SymbolMapUninit(KTL_SymbolMap *map) {
 }
 
 KTL_SymbolEntry * KTL_SymbolInsertVar(KTL_SymbolMap *map,
-                                      KTL_StrID name,
-                                      KTL_TypeID type,
-                                      int mod) {
+                                      KTL_StrID      name,
+                                      KTL_TypeID     type,
+                                      int            mod) {
     assert(map);
     assert(StrIDCheck(name));
     assert(TypeIDCheck(type));
 
-    if (KTL_SymbolFindLocal(map, name) != NULL)  return NULL;
+    if (KTL_SymbolFindLocal(map, name, KTL_SYMBOL_VAR) != NULL)  return NULL;
 
     KTL_SymbolEntry *entry = ktl_sym_alloc_entry(name, KTL_SYMBOL_VAR);
     if (entry == NULL)  return NULL;
@@ -88,38 +84,14 @@ KTL_SymbolEntry * KTL_SymbolInsertVar(KTL_SymbolMap *map,
     return entry;
 }
 
-KTL_SymbolEntry * KTL_SymbolInsertParam(KTL_SymbolMap *map,
-                                        KTL_StrID name,
-                                        KTL_TypeID type,
-                                        int mod) {
-    assert(map);
-    assert(StrIDCheck(name));
-    assert(TypeIDCheck(type));
-
-    if (KTL_SymbolFindLocal(map, name) != NULL)  return NULL;
-
-    KTL_SymbolEntry *entry = ktl_sym_alloc_entry(name, KTL_SYMBOL_PARAM);
-    if (entry == NULL)  return NULL;
-
-    entry->var.type = type;
-    entry->var.mod  = mod;
-
-    if (ktl_sym_push(map, entry) != KTL_OK) {
-        free(entry);
-        return NULL;
-    }
-
-    return entry;
-}
-
 KTL_SymbolEntry * KTL_SymbolInsertFunc(KTL_SymbolMap *map,
-                                       KTL_StrID name,
-                                       KTL_TypeID ret_type) {
+                                       KTL_StrID      name,
+                                       KTL_TypeID     ret_type) {
     assert(map);
     assert(StrIDCheck(name));
     assert(TypeIDCheck(ret_type));
 
-    if (KTL_SymbolFindLocal(map, name) != NULL)  return NULL;
+    if (KTL_SymbolFindLocal(map, name, KTL_SYMBOL_FUNC) != NULL)  return NULL;
 
     KTL_SymbolEntry *entry = ktl_sym_alloc_entry(name, KTL_SYMBOL_FUNC);
     if (entry == NULL)  return NULL;
@@ -136,12 +108,11 @@ KTL_SymbolEntry * KTL_SymbolInsertFunc(KTL_SymbolMap *map,
     return entry;
 }
 
-KTL_Error KTL_SymbolFuncSetParams(KTL_SymbolEntry *func,
+KTL_Error KTL_SymbolFuncSetParams(KTL_SymbolEntry  *func,
                                   KTL_SymbolEntry **params,
-                                  int amount) {
+                                  int               amount) {
     assert(func);
     assert(func->kind == KTL_SYMBOL_FUNC);
-    assert(params);
     assert(amount >= 0);
 
     if (amount == 0) {
@@ -149,6 +120,7 @@ KTL_Error KTL_SymbolFuncSetParams(KTL_SymbolEntry *func,
         func->func.amount = 0;
         return KTL_OK;
     }
+    assert(params);
 
     KTL_SymbolEntry **buf = (KTL_SymbolEntry **)calloc((size_t) amount,
                                           sizeof(KTL_SymbolEntry *));
@@ -161,12 +133,15 @@ KTL_Error KTL_SymbolFuncSetParams(KTL_SymbolEntry *func,
     return KTL_OK;
 }
 
-KTL_SymbolEntry * KTL_SymbolFindLocal(const KTL_SymbolMap *map, KTL_StrID name) {
+KTL_SymbolEntry * KTL_SymbolFindLocal(const KTL_SymbolMap *map,
+                                      KTL_StrID            name,
+                                      KTL_SymbolEntryKind  kind) {
     assert(map);
     assert(StrIDCheck(name));
 
     for (int i = 0; i < map->size; i++) {
-        if (map->data[i]->str_id == name) {
+        if (map->data[i]->str_id == name &&
+            map->data[i]->kind   == kind) {
             return map->data[i];
         }
     }
@@ -174,14 +149,16 @@ KTL_SymbolEntry * KTL_SymbolFindLocal(const KTL_SymbolMap *map, KTL_StrID name) 
     return NULL;
 }
 
-KTL_SymbolEntry * KTL_SymbolFind(const KTL_SymbolMap *map, KTL_StrID name) {
-    assert(map);
+KTL_SymbolEntry * KTL_SymbolFind(const KTL_SymbolMap *map,
+                                 KTL_StrID            name,
+                                 KTL_SymbolEntryKind  kind) {
     assert(StrIDCheck(name));
 
     for (const KTL_SymbolMap *cur = map; cur != NULL; cur = cur->parent) {
-        KTL_SymbolEntry *entry = KTL_SymbolFindLocal(cur, name);
+        KTL_SymbolEntry *entry = KTL_SymbolFindLocal(cur, name, kind);
         if (entry != NULL)  return entry;
     }
+
     return NULL;
 }
 
@@ -203,11 +180,12 @@ static KTL_Error ktl_sym_grow(KTL_SymbolMap *map) {
     return KTL_OK;
 }
 
-static KTL_SymbolEntry * ktl_sym_alloc_entry(KTL_StrID name,
-                                             KTL_SymbolEntryKind kind) {
+static KTL_SymbolEntry * ktl_sym_alloc_entry(KTL_StrID            name,
+                                             KTL_SymbolEntryKind  kind) {
     assert(StrIDCheck(name));
 
-    KTL_SymbolEntry *entry = (KTL_SymbolEntry *)calloc(1, sizeof(KTL_SymbolEntry));
+    KTL_SymbolEntry *entry = (KTL_SymbolEntry *)calloc(1,
+                                                       sizeof(KTL_SymbolEntry));
     if (entry == NULL)  ExitF("NULL Calloc", NULL);
 
     entry->str_id = name;

@@ -17,7 +17,7 @@ struct KTL_ParseTokenRef {
 #define KTL_PARSE_KEY(__k__) \
     KTL_ParseTokenRef{ KTL_TOKEN_KEY, { .key = (__k__) } }
 
-/* --- Структурные элементы (всегда пунктуаторы) --- */
+/* --- Структурные элементы  --- */
 constexpr KTL_ParseTokenRef KTL_PARSE_END_LINE     = KTL_PARSE_PUNCT(KTL_PUNCT_SEMICOLON);
 constexpr KTL_ParseTokenRef KTL_PARSE_BLOCK_LEFT   = KTL_PARSE_PUNCT(KTL_PUNCT_LEFT_FIGURE);
 constexpr KTL_ParseTokenRef KTL_PARSE_BLOCK_RIGHT  = KTL_PARSE_PUNCT(KTL_PUNCT_RIGHT_FIGURE);
@@ -53,7 +53,7 @@ constexpr KTL_ParseTokenRef KTL_PARSE_OP_AND = KTL_PARSE_KEY(KTL_KEY_AND);
 constexpr KTL_ParseTokenRef KTL_PARSE_OP_OR  = KTL_PARSE_KEY(KTL_KEY_OR);
 
 /* --- Присваивание --- */
-constexpr KTL_ParseTokenRef KTL_PARSE_ASSIGN = KTL_PARSE_KEY(KTL_KEY_ASSIGN);
+constexpr KTL_ParseTokenRef KTL_PARSE_ASSIGN = KTL_PARSE_PUNCT(KTL_PUNCT_ASSIGN);
 
 /* --- Typedef --- */
 constexpr KTL_ParseTokenRef KTL_PARSE_TYPEDEF_ARROW = KTL_PARSE_PUNCT(KTL_PUNCT_ARROW);

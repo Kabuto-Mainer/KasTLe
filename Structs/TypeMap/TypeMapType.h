@@ -13,31 +13,30 @@ enum KTL_TypeEntryKind {
     KTL_TYPE_BLOCK,
     KTL_TYPE_PTR,
     KTL_TYPE_ARRAY,
-    KTL_TYPE_DEFINE,
 };
 
 // =======================================================================
 struct KTL_TypeField {
     KTL_TypeID base_type;
-    int offset;
-    KTL_StrID name;
+    int        offset;
+    KTL_StrID  name;
 };
 
 struct KTL_TypeBase {
     KTL_StrID name;
-    int size;
-    int align;
+    int       size;
+    int       align;
 };
 
 struct KTL_TypeBlock {
     KTL_TypeField *fields;
-    int field_cap;
-    int field_count;
-    KTL_StrID name;
+    int            field_cap;
+    int            field_count;
+    KTL_StrID      name;
 
-    int size;
-    int align;
-    bool complete;
+    int            size;
+    int            align;
+    bool           complete;
 };
 
 struct KTL_TypePointer {
@@ -45,32 +44,34 @@ struct KTL_TypePointer {
 };
 
 struct KTL_TypeArray {
-    int elem_count;
+    int        elem_count;
     KTL_TypeID base_type;
-};
-
-struct KTL_TypeDefine {
-    KTL_TypeID base_type;
-    KTL_StrID name;
 };
 
 struct KTL_TypeEntry {
     union {
-        KTL_TypeBase base;
-        KTL_TypeBlock block;
+        KTL_TypeBase    base;
+        KTL_TypeBlock   block;
         KTL_TypePointer ptr;
-        KTL_TypeArray arr;
-        KTL_TypeDefine def;
+        KTL_TypeArray   arr;
     } dt;
 
     KTL_TypeEntryKind kind;
 };
 
+struct KTL_TypeAlias {
+    KTL_StrID  name;
+    KTL_TypeID target;
+};
+
 struct KTL_TypeMap {
     KTL_TypeEntry *data;
+    int            size;
+    int            capacity;
 
-    int size;
-    int capacity;
+    KTL_TypeAlias *aliases;
+    int            alias_size;
+    int            alias_capacity;
 };
 
 
@@ -79,9 +80,7 @@ bool inline TypeIDCheck(const KTL_TypeID id) {
 }
 
 bool inline TypeIDCheck(const KTL_TypeMap *map, const KTL_TypeID id) {
-    return id < map->size && id >= 0;
+    return id >= 0 && id < map->size;
 }
-
-
 
 #endif /* TYPE_MAP_TYPE_H */
