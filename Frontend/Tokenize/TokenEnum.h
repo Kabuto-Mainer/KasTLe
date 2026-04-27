@@ -1,12 +1,12 @@
-#ifndef KTL_TOKEN_ENUM_H
-#define KTL_TOKEN_ENUM_H
+#ifndef TOKEN_ENUM_H
+#define TOKEN_ENUM_H
 
 
 enum KTL_TokenKind {
     KTL_TOKEN_KEY,
     KTL_TOKEN_STRING,
     KTL_TOKEN_VALUE,
-    KTL_TOKEN_FORMAT_STR,
+    KTL_TOKEN_STR_LITERAL,
     KTL_TOKEN_PUNCT,
 };
 
@@ -31,6 +31,17 @@ enum KTL_KeyWord {
 
     KTL_KEY_VAR_DECL,
     KTL_KEY_FUNC_DECL,
+
+    /* Поддержка сравнений для более удобного изменения конфигов */
+    KTL_KEY_AND,
+    KTL_KEY_OR,
+
+    KTL_KEY_EQ,
+    KTL_KEY_NEQ,
+    KTL_KEY_LT,
+    KTL_KEY_GT,
+    KTL_KEY_LE,
+    KTL_KEY_GE,
 };
 
 enum KTL_Oper {
@@ -54,6 +65,7 @@ enum KTL_Oper {
 enum KTL_Punct {
     KTL_PUNCT_COMMA,
     KTL_PUNCT_DOT,
+    KTL_PUNCT_SEMICOLON,
 
     KTL_PUNCT_LEFT_ROUND,
     KTL_PUNCT_RIGHT_ROUND,
@@ -61,18 +73,30 @@ enum KTL_Punct {
     KTL_PUNCT_RIGHT_FIGURE,
     KTL_PUNCT_LEFT_TRIG,
     KTL_PUNCT_RIGHT_TRIG,
+    KTL_PUNCT_LEFT_SQUARE,
+    KTL_PUNCT_RIGHT_SQUARE,
 
     KTL_PUNCT_PLUS,
     KTL_PUNCT_MINUS,
     KTL_PUNCT_MUL,
     KTL_PUNCT_DEL,
+    KTL_PUNCT_AMP,
+    KTL_PUNCT_EXCL,
 
     KTL_PUNCT_GRID,
     KTL_PUNCT_DOLLAR,
     KTL_PUNCT_NEXT_STR,
     KTL_PUNCT_PROCENT,
+    KTL_PUNCT_ASSIGN,
+
+    KTL_PUNCT_EQ,
+    KTL_PUNCT_NEQ,
+    KTL_PUNCT_LE,
+    KTL_PUNCT_GE,
+
+    KTL_PUNCT_ARROW,
 };
 
+constexpr KTL_Punct KTL_PUNCT_FIRST_WITH_TWO_SYM = KTL_PUNCT_EQ;
 
-
-#endif /* KTL_TOKEN_ENUM_H */
+#endif /* TOKEN_ENUM_H */

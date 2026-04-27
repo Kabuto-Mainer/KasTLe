@@ -1,0 +1,5 @@
+if elif else while for break continue return = in out typedef block var func and
+or equal not_equal less grater less_ot_equal grater_or_equal
+
+.,;(){}<>[]+-*/&!#$%
+== != <= >= ->

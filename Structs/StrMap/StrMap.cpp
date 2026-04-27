@@ -4,14 +4,16 @@
 #include <assert.h>
 
 #include "StrMapType.h"
-#include "TypeMapType.h"
+#include "StrMap.h"
+// #include "TypeMapType.h"
 
 // =======================================================================
 // HELPER FUNCTIONS DECLARATION
 // =======================================================================
 
-static KTL_StrList *ktl_str_allocate_list(void);
-static void ktl_str_destroy_list(KTL_StrList *list);
+static KTL_Hash      ktl_hash_list         (const char *string);
+static KTL_StrList * ktl_str_allocate_list (void);
+static void          ktl_str_destroy_list  (KTL_StrList *list);
 
 // =======================================================================
 // API FUNCTIONS
@@ -24,6 +26,9 @@ KTL_Error KTL_StrMapCreate(KTL_StrMap *map, int size) {
     map->data = (KTL_StrList *)calloc((size_t) size, sizeof(KTL_StrList));
     if (map->data == NULL)    ExitF("NULL Calloc", KTL_MEMORY_ERR);
     map->size = size;
+
+    map->get_hash_cell = ktl_gnu_hash;
+    map->get_hash_list = ktl_hash_list;
 
     return KTL_OK;
 }
@@ -41,6 +46,7 @@ KTL_StrID KTL_StrMapFind(KTL_StrMap *map, const char *string) {
         list->string = strdup(string);
         list->hash_list = hash_list;
         list->next = NULL;
+
         return list->string;
     }
 
@@ -71,12 +77,14 @@ KTL_Error KTL_StrMapDestroy(KTL_StrMap *map) {
     assert(map);
 
     for (int i = 0; i < map->size; i++) {
-        KTL_StrList *list = &(map->data[i]);
+        KTL_StrList *list = map->data + i;
         if (list->next != NULL) {
             ktl_str_destroy_list(list->next);
         }
         free(list->string);
     }
+    free(map->data);
+
     return KTL_OK;
 }
 
@@ -85,6 +93,12 @@ KTL_Error KTL_StrMapDestroy(KTL_StrMap *map) {
 // =======================================================================
 // HELPER FUNCTIONS
 // =======================================================================
+
+static KTL_Hash ktl_hash_list(const char *string) {
+    assert(string);
+
+    return (KTL_Hash) string[0];
+}
 
 static void ktl_str_destroy_list(KTL_StrList *list) {
     assert(list);

@@ -18,16 +18,15 @@ inline static void next_t(KTL_ParseContext *cont) {
     }
 }
 
-inline static bool is_t_this(KTL_ParseContext *cont, KTL_TokenKind kind) {
-    return get_t(cont)->kind == kind;
-}
+inline static bool is_t_this(KTL_ParseContext *cont, KTL_ParseTokenRef ref) {
+    KTL_Token *token = get_t(cont);
+    if (token->kind != ref.kind) return false;
 
-inline static bool is_t_this(KTL_ParseContext *cont, KTL_KeyWord key) {
-    return is_t_this(cont, KTL_TOKEN_KEY) && get_t(cont)->data.key == key;
-}
-
-inline static bool is_t_this(KTL_ParseContext *cont, KTL_Punct punct) {
-    return is_t_this(cont, KTL_TOKEN_PUNCT) && get_t(cont)->data.punct == punct;
+    switch (ref.kind) {
+        case KTL_TOKEN_PUNCT: return token->data.punct == ref.as.punct;
+        case KTL_TOKEN_KEY:   return token->data.key   == ref.as.key;
+        default:              return false;
+    }
 }
 
 inline static void add_node_l(KTL_AstNode *parent, KTL_AstNode *child) {

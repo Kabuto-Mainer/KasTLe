@@ -1,5 +1,5 @@
-#ifndef KTL_TOKEN_TYPE_H
-#define KTL_TOKEN_TYPE_H
+#ifndef TOKEN_TYPE_H
+#define TOKEN_TYPE_H
 
 #include "TokenEnum.h"
 #include "StrMapType.h"
@@ -12,44 +12,50 @@ enum KTL_TokenStatus {
 };
 
 struct KTL_Token {
-    KTL_TokenKind kind;
+    KTL_TokenKind   kind;
     union {
         KTL_KeyWord key;
-        KTL_Punct punct;
-        KTL_StrID string;
-        int64_t value;
+        KTL_Punct   punct;
+        KTL_StrID   string;
+        KTL_StrID   str_literal;
+        int64_t     value;
     } data;
 
-    KTL_SourcePos pose;
+    KTL_SourcePos   pos;
 };
 
 struct KTL_TokenContext {
-    char *buffer;
+    KTL_StrID      source_id;
+    KTL_SourcePos  source_pos;
 
-    KTL_SourcePos file_pose;
-    KTL_StrID file;
+    char          *buffer;
+    int            buffer_pos;
+    int            buffer_capacity;
 
-    int cur_pose;
-    int capacity_buf;
+    KTL_Token     *tokens;
+    int            token_pos;
+    int            token_capacity;
 
-    KTL_Token *tokens;
-    int cur_token;
-    int capacity_token;
-
-    KTL_StrMap *str_map;
+    KTL_StrMap    *str_map;
 };
 
 struct KTL_KeyConstBlock {
-    const char *key;
-    KTL_Hash hash;
-    KTL_KeyWord value;
+    const char     *string;
+    KTL_Hash        hash;
+    KTL_KeyWord     value_key;
 };
 
 
 struct KTL_PunctConstBLock {
-    const char sym;
-    KTL_Punct value;
+    const char  sym;
+    KTL_Punct   value_punct;
+};
+
+struct KTL_PunctConst2Block {
+    const char  sym[2];
+
+    KTL_Punct   value_punct;
 };
 
 
-#endif /* KTL_TOKEN_TYPE_H */
+#endif /* TOKEN_TYPE_H */
