@@ -42,6 +42,31 @@ enum KTL_AstNodeKind {
     KTL_AST_BREAK,
     KTL_AST_CONTINUE,
     KTL_AST_EXIT,
+
+    KTL_AST_CAST,
+};
+
+enum KTL_Oper {
+    KTL_OPER_ADD,
+    KTL_OPER_SUB,
+    KTL_OPER_MUL,
+    KTL_OPER_DIV,
+    KTL_OPER_MOD,
+
+    KTL_OPER_NEG,
+    KTL_OPER_AND,
+    KTL_OPER_OR,
+
+    KTL_OPER_COMP_BE,
+    KTL_OPER_COMP_B,
+    KTL_OPER_COMP_LE,
+    KTL_OPER_COMP_L,
+    KTL_OPER_COMP_E,
+    KTL_OPER_COMP_NE,
+
+    KTL_OPER_GET_PTR,
+    KTL_OPER_UNGET_PTR,
+    KTL_OPER_ASSIGN,
 };
 
 struct KTL_AstNode {
@@ -94,6 +119,10 @@ struct KTL_AstNode {
         struct {
             KTL_SymbolMap *map;
         } block;
+
+        struct {
+            KTL_TypeID target;
+        } cast;
     } data;
 
     /* Связи с потомками:

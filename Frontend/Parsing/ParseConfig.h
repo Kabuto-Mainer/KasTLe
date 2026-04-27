@@ -58,8 +58,13 @@ constexpr KTL_ParseTokenRef KTL_PARSE_ASSIGN = KTL_PARSE_PUNCT(KTL_PUNCT_ASSIGN)
 /* --- Typedef --- */
 constexpr KTL_ParseTokenRef KTL_PARSE_TYPEDEF_ARROW = KTL_PARSE_PUNCT(KTL_PUNCT_ARROW);
 
-/* Псевдонимы по контексту */
+/* --- Псевдонимы по контексту --- */
 constexpr KTL_ParseTokenRef KTL_PARSE_STRUCT_LEFT  = KTL_PARSE_BLOCK_LEFT;
 constexpr KTL_ParseTokenRef KTL_PARSE_STRUCT_RIGHT = KTL_PARSE_BLOCK_RIGHT;
+
+/* --- Строковые литералы --- */
+constexpr KTL_ParseTokenRef KTL_PARSE_STR_LITERAL_LEFT = KTL_PARSE_PUNCT(KTL_PUNCT_QUOT);
+constexpr KTL_ParseTokenRef KTL_PARSE_STR_LITERAL_RIGHT = KTL_PARSE_PUNCT(KTL_PUNCT_QUOT);
+
 
 #endif /* PARSE_CONFIG_H */

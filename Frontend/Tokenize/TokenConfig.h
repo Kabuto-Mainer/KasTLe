@@ -11,6 +11,7 @@
 #define XXX(__string__,__number__) {__string__, ktl_gnu_hash(__string__), __number__}
 
 const KTL_KeyConstBlock KTL_KEY_WORDS[] = {
+    XXX("main",     KTL_KEY_MAIN),
     XXX("if",       KTL_KEY_IF),
     XXX("elif",     KTL_KEY_ELIF),
     XXX("else",     KTL_KEY_ELSE),
@@ -35,6 +36,11 @@ const KTL_KeyConstBlock KTL_KEY_WORDS[] = {
     XXX("greater",          KTL_KEY_GT),
     XXX("less_or_equal",    KTL_KEY_LE),
     XXX("greater_or_equal", KTL_KEY_GE),
+
+    XXX("const",    KTL_KEY_CONST),
+    XXX("mutable",  KTL_KEY_MUTABLE),
+    XXX("resister", KTL_KEY_REGISTER),
+    XXX("stack",    KTL_KEY_STACK),
 };
 
 #undef XXX
@@ -66,12 +72,12 @@ const KTL_PunctConstBLock KTL_PUNCTS[] = {
     XXX('&',  KTL_PUNCT_AMP),
     XXX('!',  KTL_PUNCT_EXCL),
 
-
     XXX('#',  KTL_PUNCT_GRID),
     XXX('$',  KTL_PUNCT_DOLLAR),
     XXX('\n', KTL_PUNCT_DOLLAR),
     XXX('%',  KTL_PUNCT_PROCENT),
     XXX('=',  KTL_PUNCT_ASSIGN),
+    XXX('\"', KTL_PUNCT_QUOT),
 };
 
 #undef XXX

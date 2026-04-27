@@ -11,6 +11,8 @@ enum KTL_TokenKind {
 };
 
 enum KTL_KeyWord {
+    KTL_KEY_MAIN,
+
     KTL_KEY_IF,
     KTL_KEY_ELIF,
     KTL_KEY_ELSE,
@@ -32,7 +34,7 @@ enum KTL_KeyWord {
     KTL_KEY_VAR_DECL,
     KTL_KEY_FUNC_DECL,
 
-    /* Поддержка сравнений для более удобного изменения конфигов */
+    /* Support compares for more simple changing configs */
     KTL_KEY_AND,
     KTL_KEY_OR,
 
@@ -42,27 +44,16 @@ enum KTL_KeyWord {
     KTL_KEY_GT,
     KTL_KEY_LE,
     KTL_KEY_GE,
-};
 
-enum KTL_Oper {
-    KTL_OPER_ADD,
-    KTL_OPER_SUB,
-    KTL_OPER_MUL,
-    KTL_OPER_DIV,
-
-    KTL_OPER_COMP_BE,
-    KTL_OPER_COMP_B,
-    KTL_OPER_COMP_LE,
-    KTL_OPER_COMP_L,
-    KTL_OPER_COMP_E,
-    KTL_OPER_COMP_NE,
-
-    KTL_OPER_GET_PTR,
-    KTL_OPER_UNGET_PTR,
-    KTL_OPER_ASSIGN,
+    /* Type Modes */
+    KTL_KEY_CONST,
+    KTL_KEY_MUTABLE,
+    KTL_KEY_REGISTER,
+    KTL_KEY_STACK,
 };
 
 enum KTL_Punct {
+    /* One Symbols */
     KTL_PUNCT_COMMA,
     KTL_PUNCT_DOT,
     KTL_PUNCT_SEMICOLON,
@@ -88,7 +79,9 @@ enum KTL_Punct {
     KTL_PUNCT_NEXT_STR,
     KTL_PUNCT_PROCENT,
     KTL_PUNCT_ASSIGN,
+    KTL_PUNCT_QUOT,
 
+    /* Two Symbols */
     KTL_PUNCT_EQ,
     KTL_PUNCT_NEQ,
     KTL_PUNCT_LE,

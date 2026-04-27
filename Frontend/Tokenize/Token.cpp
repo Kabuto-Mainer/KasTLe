@@ -211,13 +211,9 @@ static KTL_TokenStatus ktl_token_word(KTL_TokenContext *cont) {
 static KTL_TokenStatus ktl_token_number(KTL_TokenContext *cont) {
     assert(cont);
 
-    char sym    = get_c(cont);
-    char n_sym  = get_nc(cont);
+    char sym = get_c(cont);
 
-    bool is_negative = (sym == '-' && isdigit((unsigned char) n_sym));
-    if (!isdigit((unsigned char) sym) && !is_negative) {
-        return KTL_TOKEN_NOT_THIS;
-    }
+    if (!isdigit((unsigned char) sym))  return KTL_TOKEN_NOT_THIS;
 
     KTL_SourcePos start_pos = cont->source_pos;
     int64_t value = 0;
@@ -234,7 +230,6 @@ static KTL_TokenStatus ktl_token_number(KTL_TokenContext *cont) {
     tok.pos        = start_pos;
     ktl_add_token(cont, &tok);
 
-    (void) is_negative;
     return KTL_TOKEN_THIS_OK;
 }
 
