@@ -57,5 +57,12 @@ struct KTL_PunctConst2Block {
     KTL_Punct   value_punct;
 };
 
+struct KTL_ParseTokenRef {
+    KTL_TokenKind kind;            /* KTL_TOKEN_PUNCT или KTL_TOKEN_KEY */
+    union {
+        KTL_Punct   punct;
+        KTL_KeyWord key;
+    } as;
+};
 
 #endif /* TOKEN_TYPE_H */

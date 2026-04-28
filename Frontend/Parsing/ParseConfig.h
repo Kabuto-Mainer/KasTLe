@@ -1,15 +1,7 @@
 #ifndef PARSE_CONFIG_H
 #define PARSE_CONFIG_H
 
-#include "TokenEnum.h"
-
-struct KTL_ParseTokenRef {
-    KTL_TokenKind kind;            /* KTL_TOKEN_PUNCT или KTL_TOKEN_KEY */
-    union {
-        KTL_Punct   punct;
-        KTL_KeyWord key;
-    } as;
-};
+#include "TokenType.h"
 
 #define KTL_PARSE_PUNCT(__p__) \
     KTL_ParseTokenRef{ KTL_TOKEN_PUNCT, { .punct = (__p__) } }
@@ -39,6 +31,7 @@ constexpr KTL_ParseTokenRef KTL_PARSE_OP_MINUS     = KTL_PARSE_PUNCT(KTL_PUNCT_M
 constexpr KTL_ParseTokenRef KTL_PARSE_OP_MUL       = KTL_PARSE_PUNCT(KTL_PUNCT_MUL);
 constexpr KTL_ParseTokenRef KTL_PARSE_OP_DIV       = KTL_PARSE_PUNCT(KTL_PUNCT_DEL);
 constexpr KTL_ParseTokenRef KTL_PARSE_OP_MOD       = KTL_PARSE_PUNCT(KTL_PUNCT_PROCENT);
+constexpr KTL_ParseTokenRef KTL_PARSE_OP_NEG       = KTL_PARSE_PUNCT(KTL_PUNCT_MINUS);
 
 /* --- Сравнения --- */
 constexpr KTL_ParseTokenRef KTL_PARSE_OP_EQ  = KTL_PARSE_PUNCT(KTL_PUNCT_EQ);
