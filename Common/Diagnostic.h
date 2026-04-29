@@ -34,4 +34,5 @@ KTL_Error KTL_DiagEmit(KTL_Diagnostic *diag, KTL_SourcePos pos,
 
 void KTL_DiagFlush(const KTL_Diagnostic *diag, const char *file_name);
 
+
 #endif /* DIAGNOSTIC_H */

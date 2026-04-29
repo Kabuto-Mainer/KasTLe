@@ -62,11 +62,6 @@ enum KTL_DiagPayload {
     KTL_DIAG_PL_TOKEN,
 };
 
-struct KTL_SourcePos {
-    int line;
-    int column;
-};
-
 struct KTL_DiagEntry {
     KTL_SourcePos     pos;
     KTL_DiagError     error;

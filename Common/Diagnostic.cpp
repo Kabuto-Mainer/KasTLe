@@ -196,6 +196,26 @@ KTL_Error KTL_DiagEmit(KTL_Diagnostic *diag, KTL_SourcePos pos,
     return KTL_OK;
 }
 
+KTL_Error KTL_DiagEmit(KTL_Diagnostic *diag, KTL_SourcePos pos,
+                       KTL_DiagError error, KTL_DiagSeverity sev,
+                       KTL_ParseTokenRef expected) {
+    assert(diag);
+    assert(ktl_diag_payload(error) == KTL_DIAG_PL_TOKEN);
+
+    KTL_DiagEntry *entry = ktl_diag_alloc(diag);
+    if (entry == NULL)  return KTL_MEMORY_ERR;
+
+    entry->pos                = pos;
+    entry->error              = error;
+    entry->severity           = sev;
+    entry->val.token.expected = expected;
+
+    ktl_diag_count(diag, sev);
+
+    return KTL_OK;
+}
+
+
 // =======================================================================
 // FLUSH
 // =======================================================================

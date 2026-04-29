@@ -9,6 +9,7 @@
 #include "Common.h"
 #include "StandardType.h"
 #include "ASTCommon.h"
+#include "Parse.h"
 
 constexpr int KTL_PARSE_NCHILDREN_INIT = 4;
 
@@ -19,18 +20,17 @@ constexpr int KTL_PARSE_NCHILDREN_INIT = 4;
 
 static inline KTL_Token * get_t      (KTL_ParseContext *cont);
 static inline void        advance    (KTL_ParseContext *cont);
+
 static inline bool        equal      (KTL_ParseContext *cont, KTL_ParseTokenRef ref);
 static inline bool        equal      (KTL_ParseContext *cont, KTL_TokenKind kind);
 static inline bool        equal      (KTL_ParseContext *cont, KTL_KeyWord key);
 
+static inline bool        equal_n    (KTL_ParseContext *cont, KTL_ParseTokenRef ref);
 
 static inline void        add_node_l (KTL_AstNode *parent, KTL_AstNode *child);
 static inline void        add_node_r (KTL_AstNode *parent, KTL_AstNode *child);
 static inline void        add_node_u (KTL_AstNode *parent, KTL_AstNode *child);
 static void               add_node_n (KTL_AstNode *parent, KTL_AstNode *child);
-
-static inline int         get_pos    (KTL_ParseContext *cont);
-static inline void        set_pos    (KTL_ParseContext *cont, int pos);
 
 static KTL_AstNode *      ktl_alloc_node    ();
 static void               ktl_destroy_node  (KTL_AstNode *node);
@@ -41,12 +41,50 @@ static inline KTL_SourcePos get_t_pos       (KTL_ParseContext *cont);
 // PARSE FUNCTIONS
 // =======================================================================
 
+static KTL_StrID    ktl_parse_name       (KTL_ParseContext *cont);
+static int          ktl_parse_type_mod   (KTL_ParseContext *cont);
+static KTL_TypeID   ktl_parse_type       (KTL_ParseContext *cont);
+
+static KTL_AstNode *ktl_parse_str_literal(KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_number     (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_var        (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_call       (KTL_ParseContext *cont);
+
+static KTL_AstNode *ktl_parse_atom       (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_unary      (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_mul_step   (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_add_step   (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_cmp_step   (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_expr       (KTL_ParseContext *cont);
+
+static KTL_AstNode *ktl_parse_var_decl   (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_assign     (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_exit       (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_continue   (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_break      (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_return     (KTL_ParseContext *cont);
+
+static KTL_AstNode *ktl_parse_line       (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_body       (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_loop_common(KTL_ParseContext *cont, bool is_loop);
+
+static KTL_AstNode *ktl_parse_while      (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_for        (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_condition  (KTL_ParseContext *cont);
+
+static KTL_AstNode *ktl_parse_typedef    (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_block_decl (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_func_decl  (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_top_decl   (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_main       (KTL_ParseContext *cont);
 
 
-
-// -------------------------------------------------------------------------
-
-/* Don't emit error */
+/**
+ * Parse Name
+ * Return StrID of name in success
+ * Return NULL in error
+ * Don't emit errors
+ */
 static KTL_StrID ktl_parse_name(KTL_ParseContext *cont) {
     assert(cont);
 
@@ -58,7 +96,11 @@ static KTL_StrID ktl_parse_name(KTL_ParseContext *cont) {
     return name;
 }
 
-/* Emit modifier error */
+/**
+ * Parse Modifiers of Type
+ * Retrun 'int' value with setted bits
+ * Emit errors of incorrect key of modifiers
+ */
 static int ktl_parse_type_mod(KTL_ParseContext *cont) {
     assert(cont);
 
@@ -95,7 +137,12 @@ static int ktl_parse_type_mod(KTL_ParseContext *cont) {
     return mod;
 }
 
-/* Emit errors */
+/**
+ * Parse Type (with mods)
+ * Return TypeID in success
+ * Return KTL_BAD_TYPE_ID in error
+ * Emit errors of bad types
+ */
 static KTL_TypeID ktl_parse_type(KTL_ParseContext *cont) {
     assert(cont);
 
@@ -162,13 +209,18 @@ static KTL_TypeID ktl_parse_type(KTL_ParseContext *cont) {
         }
         advance(cont);
 
-        type = KTL_TypeAddArray(cont->type_map, type, size);
+        type = KTL_TypeAddArray(cont->type_map, type, (int) size);
     }
 
     return type;
 }
 
-/* Emit errors */
+/**
+ * Parse String Literals
+ * Return AstNode* with str. literal in success
+ * Return NULL in error
+ * Emit error of expected string
+ */
 static KTL_AstNode *ktl_parse_str_literal(KTL_ParseContext *cont) {
     assert(cont);
 
@@ -195,7 +247,12 @@ static KTL_AstNode *ktl_parse_str_literal(KTL_ParseContext *cont) {
     return node;
 }
 
-/* Not emit errors */
+/**
+ * Parse Number
+ * Return AstNode* with number in success
+ * Return NULL in error
+ * Don't emit any errors
+ */
 static KTL_AstNode *ktl_parse_number(KTL_ParseContext *cont) {
     assert(cont);
 
@@ -213,7 +270,13 @@ static KTL_AstNode *ktl_parse_number(KTL_ParseContext *cont) {
     return node;
 }
 
-/* Emit errors */
+/**
+ * Parse using Var
+ * Return chain from AstNode* in success ( ret = '[]' -> '.' -> '[]' -> var )
+ * Return NULL in error
+ * Return NULL if 'string' == false || '(' == true
+ * Emitted errors: bad name, skipped ']'
+ */
 static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
     assert(cont);
 
@@ -222,8 +285,8 @@ static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
         return NULL;
     }
 
-    KTL_StrID name    = ktl_parse_name(cont);
-    KTL_SourcePos pos = get_t_pos(cont);
+    KTL_StrID     name  = ktl_parse_name(cont);
+    KTL_SourcePos v_pos = get_t_pos     (cont);
 
     if (StrIDCheck(name) == false) {
         KTL_DiagEmit(cont->diag, get_t_pos(cont),
@@ -237,10 +300,14 @@ static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
 
     node->kind                   = KTL_AST_VARIABLE;
     node->data.var.info.raw.name = name;
-    node->pos                    = pos;
+    node->data.var.is_raw        = true;
+    node->pos                    = v_pos;
 
-    while (equal(cont, KTL_PARSE_FIELD_DOT) || equal(cont, KTL_PARSE_INDEX_LEFT)) {
-        if (equal(cont, KTL_PARSE_FIELD_DOT)) {
+    while (equal(cont, KTL_PARSE_FIELD_DOT)  ||
+           equal(cont, KTL_PARSE_INDEX_LEFT) ||
+           equal(cont, KTL_PARSE_FIELD_ARROW)) {
+        if (equal(cont, KTL_PARSE_FIELD_DOT) ||
+            equal(cont, KTL_PARSE_FIELD_ARROW)) {
             advance(cont);
 
             name = ktl_parse_name(cont);
@@ -259,21 +326,22 @@ static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
                 return NULL;
             }
 
-            field->kind            = KTL_AST_FIELD_ACCESS;
-            field->data.field.name = name;
+            field->kind              = KTL_AST_FIELD_ACCESS;
+            field->data.field.name   = name;
+            field->data.field.is_ptr = equal(cont, KTL_PARSE_FIELD_ARROW);
 
             add_node_u(field, node);
             node = field;
         } else {
             advance(cont);
 
-            KTL_SourcePos pos = get_t_pos(cont);
-            KTL_AstNode *idx = ktl_parse_expr(cont);
+            KTL_SourcePos pos = get_t_pos     (cont);
+            KTL_AstNode  *idx = ktl_parse_expr(cont);
+
             if (idx == NULL) {
                 ktl_destroy_node(node);
                 return NULL;
             }
-
             if (equal(cont, KTL_PARSE_INDEX_RIGHT) == false) {
                 KTL_DiagEmit(cont->diag, pos,
                              KTL_DIAG_PARSE_EXPECTED_TOKEN,
@@ -284,6 +352,7 @@ static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
 
                 return NULL;
             }
+            advance(cont);
 
             KTL_AstNode *get_idx = ktl_alloc_node();
             if (get_idx == NULL) {
@@ -304,7 +373,13 @@ static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
     return node;
 }
 
-/* Emit errors */
+/**
+ * Parse call Functions
+ * Return AstNode* with n-children (func arg) in success
+ * Return NULL in error
+ * Return NULL if 'string' == false || '(' == false
+ * Emitted error: bad name, skipped ')'
+ */
 static KTL_AstNode *ktl_parse_call(KTL_ParseContext *cont) {
     assert(cont);
 
@@ -313,8 +388,8 @@ static KTL_AstNode *ktl_parse_call(KTL_ParseContext *cont) {
         return NULL;
     }
 
-    KTL_SourcePos pos = get_t_pos(cont);
-    KTL_StrID name    = ktl_parse_name(cont);
+    KTL_SourcePos pos  = get_t_pos     (cont);
+    KTL_StrID     name = ktl_parse_name(cont);
 
     if (StrIDCheck(name) == false) {
         KTL_DiagEmit(cont->diag, get_t_pos(cont),
@@ -328,6 +403,7 @@ static KTL_AstNode *ktl_parse_call(KTL_ParseContext *cont) {
 
     node->kind                         = KTL_AST_FUNCTION_CALL;
     node->data.func_call.info.raw.name = name;
+    node->data.func_call.is_raw        = true;
     node->pos                          = pos;
 
     // // Do not need this check
@@ -362,7 +438,7 @@ static KTL_AstNode *ktl_parse_call(KTL_ParseContext *cont) {
 
 // -------------------------------------------------------------------------
 
-/* Emit errors */
+
 static KTL_AstNode *ktl_parse_atom(KTL_ParseContext *cont) {
     assert(cont);
 
@@ -1168,26 +1244,41 @@ fail:
 static KTL_AstNode *ktl_parse_line(KTL_ParseContext *cont) {
     assert(cont);
 
-    if (equal(cont, KTL_KEY_VAR_DECL))      return ktl_parse_var_decl(cont);
+    KTL_AstNode *node    = NULL;
+
+    if (equal(cont, KTL_KEY_VAR_DECL))      { node = ktl_parse_var_decl(cont); goto check; }
+    if (equal(cont, KTL_KEY_BREAK))         { node = ktl_parse_break(cont);    goto check; }
+    if (equal(cont, KTL_KEY_CONTINUE))      { node = ktl_parse_continue(cont); goto check; }
+    if (equal(cont, KTL_KEY_EXIT))          { node = ktl_parse_exit(cont);     goto check; }
+    if (equal(cont, KTL_PARSE_PTR_DEREF))   { node = ktl_parse_assign(cont);   goto check; }
+    if (equal(cont, KTL_KEY_RETURN))        { node = ktl_parse_return(cont);   goto check; }
+    if (equal(cont, KTL_TOKEN_STRING)) {
+        if (equal_n(cont, KTL_PARSE_PAREN_LEFT))    { node = ktl_parse_call  (cont); goto check; }
+        else                                        { node = ktl_parse_assign(cont); goto check; }
+    }
+
     if (equal(cont, KTL_KEY_IF))            return ktl_parse_condition(cont);
     if (equal(cont, KTL_KEY_WHILE))         return ktl_parse_while(cont);
     if (equal(cont, KTL_KEY_FOR))           return ktl_parse_for(cont);
     if (equal(cont, KTL_KEY_RETURN))        return ktl_parse_return(cont);
-    if (equal(cont, KTL_KEY_BREAK))         return ktl_parse_break(cont);
-    if (equal(cont, KTL_KEY_CONTINUE))      return ktl_parse_continue(cont);
-    if (equal(cont, KTL_KEY_EXIT))          return ktl_parse_exit(cont);
-
-    if (equal(cont, KTL_PARSE_PTR_DEREF))   return ktl_parse_assign(cont);
-
-    if (equal(cont, KTL_TOKEN_STRING)) {
-        if (equal_n(cont, KTL_PARSE_PAREN_LEFT))    return ktl_parse_call(cont);
-        else                                        return ktl_parse_assign(cont);
-    }
 
     KTL_DiagEmit(cont->diag, get_t_pos(cont),
                  KTL_DIAG_PARSE_UNEXPECTED_TOKEN,
                  KTL_DIAG_SEV_ERROR);
     return NULL;
+
+check:
+    if (node == NULL)   return NULL;
+    if (equal(cont, KTL_PARSE_END_LINE) == false) {
+        KTL_DiagEmit(cont->diag, get_t_pos(cont),
+                        KTL_DIAG_PARSE_EXPECTED_TOKEN,
+                        KTL_DIAG_SEV_ERROR, KTL_PARSE_END_LINE);
+        ktl_destroy_node(node);
+        return NULL;
+    }
+    advance(cont);
+
+    return node;
 }
 
 static KTL_AstNode *ktl_parse_loop_common(KTL_ParseContext *cont, bool is_loop) {
@@ -1223,17 +1314,17 @@ static KTL_AstNode *ktl_parse_loop_common(KTL_ParseContext *cont, bool is_loop) 
         KTL_AstNode *node = ktl_parse_line(cont);
         if (node == NULL)   goto fail;
 
-        if (equal(cont, KTL_PARSE_END_LINE) == false) {
-            KTL_DiagEmit(cont->diag, get_t_pos(cont),
-                         KTL_DIAG_PARSE_EXPECTED_TOKEN,
-                         KTL_DIAG_SEV_ERROR, KTL_PARSE_END_LINE);
-            ktl_destroy_node(node);
-            goto fail;
-        }
-        advance(cont);
+        // if (equal(cont, KTL_PARSE_END_LINE) == false) {
+        //     KTL_DiagEmit(cont->diag, get_t_pos(cont),
+        //                  KTL_DIAG_PARSE_EXPECTED_TOKEN,
+        //                  KTL_DIAG_SEV_ERROR, KTL_PARSE_END_LINE);
+        //     ktl_destroy_node(node);
+        //     goto fail;
+        // }
+        // advance(cont);
         add_node_n(block, node);
     }
-    advance(cont);   /* съедаем "}" */
+    advance(cont);
 
     cont->current_scope = prev_scope;
     if (is_loop)    cont->loop_depth--;
@@ -1242,7 +1333,7 @@ static KTL_AstNode *ktl_parse_loop_common(KTL_ParseContext *cont, bool is_loop) 
 fail:
     cont->current_scope = prev_scope;
     if (is_loop)    cont->loop_depth--;
-    ktl_destroy_node(block);   /* уничтожит scope через data.block.map */
+    ktl_destroy_node(block);
     return NULL;
 }
 
@@ -1614,8 +1705,6 @@ static KTL_AstNode *ktl_parse_top_decl(KTL_ParseContext *cont) {
     return NULL;
 }
 
-
-
 static KTL_Error ktl_register_standard_types(KTL_ParseContext *cont) {
     assert(cont);
     assert(cont->str_map);
@@ -1648,7 +1737,7 @@ static KTL_AstNode *ktl_parse_file(KTL_ParseContext *cont) {
     file->pos  = pos;
 
     /* Infinity circle check */
-    while (cont->cur_token < cont->cap_token) {
+    while (equal(cont, KTL_TOKEN_EOF) == false) {
         int pos_before = cont->cur_token;
 
         KTL_AstNode *node = NULL;
@@ -1779,8 +1868,6 @@ static inline void advance(KTL_ParseContext *cont) {
     cont->cur_token += cont->cur_token < cont->cap_token;
 }
 
-
-
 static inline bool equal(KTL_ParseContext *cont, KTL_ParseTokenRef ref) {
     if (ref.kind == KTL_TOKEN_PUNCT) {
         return  get_t(cont)->kind == KTL_TOKEN_PUNCT &&
@@ -1807,15 +1894,6 @@ static inline bool equal_n(KTL_ParseContext *cont, KTL_ParseTokenRef ref) {
     return  get_nt(cont)->kind == KTL_TOKEN_KEY &&
             get_nt(cont)->data.key == ref.as.key;
 }
-
-static inline bool equal_n(KTL_ParseContext *cont, KTL_TokenKind kind) {
-    return get_nt(cont)->kind == kind;
-}
-
-static inline bool equal_n(KTL_ParseContext *cont, KTL_KeyWord key) {
-    return equal_n(cont, KTL_TOKEN_KEY) && get_nt(cont)->data.key == key;
-}
-
 
 static inline void add_node_l(KTL_AstNode *parent, KTL_AstNode *child) {
     parent->move.binary.left = child;
@@ -1855,15 +1933,6 @@ static void add_node_n(KTL_AstNode *parent, KTL_AstNode *child) {
     }
 
     parent->move.n.children[parent->move.n.amount++] = child;
-}
-
-static inline int get_pos(KTL_ParseContext *cont) {
-    return cont->cur_token;
-}
-
-static inline void set_pos(KTL_ParseContext *cont, int pos) {
-    assert(pos >= 0);
-    cont->cur_token = pos;
 }
 
 static KTL_AstNode * ktl_alloc_node() {

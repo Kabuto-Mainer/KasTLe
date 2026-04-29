@@ -24,8 +24,6 @@ enum KTL_KeyWord {
     KTL_KEY_CONTINUE,
 
     KTL_KEY_RETURN,
-    KTL_KEY_ASSIGN,
-
     KTL_KEY_IN,
     KTL_KEY_OUT,
 

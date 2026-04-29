@@ -20,7 +20,7 @@ constexpr static int KTL_MAX_STR_LITERAL  = 4096;
 // HELPER FUNCTIONS DECLARATIONS
 // =======================================================================
 
-static inline void     ktl_dump_buffer    (KTL_TokenContext *cont);
+// static inline void     ktl_dump_buffer    (KTL_TokenContext *cont);
 static KTL_TokenStatus ktl_token_word     (KTL_TokenContext *cont);
 static KTL_TokenStatus ktl_token_number   (KTL_TokenContext *cont);
 static KTL_TokenStatus ktl_token_punct    (KTL_TokenContext *cont);
@@ -109,7 +109,7 @@ KTL_Error KTL_TokenProcess(KTL_TokenContext *cont) {
         advance(cont);
     }
 
-    /* Create buffer for errors */
+    /* Create buffer with eof tokens */
     KTL_Token eof_token = {};
     eof_token.pos  = cont->source_pos;
     eof_token.kind = KTL_TOKEN_EOF;
@@ -173,6 +173,11 @@ void KTL_TokenDump(KTL_TokenContext *cont) {
                 }
                 break;
             }
+            case KTL_TOKEN_EOF: {
+                printf("EOF    |\n");
+                break;
+            }
+
             default: {
                 printf("ERROR   |\n");
             }
@@ -184,11 +189,11 @@ void KTL_TokenDump(KTL_TokenContext *cont) {
 // HELPER FUNCTIONS
 // =======================================================================
 
-static inline void ktl_dump_buffer(KTL_TokenContext *cont) {
-    assert(cont);
-
-    printf("=================\n%s\n=================\n", cont->buffer + cont->buffer_pos);
-}
+// static inline void ktl_dump_buffer(KTL_TokenContext *cont) {
+//     assert(cont);
+//
+//     printf("=================\n%s\n=================\n", cont->buffer + cont->buffer_pos);
+// }
 
 static KTL_TokenStatus ktl_token_word(KTL_TokenContext *cont) {
     assert(cont);

@@ -79,9 +79,10 @@ struct KTL_AstNode {
     union {
         struct {
             union {
-                struct { KTL_StrID name; } raw;
+                struct { KTL_StrID        name;  } raw;
                 struct { KTL_SymbolEntry *entry; } res;
             } info;
+            bool         is_raw;
         } var;
 
         struct {
@@ -96,18 +97,20 @@ struct KTL_AstNode {
 
         struct {
             union {
-                struct { KTL_StrID name; } raw;
+                struct { KTL_StrID        name;  } raw;
                 struct { KTL_SymbolEntry *entry; } res;
             } info;
+            bool         is_raw;
         } func_call;
 
         struct {
             KTL_StrID name;
+            bool      is_ptr;
         } field;
 
         struct { KTL_Oper op; } oper;
 
-        struct { int64_t value; } int_val;
+        struct { int64_t   value; } int_val;
         struct { KTL_StrID value; } str_val;
 
         struct {

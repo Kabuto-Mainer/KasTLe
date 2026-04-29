@@ -12,20 +12,26 @@
 
 const KTL_KeyConstBlock KTL_KEY_WORDS[] = {
     XXX("main",     KTL_KEY_MAIN),
+
     XXX("if",       KTL_KEY_IF),
     XXX("elif",     KTL_KEY_ELIF),
     XXX("else",     KTL_KEY_ELSE),
+
     XXX("while",    KTL_KEY_WHILE),
     XXX("for",      KTL_KEY_FOR),
     XXX("break",    KTL_KEY_BREAK),
     XXX("continue", KTL_KEY_CONTINUE),
+
     XXX("return",   KTL_KEY_RETURN),
     XXX("in",       KTL_KEY_IN),
     XXX("out",      KTL_KEY_OUT),
+
     XXX("typedef",  KTL_KEY_TYPEDEF),
     XXX("block",    KTL_KEY_STRUCT),
+
     XXX("var",      KTL_KEY_VAR_DECL),
     XXX("func",     KTL_KEY_FUNC_DECL),
+
     XXX("exit",     KTL_KEY_EXIT),
 
     XXX("and",      KTL_KEY_AND),

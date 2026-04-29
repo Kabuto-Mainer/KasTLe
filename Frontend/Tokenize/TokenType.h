@@ -3,12 +3,16 @@
 
 #include "TokenEnum.h"
 #include "StrMapType.h"
-#include "Diagnostic.h"
 
 enum KTL_TokenStatus {
     KTL_TOKEN_THIS_OK,
     KTL_TOKEN_NOT_THIS,
     KTL_TOKEN_ERROR
+};
+
+struct KTL_SourcePos {
+    int line;
+    int column;
 };
 
 struct KTL_Token {
@@ -22,22 +26,6 @@ struct KTL_Token {
     } data;
 
     KTL_SourcePos   pos;
-};
-
-struct KTL_TokenContext {
-    KTL_StrID       source_id;
-    KTL_SourcePos   source_pos;
-
-    char           *buffer;
-    int             buffer_pos;
-    int             buffer_capacity;
-
-    KTL_Token      *tokens;
-    int             token_pos;
-    int             token_capacity;
-
-    KTL_StrMap     *str_map;
-    KTL_Diagnostic *diag;
 };
 
 struct KTL_KeyConstBlock {
@@ -65,5 +53,6 @@ struct KTL_ParseTokenRef {
         KTL_KeyWord key;
     } as;
 };
+
 
 #endif /* TOKEN_TYPE_H */

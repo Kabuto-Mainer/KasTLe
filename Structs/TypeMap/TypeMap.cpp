@@ -284,6 +284,23 @@ KTL_TypeID KTL_TypeFindByName(const KTL_TypeMap *map, const KTL_StrID name) {
     return ktl_find_in_aliases(map, name);
 }
 
+/**
+ * @brief Get Entry from Type (!!! Check Note)
+ *
+ * @param map Pointer to Type Map
+ * @param id ID type in Map
+ * @return KTL_TypeEntry* entry in success,
+ * @return KTL_TypeEntry* NULL in error
+ * @note DO NOT USE IT FOR IDENTIFIER TYPE !!! ONLY FOR TYPE INFO !!!
+ */
+KTL_TypeEntry *KTL_TypeGetEntry(const KTL_TypeMap *map, const KTL_TypeID id) {
+    assert(map);
+    if (!TypeIDCheck(map, id))  return NULL;
+
+    return map->data + id;
+
+}
+
 // =======================================================================
 // HELPER FUNCTIONS
 // =======================================================================
