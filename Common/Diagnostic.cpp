@@ -243,6 +243,7 @@ static const char * ktl_err_str(KTL_DiagError err) {
         case KTL_DIAG_SEM_BREAK_OUTSIDE_LOOP:     return "break outside loop";
         case KTL_DIAG_SEM_CONTINUE_OUTSIDE_LOOP:  return "continue outside loop";
         case KTL_DIAG_SEM_NO_MAIN:                return "no main";
+        case KTL_DIAG_SEM_RETURN_OUTSIDE_FUNC:    return "return outside function";
         case KTL_DIAG_SEM_DUPLICATE_MAIN:         return "duplicate main";
 
         default:                                  return "?";

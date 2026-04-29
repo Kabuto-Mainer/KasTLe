@@ -34,6 +34,8 @@ enum KTL_KeyWord {
     KTL_KEY_VAR_DECL,
     KTL_KEY_FUNC_DECL,
 
+    KTL_KEY_EXIT,
+
     /* Support compares for more simple changing configs */
     KTL_KEY_AND,
     KTL_KEY_OR,

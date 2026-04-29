@@ -74,6 +74,11 @@ struct KTL_TypeMap {
     int            alias_capacity;
 };
 
+struct KTL_TypeStandard {
+    const char *name;
+    int         size;
+    int         align;
+};
 
 bool inline TypeIDCheck(const KTL_TypeID id) {
     return id >= 0;

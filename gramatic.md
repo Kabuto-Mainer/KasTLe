@@ -1,66 +1,60 @@
 KasTLe Grammar:
+<file>       ::= { <top_decl> } <main> { <top_decl> }
 
-<file> ::= { <top_decl> } <main> { <top_decl> }
+<top_decl>   ::= ( <var_decl> ";" ) | <func_decl> | <type_decl>
 
-<top_decl> ::= ( <var_decl> ";" ) | <func_decl> | <type_decl>
+<var_decl>   ::= "var" { <type_mod> } <type> <name> [ "=" <expr> ]
 
-<var_decl>  ::= "var" { <type_mod> } <type> <name> [ "=" <expr> ]
-<func_decl> ::= "func" { <type_mod> } <type> <name>
-                "(" [ <param_list> ] ")"
-                "{" { <func_line> ";" } "}"
+<func_decl>  ::= "func" { <type_mod> } <type> <name>
+                 "(" [ <param_list> ] ")" <body>
 <param_list> ::= <param> { "," <param> }
 <param>      ::= { <type_mod> } <type> <name>
-
-<func_line> ::= <line> | <return>
-<return>    ::= "return" <expr>
 
 <type_decl>  ::= <typedef> | <block_decl>
 <typedef>    ::= "typedef" <type> "->" <name>
 <block_decl> ::= "block" <name> "{" <field> ";" { <field> ";" } "}" ";"
 <field>      ::= { <type_mod> } <type> <name>
 
-<main> ::= "main" "{" <main_line> ";" { <main_line> ";" } "}"
-<main_line> ::= <line> | "exit"
+<main>       ::= "main" <body>
 
-<type_mod> ::= "const" | "mutable" | "register" | "stack"
-<type>     ::= <name> { "*" } { "[" <number> "]" }
+<type_mod>   ::= "const" | "mutable" | "register" | "stack"
+<type>       ::= <name> { "*" } { "[" <number> "]" }
 
-<line> ::= <var_decl> | <assign> | <call>
-         | <condition> | <for> | <while>
+<line>       ::= <var_decl> | <assign> | <call>
+               | <condition> | <for> | <while>
+               | <return> | "break" | "continue" | "exit"
 
-<assign>    ::= <var> "=" <expr>
-<call>      ::= <name> "(" [ <expr> { "," <expr> } ] ")"
+<return>     ::= "return" [ <expr> ]
+<assign>     ::= <lvalue> "=" <expr>
+<lvalue>     ::= { "*" } <var>
+<call>       ::= <name> "(" [ <expr> { "," <expr> } ] ")"
 
-<condition> ::= "if" "(" <expr> ")" <body>
-                { "elif" "(" <expr> ")" <body> }
-                [ "else" <body> ]
+<condition>  ::= "if" "(" <expr> ")" <body>
+                 { "elif" "(" <expr> ")" <body> }
+                 [ "else" <body> ]
 
-<for>   ::= "for" "(" [ <var_decl> | <assign> ] ";"
-                       <expr> ";"
-                       [ <assign> ] ")"
-            <loop_body>
+<for>        ::= "for" "(" [ <var_decl> | <assign> ] ";"
+                           [ <expr> ] ";"
+                            [ <assign> ] ")"
+                 <body>
 
-<while> ::= "while" "(" <expr> ")" <loop_body>
+<while>      ::= "while" "(" <expr> ")" <body>
 
-<body>      ::= "{" <line> ";" { <line> ";" } "}"
-<loop_body> ::= "{" <loop_line> ";" { <loop_line> ";" } "}"
-<loop_line> ::= <line> | "break" | "continue"
+<body>       ::= "{" { <line> ";" } "}"
 
-<expr>     ::= <cmp_step> { <log_op> <cmp_step> }
-<log_op>   ::= "and" | "or"
+<expr>       ::= <cmp_step> { <log_op> <cmp_step> }
+<log_op>     ::= "and" | "or"
+<cmp_step>   ::= <add_step> [ <cmp_op> <add_step> ]
+<cmp_op>     ::= "==" | "!=" | "<" | "<=" | ">" | ">="
+               | "equal" | "not_equal"
+               | "less" | "less_or_equal"
+               | "greater" | "greater_or_equal"
+<add_step>   ::= <mul_step> { ( "+" | "-" ) <mul_step> }
+<mul_step>   ::= <unary> { ( "*" | "/" | "%" ) <unary> }
+<unary>      ::= { "&" | "*" | "-" } <atom>
+<atom>       ::= "(" <expr> ")" | <call> | <var> | <number> | <string>
 
-<cmp_step> ::= <add_step> [ <cmp_op> <add_step> ]
-<cmp_op>   ::= "==" | "!=" | "<" | "<=" | ">" | ">="
-             | "equal" | "not_equal"
-             | "less" | "less_or_equal"
-             | "greater" | "greater_or_equal"
-
-<add_step> ::= <mul_step> { ( "+" | "-" ) <mul_step> }
-<mul_step> ::= <unary> { ( "*" | "/" | "%" ) <unary> }
-<unary>    ::= { "&" | "*" | "-" } <atom>
-<atom>     ::= "(" <expr> ")" | <call> | <var> | <number> | <string>
-
-<var>    ::= <name> { ( "." <name> ) | ( "[" <expr> "]" ) }
-<name>   ::= (A-Z | a-z | "_") { A-Z | a-z | 0-9 | "_" }
-<number> ::= 0-9 { 0-9 }
-<string> ::= "\"" { ASCII } "\""
+<var>        ::= <name> { ( "." <name> ) | ( "[" <expr> "]" ) }
+<name>       ::= (A-Z | a-z | "_") { A-Z | a-z | 0-9 | "_" }
+<number>     ::= 0-9 { 0-9 }
+<string>     ::= "\"" { ASCII } "\""

@@ -67,6 +67,9 @@ enum KTL_Oper {
     KTL_OPER_GET_PTR,
     KTL_OPER_UNGET_PTR,
     KTL_OPER_ASSIGN,
+
+
+    KTL_OPER_THIS_ERROR,
 };
 
 struct KTL_AstNode {
@@ -119,6 +122,10 @@ struct KTL_AstNode {
         struct {
             KTL_SymbolMap *map;
         } block;
+
+        struct {
+            KTL_SymbolMap *map;
+        } for_block;
 
         struct {
             KTL_TypeID target;

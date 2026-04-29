@@ -224,7 +224,7 @@ static KTL_TokenStatus ktl_token_number(KTL_TokenContext *cont) {
 
     advance_n(cont, read);
 
-    KTL_Token tok = {};
+    KTL_Token tok  = {};
     tok.kind       = KTL_TOKEN_VALUE;
     tok.data.value = value;
     tok.pos        = start_pos;

@@ -26,6 +26,7 @@ const KTL_KeyConstBlock KTL_KEY_WORDS[] = {
     XXX("block",    KTL_KEY_STRUCT),
     XXX("var",      KTL_KEY_VAR_DECL),
     XXX("func",     KTL_KEY_FUNC_DECL),
+    XXX("exit",     KTL_KEY_EXIT),
 
     XXX("and",      KTL_KEY_AND),
     XXX("or",       KTL_KEY_OR),

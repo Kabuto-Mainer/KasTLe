@@ -84,7 +84,7 @@ KTL_TypeID KTL_TypeMapAddBase(KTL_TypeMap *map, const KTL_StrID name,
                               int size, int align) {
     assert(map);
     assert(StrIDCheck(name));
-    assert(size > 0);
+    assert(size >= 0);
     assert(align > 0);
 
     if (ktl_find_in_main(map, name) != NULL)                       return KTL_BAD_TYPE_ID;

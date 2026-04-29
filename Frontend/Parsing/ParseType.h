@@ -27,6 +27,7 @@ struct KTL_ParseContext {
 
     int  loop_depth;
     bool main_seen;
+    bool in_func;
 };
 
 #endif /* PARSE_TYPE_H */
