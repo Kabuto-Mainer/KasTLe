@@ -160,4 +160,12 @@ struct KTL_AstNode {
     } move;
 };
 
+enum KTL_AstChildren {
+    KTL_AST_NO_CHILDREN,
+    KTL_AST_UNARY_CHILD,
+    KTL_AST_BINARY_CHILDREN,
+    KTL_AST_N_CHILDREN,
+};
+
+
 #endif /* AST_TYPE_H */

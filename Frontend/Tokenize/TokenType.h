@@ -25,18 +25,19 @@ struct KTL_Token {
 };
 
 struct KTL_TokenContext {
-    KTL_StrID      source_id;
-    KTL_SourcePos  source_pos;
+    KTL_StrID       source_id;
+    KTL_SourcePos   source_pos;
 
-    char          *buffer;
-    int            buffer_pos;
-    int            buffer_capacity;
+    char           *buffer;
+    int             buffer_pos;
+    int             buffer_capacity;
 
-    KTL_Token     *tokens;
-    int            token_pos;
-    int            token_capacity;
+    KTL_Token      *tokens;
+    int             token_pos;
+    int             token_capacity;
 
-    KTL_StrMap    *str_map;
+    KTL_StrMap     *str_map;
+    KTL_Diagnostic *diag;
 };
 
 struct KTL_KeyConstBlock {

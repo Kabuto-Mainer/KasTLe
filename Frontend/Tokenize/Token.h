@@ -6,6 +6,7 @@
 
 KTL_Error   KTL_TokenInit       (KTL_TokenContext *cont,    const char *file);
 void        KTL_TokenAddStrMap  (KTL_TokenContext *cont,    KTL_StrMap *map);
+void        KTL_TokenAddDiag    (KTL_TokenContext *cont,    KTL_Diagnostic *diag);
 KTL_Error   KTL_TokenProcess    (KTL_TokenContext *cont);
 KTL_Error   KTL_TokenUninit     (KTL_TokenContext *cont);
 void        KTL_TokenDump       (KTL_TokenContext *cont);

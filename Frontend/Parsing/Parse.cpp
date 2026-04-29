@@ -8,6 +8,7 @@
 #include "TypeMap.h"
 #include "Common.h"
 #include "StandardType.h"
+#include "ASTCommon.h"
 
 constexpr int KTL_PARSE_NCHILDREN_INIT = 4;
 
@@ -39,11 +40,6 @@ static inline KTL_SourcePos get_t_pos       (KTL_ParseContext *cont);
 // =======================================================================
 // PARSE FUNCTIONS
 // =======================================================================
-
-
-
-
-
 
 
 
@@ -1056,6 +1052,12 @@ static KTL_AstNode *ktl_parse_for(KTL_ParseContext *cont) {
 
     if (equal(cont, KTL_KEY_FOR) == false)  return NULL;
 
+    /* c++ goto need it */
+    KTL_AstNode *init = NULL;
+    KTL_AstNode *cond = NULL;
+    KTL_AstNode *step = NULL;
+    KTL_AstNode *body = NULL;
+
     KTL_SourcePos pos = get_t_pos(cont);
     advance(cont);
 
@@ -1082,7 +1084,7 @@ static KTL_AstNode *ktl_parse_for(KTL_ParseContext *cont) {
     node->pos                 = pos;
     node->data.for_block.map  = scope;
 
-    KTL_AstNode *init = NULL;
+    init = NULL;
     if (equal(cont, KTL_PARSE_END_LINE) == false) {
         if (equal(cont, KTL_KEY_VAR_DECL))  init = ktl_parse_var_decl(cont);
         else                                init = ktl_parse_assign  (cont);
@@ -1098,7 +1100,7 @@ static KTL_AstNode *ktl_parse_for(KTL_ParseContext *cont) {
     }
     advance(cont);
 
-    KTL_AstNode *cond = NULL;
+    cond = NULL;
     if (equal(cont, KTL_PARSE_END_LINE) == false) {
         cond = ktl_parse_expr(cont);
         if (cond == NULL) {
@@ -1116,7 +1118,7 @@ static KTL_AstNode *ktl_parse_for(KTL_ParseContext *cont) {
     }
     advance(cont);
 
-    KTL_AstNode *step = NULL;
+    step = NULL;
     if (equal(cont, KTL_PARSE_PAREN_RIGHT) == false) {
         step = ktl_parse_assign(cont);
         if (step == NULL) {
@@ -1138,7 +1140,7 @@ static KTL_AstNode *ktl_parse_for(KTL_ParseContext *cont) {
 
     /* body */
     cont->loop_depth++;
-    KTL_AstNode *body = ktl_parse_body(cont);
+    body = ktl_parse_body(cont);
     cont->loop_depth--;
 
     if (body == NULL) {
@@ -1875,51 +1877,24 @@ static KTL_AstNode * ktl_alloc_node() {
 static void ktl_destroy_node(KTL_AstNode *node) {
     if (node == NULL)   return ;
 
-    switch (node->kind) {
-        /* Kinds with n children */
-        case KTL_AST_FILE:
-        case KTL_AST_MAIN:
-
-        case KTL_AST_FUNCTION_DECL:
-        case KTL_AST_FUNCTION_CALL:
-
-        case KTL_AST_BLOCK:
-        case KTL_AST_COND_BLOCK:
-        case KTL_AST_FOR_BLOCK:
+    switch (KTL_AstGetTypeChildren(node)) {
+        case KTL_AST_N_CHILDREN:
             for (int i = 0; i < node->move.n.amount; i++) {
                 ktl_destroy_node(node->move.n.children[i]);
             }
             free(node->move.n.children);
             break;
 
-        /* Kinds with 2 children */
-        case KTL_AST_IF_BRANCH:
-        case KTL_AST_WHILE_BLOCK:
-
-        case KTL_AST_BINARY_OPER:
-        case KTL_AST_ASSIGN:
-        case KTL_AST_INDEX_ACCESS:
+        case KTL_AST_BINARY_CHILDREN:
             ktl_destroy_node(node->move.binary.left);
             ktl_destroy_node(node->move.binary.right);
             break;
 
-        /* One child */
-        case KTL_AST_ELSE_BRANCH:
-        case KTL_AST_UNARY_OPER:
-        case KTL_AST_RETURN:
-        case KTL_AST_VARIABLE_DECL:
-        case KTL_AST_FIELD_ACCESS:
+        case KTL_AST_UNARY_CHILD:
             ktl_destroy_node(node->move.unary.next);
             break;
 
-        case KTL_AST_VARIABLE:
-        case KTL_AST_VALUE_INT:
-        case KTL_AST_VALUE_STR:
-        case KTL_AST_TYPEDEF:
-        case KTL_AST_STRUCT_DECL:
-        case KTL_AST_BREAK:
-        case KTL_AST_CONTINUE:
-        case KTL_AST_EXIT:
+        case KTL_AST_NO_CHILDREN:
         default:
             break;
     }
@@ -1938,28 +1913,4 @@ static inline KTL_SourcePos get_t_pos(KTL_ParseContext *cont) {
     return get_t(cont)->pos;
 }
 
-static inline void dst(KTL_AstNode *arg_1) {
-    ktl_destroy_node(arg_1);
-}
 
-static inline void dst(KTL_AstNode *arg_1,
-                       KTL_AstNode *arg_2) {
-    ktl_destroy_node(arg_1);
-    ktl_destroy_node(arg_2);
-}
-
-static inline void dst(KTL_AstNode *arg_1,
-                       KTL_AstNode *arg_2,
-                       KTL_AstNode *arg_3) {
-    ktl_destroy_node(arg_1);
-    ktl_destroy_node(arg_2);
-    ktl_destroy_node(arg_3);
-}
-
-static inline void dst_and_rpl(KTL_ParseContext *cont, KTL_SymbolMap *old_map) {
-    KTL_SymbolMap *new_map = cont->current_scope;
-    if (new_map != NULL) {
-        KTL_SymbolMapUninit(new_map);
-    }
-    cont->current_scope = old_map;
-}

@@ -8,6 +8,7 @@
 #include "TokenConfig.h"
 #include "Token.h"
 #include "StrMap.h"
+#include "Diagnostic.h"
 #include "Common.h"
 
 constexpr static int KTL_START_TOKEN_SIZE = 16;
@@ -67,6 +68,9 @@ KTL_Error KTL_TokenInit(KTL_TokenContext *cont, const char *file) {
     cont->token_capacity    = KTL_START_TOKEN_SIZE;
     cont->token_pos         = 0;
 
+    cont->str_map           = NULL;
+    cont->diag              = NULL;
+
     return KTL_OK;
 }
 
@@ -77,8 +81,17 @@ void KTL_TokenAddStrMap(KTL_TokenContext *cont, KTL_StrMap *map) {
     cont->str_map = map;
 }
 
+void KTL_TokenAddDiag(KTL_TokenContext *cont, KTL_Diagnostic *diag) {
+    assert(cont);
+    assert(diag);
+
+    cont->diag = diag;
+}
+
 KTL_Error KTL_TokenProcess(KTL_TokenContext *cont) {
     assert(cont);
+    assert(cont->str_map);
+    assert(cont->diag);
 
     while (true) {
         ktl_skip_trivia(cont);
@@ -90,7 +103,19 @@ KTL_Error KTL_TokenProcess(KTL_TokenContext *cont) {
         if (ktl_token_word    (cont) == KTL_TOKEN_THIS_OK)  continue;
         if (ktl_token_punct   (cont) == KTL_TOKEN_THIS_OK)  continue;
 
-        ExitF("UNKNOWN SYNTAX", KTL_LOGICAL_ERR);
+        KTL_DiagEmit(cont->diag, cont->source_pos,
+                     KTL_DIAG_LEX_UNKNOWN_CHAR,
+                     KTL_DIAG_SEV_ERROR);
+        advance(cont);
+    }
+
+    /* Create buffer for errors */
+    KTL_Token eof_token = {};
+    eof_token.pos  = cont->source_pos;
+    eof_token.kind = KTL_TOKEN_EOF;
+
+    for (int i = 0; i < 10; i++) {
+        ktl_add_token(cont, &eof_token);
     }
 
     return KTL_OK;
@@ -220,7 +245,13 @@ static KTL_TokenStatus ktl_token_number(KTL_TokenContext *cont) {
     int     read  = 0;
 
     sscanf(cont->buffer + cont->buffer_pos, "%lld%n", (long long *)&value, &read);
-    if (read <= 0)  return KTL_TOKEN_NOT_THIS;
+    if (read <= 0) {
+        KTL_DiagEmit(cont->diag, start_pos,
+                     KTL_DIAG_LEX_BAD_NUMBER,
+                     KTL_DIAG_SEV_ERROR);
+        advance(cont);
+        return KTL_TOKEN_ERROR;
+    }
 
     advance_n(cont, read);
 
@@ -241,12 +272,16 @@ static KTL_TokenStatus ktl_token_str_lit(KTL_TokenContext *cont) {
     advance(cont);  // skip '"'
 
     char  buffer[KTL_MAX_STR_LITERAL] = "";
-    int   len = 0;
+    int   len               = 0;
+    bool  overflow_reported = false;
 
     while (true) {
         char sym = get_c(cont);
         if (sym == '\0') {
-            ExitF("Unterminated string literal", KTL_TOKEN_ERROR);
+            KTL_DiagEmit(cont->diag, start_pos,
+                         KTL_DIAG_LEX_UNTERMINATED_STR,
+                         KTL_DIAG_SEV_ERROR);
+            return KTL_TOKEN_ERROR;
         }
         if (sym == '"') {
             advance(cont);
@@ -256,8 +291,8 @@ static KTL_TokenStatus ktl_token_str_lit(KTL_TokenContext *cont) {
 
         if (sym == '\\') {
             advance(cont);
-            char esc = get_c(cont);
-            char decoded = '\0';
+            char esc     = get_c(cont);
+            char decoded = esc;        /* fallback: пропускаем сырой символ */
             switch (esc) {
                 case 'n':  decoded = '\n'; break;
                 case 't':  decoded = '\t'; break;
@@ -266,20 +301,32 @@ static KTL_TokenStatus ktl_token_str_lit(KTL_TokenContext *cont) {
                 case '"':  decoded = '"';  break;
                 case '0':  decoded = '\0'; break;
                 default:
-                    ExitF("Unknown escape sequence", KTL_TOKEN_ERROR);
+                    KTL_DiagEmit(cont->diag, cont->source_pos,
+                                 KTL_DIAG_LEX_UNKNOWN_CHAR,
+                                 KTL_DIAG_SEV_ERROR);
+                    break;
             }
-            if (len + 1 >= KTL_MAX_STR_LITERAL) {
-                ExitF("String literal too long", KTL_TOKEN_ERROR);
+
+            if (len + 1 < KTL_MAX_STR_LITERAL) {
+                buffer[len++] = decoded;
+            } else if (!overflow_reported) {
+                KTL_DiagEmit(cont->diag, start_pos,
+                             KTL_DIAG_LEX_UNTERMINATED_STR,
+                             KTL_DIAG_SEV_ERROR);
+                overflow_reported = true;
             }
-            buffer[len++] = decoded;
             advance(cont);
             continue;
         }
 
-        if (len + 1 >= KTL_MAX_STR_LITERAL) {
-            ExitF("String literal too long", KTL_TOKEN_ERROR);
+        if (len + 1 < KTL_MAX_STR_LITERAL) {
+            buffer[len++] = sym;
+        } else if (!overflow_reported) {
+            KTL_DiagEmit(cont->diag, start_pos,
+                         KTL_DIAG_LEX_UNTERMINATED_STR,
+                         KTL_DIAG_SEV_ERROR);
+            overflow_reported = true;
         }
-        buffer[len++] = sym;
         advance(cont);
     }
     buffer[len] = '\0';
@@ -360,11 +407,15 @@ static KTL_Error ktl_skip_trivia(KTL_TokenContext *cont) {
         }
 
         if (sym == '/' && n_sym == '*') {
+            KTL_SourcePos start_pos = cont->source_pos;
             advance_n(cont, 2);
             while (true) {
                 char cur = get_c(cont);
                 if (cur == '\0') {
-                    ExitF("Unterminated block comment", KTL_LOGICAL_ERR);
+                    KTL_DiagEmit(cont->diag, start_pos,
+                                 KTL_DIAG_LEX_UNTERMINATED_STR,
+                                 KTL_DIAG_SEV_ERROR);
+                    return KTL_OK;
                 }
                 if (cur == '*' && get_nc(cont) == '/') {
                     advance_n(cont, 2);
