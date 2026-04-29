@@ -308,6 +308,8 @@ static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
            equal(cont, KTL_PARSE_FIELD_ARROW)) {
         if (equal(cont, KTL_PARSE_FIELD_DOT) ||
             equal(cont, KTL_PARSE_FIELD_ARROW)) {
+            bool is_ptr = equal(cont, KTL_PARSE_FIELD_ARROW);
+
             advance(cont);
 
             name = ktl_parse_name(cont);
@@ -328,7 +330,7 @@ static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
 
             field->kind              = KTL_AST_FIELD_ACCESS;
             field->data.field.name   = name;
-            field->data.field.is_ptr = equal(cont, KTL_PARSE_FIELD_ARROW);
+            field->data.field.is_ptr = is_ptr;
 
             add_node_u(field, node);
             node = field;

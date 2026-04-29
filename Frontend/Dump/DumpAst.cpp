@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include "DumpAstType.h"
-#include "DumpAst.h"
 #include "ASTCommon.h"
 #include "StrMap.h"
 #include "TypeMap.h"
@@ -14,7 +13,6 @@
 // CONSTANTS
 // =======================================================================
 constexpr static int KTL_DUMP_AUTO_OPEN_DEPTH = 3;
-// constexpr static int KTL_DUMP_STR_PREVIEW_MAX = 40;  /* Now don't used */
 
 // =======================================================================
 // HELPER FUNCTIONS DECLARATION
@@ -32,15 +30,20 @@ static void ktl_dump_summary    (KTL_DumpAstContext *cont,
                                  KTL_AstNode        *node);
 static void ktl_dump_pos        (KTL_DumpAstContext *cont,
                                  KTL_SourcePos       pos);
+static void ktl_dump_extra_attrs(KTL_DumpAstContext *cont,
+                                 KTL_AstNode        *node);
 
 static void        ktl_html_escape   (FILE *stream, const char *s);
 static const char *ktl_kind_name     (KTL_AstNodeKind kind);
 static const char *ktl_oper_symbol   (KTL_Oper        op);
 
-static const char *ktl_str_get       (KTL_StrMap   *map, KTL_StrID  id);
 static void        ktl_type_print    (FILE         *stream,
                                       KTL_TypeMap  *map,
                                       KTL_TypeID    id);
+
+static inline const char *str_or(KTL_StrID id, const char *fallback) {
+    return id ? id : fallback;
+}
 
 // =======================================================================
 // API
@@ -71,7 +74,7 @@ void KTL_AstDumpRaw(KTL_AstNode   *root,
 }
 
 // =======================================================================
-// HEADER / FOOTER
+// HEADER
 // =======================================================================
 static void ktl_dump_header(KTL_DumpAstContext *cont) {
     assert(cont);
@@ -107,8 +110,8 @@ static void ktl_dump_header(KTL_DumpAstContext *cont) {
 "  details > summary { cursor: pointer; padding: 2px 4px;\n"
 "                      list-style: none; }\n"
 "  details > summary::-webkit-details-marker { display: none; }\n"
-"  details > summary::before { content: '▸ '; color: var(--muted); }\n"
-"  details[open] > summary::before { content: '▾ '; }\n"
+"  details > summary::before { content: '\\25B8\\00A0'; color: var(--muted); }\n"
+"  details[open] > summary::before { content: '\\25BE\\00A0'; }\n"
 "  .node { margin: 1px 0; }\n"
 "  .leaf { margin-left: 14px; padding: 2px 4px 2px 22px;\n"
 "          border-left: 1px solid #2f2f2f; }\n"
@@ -118,6 +121,8 @@ static void ktl_dump_header(KTL_DumpAstContext *cont) {
 "  .op   { color: var(--expr); font-weight: bold; }\n"
 "  .lit  { color: #b5cea8; }\n"
 "  .str  { color: #ce9178; }\n"
+"  .raw  { color: #d7ba7d; font-style: italic; font-size: 10px;\n"
+"          margin-left: 6px; }\n"
 "  .pos  { color: var(--muted); float: right; font-size: 11px; }\n"
 "  .node-FUNCTION_DECL > summary,\n"
 "  .node-VARIABLE_DECL,\n"
@@ -143,7 +148,9 @@ static void ktl_dump_footer(KTL_DumpAstContext *cont) {
     fprintf(cont->stream, "</body></html>\n");
 }
 
-
+// =======================================================================
+// CORE TRAVERSAL
+// =======================================================================
 static void ktl_dump_node(KTL_DumpAstContext *cont,
                           KTL_AstNode        *node,
                           int                 depth) {
@@ -157,8 +164,10 @@ static void ktl_dump_node(KTL_DumpAstContext *cont,
     if (is_leaf) {
         fprintf(cont->stream,
                 "<div class=\"node leaf node-%s\" data-kind=\"%s\" "
-                "data-pos-line=\"%d\" data-pos-col=\"%d\">",
+                "data-pos-line=\"%d\" data-pos-col=\"%d\"",
                 kname, kname, node->pos.line, node->pos.column);
+        ktl_dump_extra_attrs(cont, node);
+        fprintf(cont->stream, ">");
         ktl_dump_summary(cont, node);
         ktl_dump_pos    (cont, node->pos);
         fprintf(cont->stream, "</div>\n");
@@ -168,8 +177,10 @@ static void ktl_dump_node(KTL_DumpAstContext *cont,
     const char *open = (depth < KTL_DUMP_AUTO_OPEN_DEPTH) ? " open" : "";
     fprintf(cont->stream,
             "<details class=\"node node-%s\" data-kind=\"%s\" "
-            "data-pos-line=\"%d\" data-pos-col=\"%d\"%s>\n  <summary>",
-            kname, kname, node->pos.line, node->pos.column, open);
+            "data-pos-line=\"%d\" data-pos-col=\"%d\"",
+            kname, kname, node->pos.line, node->pos.column);
+    ktl_dump_extra_attrs(cont, node);
+    fprintf(cont->stream, "%s>\n  <summary>", open);
     ktl_dump_summary(cont, node);
     ktl_dump_pos    (cont, node->pos);
     fprintf(cont->stream, "</summary>\n");
@@ -207,6 +218,27 @@ static void ktl_dump_children(KTL_DumpAstContext *cont,
     }
 }
 
+static void ktl_dump_extra_attrs(KTL_DumpAstContext *cont, KTL_AstNode *node) {
+    assert(cont); assert(node);
+
+    KTL_SymbolEntry *e = NULL;
+
+    switch (node->kind) {
+        case KTL_AST_VARIABLE:
+            if (!node->data.var.is_raw)         e = node->data.var.info.res.entry;
+            break;
+        case KTL_AST_FUNCTION_CALL:
+            if (!node->data.func_call.is_raw)   e = node->data.func_call.info.res.entry;
+            break;
+        case KTL_AST_VARIABLE_DECL:             e = node->data.var_decl.entry;       break;
+        case KTL_AST_FUNCTION_DECL:             e = node->data.func_decl.func;       break;
+        default:                                                                     break;
+    }
+
+    if (e != NULL) {
+        fprintf(cont->stream, " data-sym-id=\"%p\"", (void *)e);
+    }
+}
 
 static void ktl_dump_summary(KTL_DumpAstContext *cont, KTL_AstNode *node) {
     assert(cont);
@@ -224,15 +256,14 @@ static void ktl_dump_summary(KTL_DumpAstContext *cont, KTL_AstNode *node) {
             if (fn == NULL) { fprintf(s, "?"); break; }
 
             fprintf(s, "<span class=\"name\">%s</span>(",
-                    ktl_str_get(cont->str_map, fn->str_id));
+                    str_or(fn->str_id, "?"));
             for (int i = 0; i < fn->func.amount; i++) {
                 if (i > 0)  fprintf(s, ", ");
                 fprintf(s, "<span class=\"type\">");
                 ktl_type_print(s, cont->type_map,
                                fn->func.params[i]->var.type);
                 fprintf(s, "</span> %s",
-                        ktl_str_get(cont->str_map,
-                                    fn->func.params[i]->str_id));
+                        str_or(fn->func.params[i]->str_id, "?"));
             }
             fprintf(s, ") -&gt; <span class=\"type\">");
             ktl_type_print(s, cont->type_map, fn->func.ret_type);
@@ -241,23 +272,34 @@ static void ktl_dump_summary(KTL_DumpAstContext *cont, KTL_AstNode *node) {
         }
 
         case KTL_AST_FUNCTION_CALL: {
-            KTL_StrID name;
+            const char *name;
             if (node->data.func_call.is_raw) {
-                name = node->data.func_call.info.raw.name;
+                name = str_or(node->data.func_call.info.raw.name, "?");
             } else {
-                name = node->data.func_call.info.res.entry->str_id;
+                KTL_SymbolEntry *e = node->data.func_call.info.res.entry;
+                name = (e != NULL) ? str_or(e->str_id, "?") : "?";
             }
             fprintf(s, "<span class=\"name\">%s</span>"
-                    "(<span class=\"kind\">%d args</span>)",
-                    ktl_str_get(cont->str_map, name),
-                    node->move.n.amount);
+                       "(<span class=\"kind\">%d args</span>)",
+                       name, node->move.n.amount);
+            if (node->data.func_call.is_raw) {
+                fprintf(s, "<span class=\"raw\">raw</span>");
+            }
             break;
         }
 
         case KTL_AST_VARIABLE: {
-            KTL_StrID name = node->data.var.info.raw.name;
-            fprintf(s, "<span class=\"name\">%s</span>",
-                    ktl_str_get(cont->str_map, name));
+            const char *name;
+            if (node->data.var.is_raw) {
+                name = str_or(node->data.var.info.raw.name, "?");
+            } else {
+                KTL_SymbolEntry *e = node->data.var.info.res.entry;
+                name = (e != NULL) ? str_or(e->str_id, "?") : "?";
+            }
+            fprintf(s, "<span class=\"name\">%s</span>", name);
+            if (node->data.var.is_raw) {
+                fprintf(s, "<span class=\"raw\">raw</span>");
+            }
             break;
         }
 
@@ -267,14 +309,16 @@ static void ktl_dump_summary(KTL_DumpAstContext *cont, KTL_AstNode *node) {
             fprintf(s, "<span class=\"type\">");
             ktl_type_print(s, cont->type_map, e->var.type);
             fprintf(s, "</span> <span class=\"name\">%s</span>%s",
-                    ktl_str_get(cont->str_map, e->str_id),
+                    str_or(e->str_id, "?"),
                     node->data.var_decl.is_init ? " = ..." : "");
             break;
         }
 
         case KTL_AST_FIELD_ACCESS:
-            fprintf(s, ".<span class=\"name\">%s</span>",
-                    ktl_str_get(cont->str_map, node->data.field.name));
+            fprintf(s, "<span class=\"op\">%s</span>"
+                       "<span class=\"name\">%s</span>",
+                    node->data.field.is_ptr ? "-&gt;" : ".",
+                    str_or(node->data.field.name, "?"));
             break;
 
         case KTL_AST_INDEX_ACCESS:
@@ -292,15 +336,11 @@ static void ktl_dump_summary(KTL_DumpAstContext *cont, KTL_AstNode *node) {
                     (long long)node->data.int_val.value);
             break;
 
-        case KTL_AST_VALUE_STR: {
-            const char *raw = ktl_str_get(cont->str_map,
-                                          node->data.str_val.value);
+        case KTL_AST_VALUE_STR:
             fprintf(s, "<span class=\"str\">\"");
-            /* TODO: cut to KTL_DUMP_STR_PREVIEW_MAX */
-            ktl_html_escape(s, raw);
+            ktl_html_escape(s, str_or(node->data.str_val.value, ""));
             fprintf(s, "\"</span>");
             break;
-        }
 
         case KTL_AST_BLOCK:
             fprintf(s, "BLOCK <span class=\"kind\">(%d stmts%s)</span>",
@@ -317,7 +357,7 @@ static void ktl_dump_summary(KTL_DumpAstContext *cont, KTL_AstNode *node) {
         case KTL_AST_TYPEDEF:
             fprintf(s, "typedef <span class=\"name\">%s</span> = "
                        "<span class=\"type\">",
-                    ktl_str_get(cont->str_map, node->data.typedef_.alias));
+                    str_or(node->data.typedef_.alias, "?"));
             ktl_type_print(s, cont->type_map, node->data.typedef_.base_id);
             fprintf(s, "</span>");
             break;
@@ -351,7 +391,6 @@ static void ktl_dump_summary(KTL_DumpAstContext *cont, KTL_AstNode *node) {
 // =======================================================================
 static void ktl_dump_pos(KTL_DumpAstContext *cont, KTL_SourcePos pos) {
     assert(cont);
-
     fprintf(cont->stream, "<span class=\"pos\">%d:%d</span>",
             pos.line, pos.column);
 }
@@ -427,39 +466,35 @@ static const char *ktl_oper_symbol(KTL_Oper op) {
     }
 }
 
-
-static const char *ktl_str_get(KTL_StrMap *map, KTL_StrID id) {
-    (void)map;
-    return id;
-}
-
 static void ktl_type_print(FILE *stream, KTL_TypeMap *map, KTL_TypeID id) {
-    assert(stream);
-    assert(map);
+    if (TypeIDCheck(map, id) == false) {
+        fputs("?type?", stream);
+        return ;
+    }
 
     KTL_TypeEntry *entry = KTL_TypeGetEntry(map, id);
     if (entry == NULL) {
-        fprintf(stream, "?type?");
+        fputs("?type?", stream);
         return ;
     }
 
     switch (entry->kind) {
         case KTL_TYPE_BASE:
-            fprintf(stream, "%s", entry->dt.base.name);
+            fputs(str_or(entry->dt.base.name,  "?"), stream);
             break;
-
+        case KTL_TYPE_BLOCK:
+            fputs(str_or(entry->dt.block.name, "?"), stream);
+            break;
         case KTL_TYPE_PTR:
             ktl_type_print(stream, map, entry->dt.ptr.prev_type);
-            fprintf(stream, "*");
+            fputc('*', stream);
             break;
-
         case KTL_TYPE_ARRAY:
             ktl_type_print(stream, map, entry->dt.arr.base_type);
             fprintf(stream, "[%d]", entry->dt.arr.elem_count);
             break;
-
-        case KTL_TYPE_BLOCK:
-            fprintf(stream, "%s", entry->dt.block.name);
+        default:
+            fputs("?type?", stream);
             break;
     }
 }
