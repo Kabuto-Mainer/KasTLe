@@ -256,13 +256,16 @@ static KTL_AstNode *ktl_parse_str_literal(KTL_ParseContext *cont) {
 static KTL_AstNode *ktl_parse_number(KTL_ParseContext *cont) {
     assert(cont);
 
-    if (equal(cont, KTL_TOKEN_VALUE) == false)  return NULL;
+    if (equal(cont, KTL_TOKEN_VALUE) == false &&
+        equal(cont, KTL_TOKEN_CHAR)  == false)  return NULL;
 
     KTL_AstNode *node = ktl_alloc_node();
     if (node == NULL)   return NULL;
 
     node->kind               = KTL_AST_VALUE_INT;
-    node->data.int_val.value = get_t(cont)->data.value;
+    node->data.int_val.value = equal(cont, KTL_TOKEN_CHAR) ?
+                               (int64_t) get_t(cont)->data.char_ : get_t(cont)->data.value;
+
     node->pos                = get_t_pos(cont);
 
     advance(cont);
@@ -711,6 +714,7 @@ static KTL_AstNode *ktl_parse_expr(KTL_ParseContext *cont) {
 static KTL_AstNode *ktl_parse_line       (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_var_decl   (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_assign     (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_array      (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_condition  (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_while      (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_for        (KTL_ParseContext *cont);
@@ -846,7 +850,9 @@ static KTL_AstNode *ktl_parse_var_decl(KTL_ParseContext *cont) {
     KTL_AstNode *init = NULL;
     if (equal(cont, KTL_PARSE_ASSIGN)) {
         advance(cont);
-        init = ktl_parse_expr(cont);
+        if (equal(cont, KTL_PARSE_BLOCK_LEFT)) init = ktl_parse_array(cont);
+        else                                   init = ktl_parse_expr (cont);
+
         if (init == NULL)   return NULL;
         mod |= KTL_VAR_INITIAL;
     }
@@ -932,7 +938,8 @@ static KTL_AstNode *ktl_parse_assign(KTL_ParseContext *cont) {
     KTL_SourcePos pos = get_t_pos(cont);
     advance(cont);
 
-    KTL_AstNode *value = ktl_parse_expr(cont);
+    KTL_AstNode *value = ktl_parse_expr (cont);
+
     if (value == NULL) {
         ktl_destroy_node(lvalue);
         return NULL;
@@ -953,7 +960,41 @@ static KTL_AstNode *ktl_parse_assign(KTL_ParseContext *cont) {
     return node;
 }
 
+static KTL_AstNode *ktl_parse_array(KTL_ParseContext *cont) {
+    assert(cont);
 
+    KTL_AstNode *list_var = ktl_alloc_node();
+    if (list_var == NULL)   return NULL;
+
+    list_var->kind = KTL_AST_ARRAY_INIT;
+    list_var->pos  = get_t_pos(cont);
+
+    advance(cont);  /* skip '{' */
+
+    while (true) {
+        KTL_AstNode *value = ktl_parse_expr(cont);
+        if (value == NULL) {
+            ktl_destroy_node(list_var);
+            return NULL;
+        }
+        add_node_n(list_var, value);
+
+        if (equal(cont, KTL_PARSE_ARG_SEP) == false)    break;
+        advance(cont);
+    }
+    if (equal(cont, KTL_PARSE_BLOCK_RIGHT) == false) {
+        KTL_DiagEmit(cont->diag, get_t_pos(cont),
+                     KTL_DIAG_PARSE_EXPECTED_TOKEN,
+                     KTL_DIAG_SEV_ERROR,
+                     KTL_PARSE_BLOCK_RIGHT);
+
+        ktl_destroy_node(list_var);
+        return NULL;
+    }
+    advance(cont);
+
+    return list_var;
+}
 
 static KTL_AstNode *ktl_parse_paren_cond(KTL_ParseContext *cont) {
     assert(cont);

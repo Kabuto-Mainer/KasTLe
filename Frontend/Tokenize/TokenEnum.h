@@ -8,6 +8,7 @@ enum KTL_TokenKind {
     KTL_TOKEN_VALUE,
     KTL_TOKEN_STR_LITERAL,
     KTL_TOKEN_PUNCT,
+    KTL_TOKEN_CHAR,
     KTL_TOKEN_EOF,
 };
 

@@ -25,6 +25,7 @@ static KTL_TokenStatus ktl_token_word     (KTL_TokenContext *cont);
 static KTL_TokenStatus ktl_token_number   (KTL_TokenContext *cont);
 static KTL_TokenStatus ktl_token_punct    (KTL_TokenContext *cont);
 static KTL_TokenStatus ktl_token_str_lit  (KTL_TokenContext *cont);
+static KTL_TokenStatus ktl_token_char     (KTL_TokenContext *cont);
 
 static KTL_Error       ktl_skip_trivia    (KTL_TokenContext *cont);
 static KTL_Error       ktl_add_token      (KTL_TokenContext *cont,
@@ -99,6 +100,7 @@ KTL_Error KTL_TokenProcess(KTL_TokenContext *cont) {
         if (get_c(cont) == '\0')  break;
 
         if (ktl_token_number  (cont) == KTL_TOKEN_THIS_OK)  continue;
+        if (ktl_token_char    (cont) == KTL_TOKEN_THIS_OK)  continue;
         if (ktl_token_str_lit (cont) == KTL_TOKEN_THIS_OK)  continue;
         if (ktl_token_word    (cont) == KTL_TOKEN_THIS_OK)  continue;
         if (ktl_token_punct   (cont) == KTL_TOKEN_THIS_OK)  continue;
@@ -173,8 +175,13 @@ void KTL_TokenDump(KTL_TokenContext *cont) {
                 }
                 break;
             }
+            case KTL_TOKEN_CHAR: {
+                printf("CHAR    |\'%c\'\n",
+                        token->data.char_);
+                break;
+            }
             case KTL_TOKEN_EOF: {
-                printf("EOF    |\n");
+                printf("EOF     |\n");
                 break;
             }
 
@@ -265,6 +272,50 @@ static KTL_TokenStatus ktl_token_number(KTL_TokenContext *cont) {
     tok.data.value = value;
     tok.pos        = start_pos;
     ktl_add_token(cont, &tok);
+
+    return KTL_TOKEN_THIS_OK;
+}
+
+static KTL_TokenStatus ktl_token_char(KTL_TokenContext *cont) {
+    assert(cont);
+    if (get_c(cont) != '\'')    return KTL_TOKEN_NOT_THIS;
+
+    advance(cont);
+    KTL_SourcePos pos = cont->source_pos;
+
+    char sym = get_c(cont);
+    if (sym == '\\') {
+        advance(cont);
+        sym = get_c(cont);
+
+        switch (sym) {
+            case 'n':  sym = '\n'; break;
+            case 't':  sym = '\t'; break;
+            case 'r':  sym = '\r'; break;
+            case '\\': sym = '\\'; break;
+            case '"':  sym = '"';  break;
+            case '0':  sym = '\0'; break;
+            default:
+                KTL_DiagEmit(cont->diag, cont->source_pos,
+                             KTL_DIAG_LEX_UNKNOWN_CHAR,
+                             KTL_DIAG_SEV_ERROR);
+                break;
+        }
+    }
+    advance(cont);
+
+    KTL_Token tok  = {};
+    tok.kind       = KTL_TOKEN_CHAR;
+    tok.data.char_ = sym;
+    tok.pos        = pos;
+    ktl_add_token(cont, &tok);
+
+    if (get_c(cont) != '\'') {
+        KTL_DiagEmit(cont->diag, pos,
+                     KTL_DIAG_LEX_UNTERMINATED_STR,
+                     KTL_DIAG_SEV_ERROR);
+    }
+    advance(cont);
 
     return KTL_TOKEN_THIS_OK;
 }

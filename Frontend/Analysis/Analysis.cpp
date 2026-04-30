@@ -99,7 +99,6 @@ static bool resolving_name(KTL_AnalysisContext *cont,
     return false;
 }
 
-
 static bool process_resolving_children(KTL_AnalysisContext *cont,
                                        KTL_AstNode         *node) {
     bool is_correct = false;
@@ -127,6 +126,7 @@ static bool process_resolving_children(KTL_AnalysisContext *cont,
             return false;
     }
 }
+
 
 
 

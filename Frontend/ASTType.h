@@ -16,6 +16,7 @@ enum KTL_AstNodeKind {
 
     KTL_AST_VARIABLE,
     KTL_AST_VARIABLE_DECL,
+    KTL_AST_ARRAY_INIT,
 
     KTL_AST_FIELD_ACCESS,
     KTL_AST_INDEX_ACCESS,
@@ -138,7 +139,7 @@ struct KTL_AstNode {
     /* Связи с потомками:
      *
      *   FILE, MAIN, BLOCK, FUNCTION_DECL    -> move.n        (список инструкций/деклараций)
-     *   FUNCTION_CALL                       -> move.n        (аргументы)
+     *   FUNCTION_CALL, ARRAY                -> move.n        (аргументы)
      *
      *   COND_BLOCK                          -> move.n        (IF_BRANCH, [IF_BRANCH...], [ELSE_BRANCH])
      *   IF_BRANCH                           -> move.binary   (left = условие, right = BLOCK с телом)

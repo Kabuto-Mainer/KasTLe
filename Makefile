@@ -59,7 +59,8 @@ dir_flags =  -I$(token_d) 		-I$(type_map_d) 	-I$(str_map_d) 		-I$(sym_map_d) \
 # BUILDS
 # ===================================================================
 build_test_token:
-	clang Tests/test_token.cpp $(token_f) $(str_map_f) $(common_f) $(flags) $(dir_flags) -o Tests/token_test.elf
+	clang Tests/test_token.cpp $(token_f) $(str_map_f) $(common_f) $(flags) \
+	$(diagnostic_f) $(dir_flags) -o Tests/token_test.elf
 
 build_test_sym:
 	clang Tests/test_sym.cpp $(struct_f) $(common_f) $(flags) $(dir_flags) -o Tests/sym_test.elf

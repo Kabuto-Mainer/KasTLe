@@ -23,6 +23,7 @@ struct KTL_Token {
         KTL_StrID   string;
         KTL_StrID   str_literal;
         int64_t     value;
+        char        char_;
     } data;
 
     KTL_SourcePos   pos;

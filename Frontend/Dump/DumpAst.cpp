@@ -43,13 +43,13 @@ static void ktl_dump_scope_syms (KTL_DumpAstContext *cont,
                                  KTL_AstNode        *node);
 static void ktl_dump_mods       (FILE *s, int mod);
 
-/* sym registry — стабильные индексы */
+/* sym registry  */
 static int  ktl_sym_index       (KTL_DumpAstContext *cont, KTL_SymbolEntry *e);
 static void ktl_sym_register    (KTL_DumpAstContext *cont, KTL_SymbolEntry *e);
 static void ktl_register_map    (KTL_DumpAstContext *cont, KTL_SymbolMap   *map);
 static void ktl_collect_syms    (KTL_DumpAstContext *cont, KTL_AstNode     *node);
 
-/* small */
+/* tiny helpers */
 static void        ktl_html_escape (FILE *stream, const char *s);
 static const char *ktl_kind_name   (KTL_AstNodeKind kind);
 static const char *ktl_oper_symbol (KTL_Oper        op);
@@ -105,7 +105,7 @@ void KTL_AstDumpRaw(KTL_AstNode   *root,
 }
 
 // =======================================================================
-// HEADER / FOOTER
+// HEADER
 // =======================================================================
 static void ktl_dump_header(KTL_DumpAstContext *cont) {
     assert(cont);
@@ -211,9 +211,6 @@ static void ktl_dump_header(KTL_DumpAstContext *cont) {
 static void ktl_dump_footer(KTL_DumpAstContext *cont) {
     assert(cont);
 
-    /* JS: клик по элементу с data-sym-id подсвечивает все элементы
-     *     с тем же id (использования + декларация + строка таблицы),
-     *     раскрывает свернутые <details> до них и скроллит к первому. */
     fprintf(cont->stream,
 "<script>\n"
 "document.addEventListener('click', function(e) {\n"
@@ -277,9 +274,6 @@ static void ktl_register_map(KTL_DumpAstContext *cont, KTL_SymbolMap *map) {
         if (e == NULL)  continue;
 
         ktl_sym_register(cont, e);
-        /* Параметры функций — отдельные SymbolEntry, но они также      */
-        /* лежат в локальной map функции. На случай если функция        */
-        /* объявлена без тела (нет map'a с её параметрами):             */
         if (e->kind == KTL_SYMBOL_FUNC) {
             for (int j = 0; j < e->func.amount; j++) {
                 ktl_sym_register(cont, e->func.params[j]);
@@ -570,7 +564,6 @@ static void ktl_dump_node(KTL_DumpAstContext *cont,
     ktl_dump_pos    (cont, node->pos);
     fprintf(cont->stream, "</summary>\n");
 
-    /* Локальная таблица символов (если у ноды есть свой scope). */
     ktl_dump_scope_syms(cont, node);
 
     ktl_dump_children(cont, node, depth + 1);
@@ -645,6 +638,7 @@ static void ktl_dump_summary(KTL_DumpAstContext *cont, KTL_AstNode *node) {
     switch (node->kind) {
         case KTL_AST_FILE:    fprintf(s, "FILE"); break;
         case KTL_AST_MAIN:    fprintf(s, "MAIN"); break;
+        case KTL_AST_ARRAY_INIT: fprintf(s, "{...}"); break;
 
         case KTL_AST_FUNCTION_DECL: {
             KTL_SymbolEntry *fn = node->data.func_decl.func;
@@ -834,6 +828,7 @@ static const char *ktl_kind_name(KTL_AstNodeKind kind) {
         case KTL_AST_CONTINUE:       return "CONTINUE";
         case KTL_AST_EXIT:           return "EXIT";
         case KTL_AST_CAST:           return "CAST";
+        case KTL_AST_ARRAY_INIT:     return "ARRAY_LIST";
         default:                     return "?";
     }
 }
