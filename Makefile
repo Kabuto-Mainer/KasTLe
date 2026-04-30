@@ -23,6 +23,7 @@ sym_map_f = 	Structs/SymMap/SymMap.cpp
 str_map_f = 	Structs/StrMap/StrMap.cpp
 
 parse_f =       Frontend/Parsing/Parse.cpp
+analysis_f = 	Frontend/Analysis/Analysis.cpp
 
 common_f = 		Common/Common.cpp
 ast_common_f =  Frontend/ASTCommon.cpp
@@ -42,6 +43,7 @@ sym_map_d =		Structs/SymMap
 str_map_d = 	Structs/StrMap
 
 parse_d = 		Frontend/Parsing
+analysis_d =    Frontend/Analysis
 
 common_d = 		Common
 ast_common_d =  Frontend
@@ -49,7 +51,8 @@ ast_dump_d =    Frontend/Dump
 diagnostic_d =  $(common_d)
 
 dir_flags =  -I$(token_d) 		-I$(type_map_d) 	-I$(str_map_d) 		-I$(sym_map_d) \
-			 -I$(parse_d)       -I$(common_d)		-I$(ast_common_d) 	-I$(ast_dump_d)
+			 -I$(parse_d)       -I$(common_d)		-I$(ast_common_d) 	-I$(ast_dump_d) \
+			 -I$(analysis_d)
 
 
 # ===================================================================
@@ -65,6 +68,11 @@ build_test_parse:
 	clang Tests/test_parse.cpp $(token_f) $(struct_f) $(parse_f) $(common_f) \
 	$(ast_dump_f) $(ast_common_f) $(diagnostic_f) $(flags) $(dir_flags) -o Tests/parse_test.elf
 
+build_test_analysis:
+	clang Tests/test_analysis.cpp $(token_f) $(struct_f) $(parse_f) $(common_f) \
+	$(ast_dump_f) $(ast_common_f) $(diagnostic_f) $(analysis_f) $(flags) $(dir_flags) -o Tests/analysis_test.elf
+
+
 # ===================================================================
 # RUN
 # ===================================================================
@@ -76,3 +84,6 @@ run_test_sym:
 
 run_test_parse:
 	./Tests/parse_test.elf
+
+run_test_analysis:
+	./Tests/analysis_test.elf

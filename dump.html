@@ -3,6 +3,8 @@
 <style>
   :root {
     --bg:        #1e1e1e;
+    --bg2:       #252525;
+    --bg3:       #2a2a2a;
     --fg:        #d4d4d4;
     --muted:     #7a7a7a;
     --accent:    #4ec9b0;
@@ -11,6 +13,7 @@
     --expr:      #dcdcaa;
     --leaf:      #9cdcfe;
     --block:     #808080;
+    --hl:        rgba(78, 201, 176, 0.22);
   }
   body { background: var(--bg); color: var(--fg);
          font-family: 'JetBrains Mono','Cascadia Mono',monospace;
@@ -18,7 +21,7 @@
   .toolbar { position: sticky; top: 0; background: var(--bg);
              padding: 8px 0; border-bottom: 1px solid #333;
              margin-bottom: 8px; z-index: 10; }
-  .toolbar button { background: #2d2d2d; color: var(--fg);
+  .toolbar button { background: var(--bg3); color: var(--fg);
                     border: 1px solid #444; padding: 4px 10px;
                     margin-right: 6px; cursor: pointer;
                     font-family: inherit; font-size: 12px; }
@@ -42,6 +45,36 @@
   .raw  { color: #d7ba7d; font-style: italic; font-size: 10px;
           margin-left: 6px; }
   .pos  { color: var(--muted); float: right; font-size: 11px; }
+
+  /* tables */
+  details.section { margin: 0 0 12px 0; border-left: 3px solid var(--decl);
+                    padding-left: 10px; background: var(--bg2); }
+  details.section > summary { font-weight: bold; padding: 6px 4px;
+                              color: var(--decl); }
+  details.scope-syms { margin: 2px 0 4px 14px; border-left-color: #444; }
+  details.scope-syms > summary { color: var(--muted); font-size: 11px;
+                                  font-style: italic; }
+  table.sym-table { border-collapse: collapse; margin: 4px 0 8px 14px;
+                    font-size: 12px; }
+  table.sym-table th, table.sym-table td {
+     border: 1px solid #333; padding: 2px 10px; text-align: left;
+     vertical-align: top; }
+  table.sym-table th { background: var(--bg3); color: var(--muted);
+                       font-weight: normal; font-size: 11px; }
+  table.sym-table tbody tr { cursor: pointer; }
+  table.sym-table tbody tr:hover { background: var(--bg3); }
+  table.sym-table td.idx { color: var(--muted); text-align: right; }
+  .empty { color: var(--muted); font-style: italic;
+           padding: 4px 0 8px 14px; }
+  h4.subhead { color: var(--muted); font-weight: normal;
+               margin: 8px 0 2px 14px; font-size: 12px; }
+
+  /* highlight by data-sym-id click */
+  .hl-sym, table.sym-table tbody tr.hl-sym {
+     background: var(--hl) !important;
+     outline: 1px solid var(--accent); }
+
+  /* tree-coloring by kind */
   .node-FUNCTION_DECL > summary,
   .node-VARIABLE_DECL,
   .node-TYPEDEF      > summary,
@@ -58,17 +91,61 @@
 <div class="toolbar">
   <button onclick="document.querySelectorAll('details').forEach(d=>d.open=true)">Expand all</button>
   <button onclick="document.querySelectorAll('details').forEach(d=>d.open=false)">Collapse all</button>
+  <button onclick="document.querySelectorAll('.hl-sym').forEach(x=>x.classList.remove('hl-sym'))">Clear highlight</button>
 </div>
+<details class="section" open>
+  <summary>Global symbols (4)</summary>
+<table class="sym-table">
+<thead><tr><th>#</th><th>name</th><th>kind</th><th>type / signature</th><th>modifiers</th></tr></thead>
+<tbody>
+<tr data-sym-id="0"><td class="idx">0</td><td class="name">MAX_STACK_SIZE</td><td>var</td><td class="type">i32</td><td>const, init, register</td></tr>
+<tr data-sym-id="1"><td class="idx">1</td><td class="name">stack_init</td><td>func</td><td class="type">(stack_t*, i32) -&gt; bool</td><td></td></tr>
+<tr data-sym-id="4"><td class="idx">4</td><td class="name">counter</td><td>var</td><td class="type">i32</td><td>init, register</td></tr>
+<tr data-sym-id="5"><td class="idx">5</td><td class="name">add</td><td>func</td><td class="type">(i32, i32) -&gt; i32</td><td></td></tr>
+</tbody></table>
+</details>
+<details class="section">
+  <summary>Types (10)</summary>
+<table class="sym-table">
+<thead><tr><th>#</th><th>kind</th><th>form</th><th>size</th><th>align</th><th>extra</th></tr></thead>
+<tbody>
+<tr><td class="idx">0</td><td>base</td><td class="type">i8</td><td>1</td><td>1</td><td></td></tr>
+<tr><td class="idx">1</td><td>base</td><td class="type">i16</td><td>2</td><td>2</td><td></td></tr>
+<tr><td class="idx">2</td><td>base</td><td class="type">i32</td><td>4</td><td>4</td><td></td></tr>
+<tr><td class="idx">3</td><td>base</td><td class="type">i64</td><td>8</td><td>8</td><td></td></tr>
+<tr><td class="idx">4</td><td>base</td><td class="type">chr</td><td>1</td><td>1</td><td></td></tr>
+<tr><td class="idx">5</td><td>base</td><td class="type">bool</td><td>1</td><td>1</td><td></td></tr>
+<tr><td class="idx">6</td><td>base</td><td class="type">void</td><td>0</td><td>1</td><td></td></tr>
+<tr><td class="idx">7</td><td>block</td><td class="type">stack_t</td><td>20</td><td>4</td><td>3 fields: head: i32, size: i32, data: i8[10]</td></tr>
+<tr><td class="idx">8</td><td>array</td><td class="type">i8[10]</td><td>—</td><td>—</td><td>-&gt; #0 &times; 10</td></tr>
+<tr><td class="idx">9</td><td>ptr</td><td class="type">stack_t*</td><td>—</td><td>—</td><td>-&gt; #7</td></tr>
+</tbody></table>
+<h4 class="subhead">Aliases (1)</h4>
+<table class="sym-table">
+<thead><tr><th>name</th><th>target</th></tr></thead>
+<tbody>
+<tr><td class="name">stack_value</td><td class="type">i8 <span class="kind">(#0)</span></td></tr>
+</tbody></table>
+</details>
 <details class="node node-FILE" data-kind="FILE" data-pos-line="0" data-pos-col="0" open>
   <summary><span class="kind">[FILE]</span> FILE<span class="pos">0:0</span></summary>
 <div class="node leaf node-TYPEDEF" data-kind="TYPEDEF" data-pos-line="0" data-pos-col="0"><span class="kind">[TYPEDEF]</span> typedef <span class="name">stack_value</span> = <span class="type">i8</span><span class="pos">0:0</span></div>
-<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="2" data-pos-col="0" data-sym-id="0x7c38677e0110" open>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="2" data-pos-col="0" data-sym-id="0" open>
   <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">MAX_STACK_SIZE</span> = ...<span class="pos">2:0</span></summary>
 <div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="2" data-pos-col="31"><span class="kind">[VALUE_INT]</span> <span class="lit">10</span><span class="pos">2:31</span></div>
 </details>
 <div class="node leaf node-STRUCT_DECL" data-kind="STRUCT_DECL" data-pos-line="4" data-pos-col="0"><span class="kind">[STRUCT_DECL]</span> struct <span class="type">stack_t</span><span class="pos">4:0</span></div>
-<details class="node node-FUNCTION_DECL" data-kind="FUNCTION_DECL" data-pos-line="10" data-pos-col="0" data-sym-id="0x7c38677e0190" open>
+<details class="node node-FUNCTION_DECL" data-kind="FUNCTION_DECL" data-pos-line="10" data-pos-col="0" data-sym-id="1" open>
   <summary><span class="kind">[FUNCTION_DECL]</span> <span class="name">stack_init</span>(<span class="type">stack_t*</span> stk, <span class="type">i32</span> size) -&gt; <span class="type">bool</span><span class="pos">10:0</span></summary>
+<details class="scope-syms">
+  <summary>Scope symbols (2)</summary>
+<table class="sym-table">
+<thead><tr><th>#</th><th>name</th><th>kind</th><th>type / signature</th><th>modifiers</th></tr></thead>
+<tbody>
+<tr data-sym-id="2"><td class="idx">2</td><td class="name">stk</td><td>var</td><td class="type">stack_t*</td><td>register</td></tr>
+<tr data-sym-id="3"><td class="idx">3</td><td class="name">size</td><td>var</td><td class="type">i32</td><td>register</td></tr>
+</tbody></table>
+</details>
 <details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="12" data-pos-col="0" open>
   <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(5 stmts, scope)</span><span class="pos">12:0</span></summary>
 <details class="node node-COND_BLOCK" data-kind="COND_BLOCK" data-pos-line="13" data-pos-col="4">
@@ -79,13 +156,13 @@
   <summary><span class="kind">[BINARY_OPER]</span> <span class="op">||</span><span class="pos">13:18</span></summary>
 <details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="13" data-pos-col="13">
   <summary><span class="kind">[BINARY_OPER]</span> <span class="op">&lt;=</span><span class="pos">13:13</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="13" data-pos-col="13"><span class="kind">[VARIABLE]</span> <span class="name">size</span><span class="raw">raw</span><span class="pos">13:13</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="13" data-pos-col="13" data-sym-id="3"><span class="kind">[VARIABLE]</span> <span class="name">size</span><span class="pos">13:13</span></div>
 <div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="13" data-pos-col="16"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="pos">13:16</span></div>
 </details>
 <details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="13" data-pos-col="26">
   <summary><span class="kind">[BINARY_OPER]</span> <span class="op">&gt;</span><span class="pos">13:26</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="13" data-pos-col="26"><span class="kind">[VARIABLE]</span> <span class="name">size</span><span class="raw">raw</span><span class="pos">13:26</span></div>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="13" data-pos-col="42"><span class="kind">[VARIABLE]</span> <span class="name">MAX_STACK_SIZE</span><span class="raw">raw</span><span class="pos">13:42</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="13" data-pos-col="26" data-sym-id="3"><span class="kind">[VARIABLE]</span> <span class="name">size</span><span class="pos">13:26</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="13" data-pos-col="42" data-sym-id="0"><span class="kind">[VARIABLE]</span> <span class="name">MAX_STACK_SIZE</span><span class="pos">13:42</span></div>
 </details>
 </details>
 <details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="13" data-pos-col="44">
@@ -99,21 +176,29 @@
 </details>
 <details class="node node-FOR_BLOCK" data-kind="FOR_BLOCK" data-pos-line="17" data-pos-col="4">
   <summary><span class="kind">[FOR_BLOCK]</span> for<span class="pos">17:4</span></summary>
-<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="17" data-pos-col="9" data-sym-id="0x7c38677e0650">
+<details class="scope-syms">
+  <summary>Scope symbols (1)</summary>
+<table class="sym-table">
+<thead><tr><th>#</th><th>name</th><th>kind</th><th>type / signature</th><th>modifiers</th></tr></thead>
+<tbody>
+<tr data-sym-id="8"><td class="idx">8</td><td class="name">i</td><td>var</td><td class="type">i32</td><td>init, register</td></tr>
+</tbody></table>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="17" data-pos-col="9" data-sym-id="8">
   <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">i</span> = ...<span class="pos">17:9</span></summary>
 <div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="17" data-pos-col="21"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="pos">17:21</span></div>
 </details>
 <details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="17" data-pos-col="26">
   <summary><span class="kind">[BINARY_OPER]</span> <span class="op">&lt;</span><span class="pos">17:26</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="17" data-pos-col="26"><span class="kind">[VARIABLE]</span> <span class="name">i</span><span class="raw">raw</span><span class="pos">17:26</span></div>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="17" data-pos-col="42"><span class="kind">[VARIABLE]</span> <span class="name">MAX_STACK_SIZE</span><span class="raw">raw</span><span class="pos">17:42</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="17" data-pos-col="26" data-sym-id="8"><span class="kind">[VARIABLE]</span> <span class="name">i</span><span class="pos">17:26</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="17" data-pos-col="42" data-sym-id="0"><span class="kind">[VARIABLE]</span> <span class="name">MAX_STACK_SIZE</span><span class="pos">17:42</span></div>
 </details>
 <details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="17" data-pos-col="46">
   <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">17:46</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="17" data-pos-col="46"><span class="kind">[VARIABLE]</span> <span class="name">i</span><span class="raw">raw</span><span class="pos">17:46</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="17" data-pos-col="46" data-sym-id="8"><span class="kind">[VARIABLE]</span> <span class="name">i</span><span class="pos">17:46</span></div>
 <details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="17" data-pos-col="50">
   <summary><span class="kind">[BINARY_OPER]</span> <span class="op">+</span><span class="pos">17:50</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="17" data-pos-col="50"><span class="kind">[VARIABLE]</span> <span class="name">i</span><span class="raw">raw</span><span class="pos">17:50</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="17" data-pos-col="50" data-sym-id="8"><span class="kind">[VARIABLE]</span> <span class="name">i</span><span class="pos">17:50</span></div>
 <div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="17" data-pos-col="52"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="pos">17:52</span></div>
 </details>
 </details>
@@ -125,9 +210,9 @@
   <summary><span class="kind">[INDEX_ACCESS]</span> <span class="op">[ ]</span><span class="pos">0:0</span></summary>
 <details class="node node-FIELD_ACCESS" data-kind="FIELD_ACCESS" data-pos-line="0" data-pos-col="0">
   <summary><span class="kind">[FIELD_ACCESS]</span> <span class="op">-&gt;</span><span class="name">data</span><span class="pos">0:0</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="18" data-pos-col="11"><span class="kind">[VARIABLE]</span> <span class="name">stk</span><span class="raw">raw</span><span class="pos">18:11</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="18" data-pos-col="11" data-sym-id="2"><span class="kind">[VARIABLE]</span> <span class="name">stk</span><span class="pos">18:11</span></div>
 </details>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="18" data-pos-col="19"><span class="kind">[VARIABLE]</span> <span class="name">i</span><span class="raw">raw</span><span class="pos">18:19</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="18" data-pos-col="19" data-sym-id="8"><span class="kind">[VARIABLE]</span> <span class="name">i</span><span class="pos">18:19</span></div>
 </details>
 <div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="18" data-pos-col="23"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="pos">18:23</span></div>
 </details>
@@ -137,7 +222,7 @@
   <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">21:14</span></summary>
 <details class="node node-FIELD_ACCESS" data-kind="FIELD_ACCESS" data-pos-line="0" data-pos-col="0">
   <summary><span class="kind">[FIELD_ACCESS]</span> <span class="op">-&gt;</span><span class="name">head</span><span class="pos">0:0</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="21" data-pos-col="7"><span class="kind">[VARIABLE]</span> <span class="name">stk</span><span class="raw">raw</span><span class="pos">21:7</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="21" data-pos-col="7" data-sym-id="2"><span class="kind">[VARIABLE]</span> <span class="name">stk</span><span class="pos">21:7</span></div>
 </details>
 <div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="21" data-pos-col="16"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="pos">21:16</span></div>
 </details>
@@ -145,9 +230,9 @@
   <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">22:14</span></summary>
 <details class="node node-FIELD_ACCESS" data-kind="FIELD_ACCESS" data-pos-line="0" data-pos-col="0">
   <summary><span class="kind">[FIELD_ACCESS]</span> <span class="op">-&gt;</span><span class="name">size</span><span class="pos">0:0</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="22" data-pos-col="7"><span class="kind">[VARIABLE]</span> <span class="name">stk</span><span class="raw">raw</span><span class="pos">22:7</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="22" data-pos-col="7" data-sym-id="2"><span class="kind">[VARIABLE]</span> <span class="name">stk</span><span class="pos">22:7</span></div>
 </details>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="22" data-pos-col="20"><span class="kind">[VARIABLE]</span> <span class="name">size</span><span class="raw">raw</span><span class="pos">22:20</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="22" data-pos-col="20" data-sym-id="3"><span class="kind">[VARIABLE]</span> <span class="name">size</span><span class="pos">22:20</span></div>
 </details>
 <details class="node node-RETURN" data-kind="RETURN" data-pos-line="24" data-pos-col="4">
   <summary><span class="kind">[RETURN]</span> return<span class="pos">24:4</span></summary>
@@ -155,20 +240,29 @@
 </details>
 </details>
 </details>
-<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="27" data-pos-col="0" data-sym-id="0x7c38677e0d90" open>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="27" data-pos-col="0" data-sym-id="4" open>
   <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">counter</span> = ...<span class="pos">27:0</span></summary>
 <div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="27" data-pos-col="18"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="pos">27:18</span></div>
 </details>
-<details class="node node-FUNCTION_DECL" data-kind="FUNCTION_DECL" data-pos-line="29" data-pos-col="0" data-sym-id="0x7c38677e0dd0" open>
+<details class="node node-FUNCTION_DECL" data-kind="FUNCTION_DECL" data-pos-line="29" data-pos-col="0" data-sym-id="5" open>
   <summary><span class="kind">[FUNCTION_DECL]</span> <span class="name">add</span>(<span class="type">i32</span> a, <span class="type">i32</span> b) -&gt; <span class="type">i32</span><span class="pos">29:0</span></summary>
+<details class="scope-syms">
+  <summary>Scope symbols (2)</summary>
+<table class="sym-table">
+<thead><tr><th>#</th><th>name</th><th>kind</th><th>type / signature</th><th>modifiers</th></tr></thead>
+<tbody>
+<tr data-sym-id="6"><td class="idx">6</td><td class="name">a</td><td>var</td><td class="type">i32</td><td>register</td></tr>
+<tr data-sym-id="7"><td class="idx">7</td><td class="name">b</td><td>var</td><td class="type">i32</td><td>register</td></tr>
+</tbody></table>
+</details>
 <details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="29" data-pos-col="27" open>
   <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(1 stmts, scope)</span><span class="pos">29:27</span></summary>
 <details class="node node-RETURN" data-kind="RETURN" data-pos-line="30" data-pos-col="4">
   <summary><span class="kind">[RETURN]</span> return<span class="pos">30:4</span></summary>
 <details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="30" data-pos-col="13">
   <summary><span class="kind">[BINARY_OPER]</span> <span class="op">+</span><span class="pos">30:13</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="30" data-pos-col="13"><span class="kind">[VARIABLE]</span> <span class="name">a</span><span class="raw">raw</span><span class="pos">30:13</span></div>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="30" data-pos-col="16"><span class="kind">[VARIABLE]</span> <span class="name">b</span><span class="raw">raw</span><span class="pos">30:16</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="30" data-pos-col="13" data-sym-id="6"><span class="kind">[VARIABLE]</span> <span class="name">a</span><span class="pos">30:13</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="30" data-pos-col="16" data-sym-id="7"><span class="kind">[VARIABLE]</span> <span class="name">b</span><span class="pos">30:16</span></div>
 </details>
 </details>
 </details>
@@ -177,20 +271,30 @@
   <summary><span class="kind">[MAIN]</span> MAIN<span class="pos">33:0</span></summary>
 <details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="33" data-pos-col="5" open>
   <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(6 stmts, scope)</span><span class="pos">33:5</span></summary>
-<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="34" data-pos-col="4" data-sym-id="0x7c38677e10d0">
+<details class="scope-syms">
+  <summary>Scope symbols (3)</summary>
+<table class="sym-table">
+<thead><tr><th>#</th><th>name</th><th>kind</th><th>type / signature</th><th>modifiers</th></tr></thead>
+<tbody>
+<tr data-sym-id="9"><td class="idx">9</td><td class="name">x</td><td>var</td><td class="type">i32</td><td>init, register</td></tr>
+<tr data-sym-id="10"><td class="idx">10</td><td class="name">y</td><td>var</td><td class="type">i32</td><td>init, register</td></tr>
+<tr data-sym-id="11"><td class="idx">11</td><td class="name">z</td><td>var</td><td class="type">i32</td><td>init, register</td></tr>
+</tbody></table>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="34" data-pos-col="4" data-sym-id="9">
   <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">x</span> = ...<span class="pos">34:4</span></summary>
 <div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="34" data-pos-col="16"><span class="kind">[VALUE_INT]</span> <span class="lit">5</span><span class="pos">34:16</span></div>
 </details>
-<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="35" data-pos-col="4" data-sym-id="0x7c38677e1190">
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="35" data-pos-col="4" data-sym-id="10">
   <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">y</span> = ...<span class="pos">35:4</span></summary>
 <div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="35" data-pos-col="16"><span class="kind">[VALUE_INT]</span> <span class="lit">10</span><span class="pos">35:16</span></div>
 </details>
-<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="36" data-pos-col="4" data-sym-id="0x7c38677e12d0">
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="36" data-pos-col="4" data-sym-id="11">
   <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">z</span> = ...<span class="pos">36:4</span></summary>
-<details class="node node-FUNCTION_CALL" data-kind="FUNCTION_CALL" data-pos-line="36" data-pos-col="16">
-  <summary><span class="kind">[FUNCTION_CALL]</span> <span class="name">add</span>(<span class="kind">2 args</span>)<span class="raw">raw</span><span class="pos">36:16</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="36" data-pos-col="21"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="raw">raw</span><span class="pos">36:21</span></div>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="36" data-pos-col="24"><span class="kind">[VARIABLE]</span> <span class="name">y</span><span class="raw">raw</span><span class="pos">36:24</span></div>
+<details class="node node-FUNCTION_CALL" data-kind="FUNCTION_CALL" data-pos-line="36" data-pos-col="16" data-sym-id="5">
+  <summary><span class="kind">[FUNCTION_CALL]</span> <span class="name">add</span>(<span class="kind">2 args</span>)<span class="pos">36:16</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="36" data-pos-col="21" data-sym-id="9"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="pos">36:21</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="36" data-pos-col="24" data-sym-id="10"><span class="kind">[VARIABLE]</span> <span class="name">y</span><span class="pos">36:24</span></div>
 </details>
 </details>
 <details class="node node-COND_BLOCK" data-kind="COND_BLOCK" data-pos-line="37" data-pos-col="4">
@@ -199,17 +303,17 @@
   <summary><span class="kind">[IF_BRANCH]</span> if<span class="pos">37:4</span></summary>
 <details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="37" data-pos-col="10">
   <summary><span class="kind">[BINARY_OPER]</span> <span class="op">&gt;</span><span class="pos">37:10</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="37" data-pos-col="10"><span class="kind">[VARIABLE]</span> <span class="name">z</span><span class="raw">raw</span><span class="pos">37:10</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="37" data-pos-col="10" data-sym-id="11"><span class="kind">[VARIABLE]</span> <span class="name">z</span><span class="pos">37:10</span></div>
 <div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="37" data-pos-col="12"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="pos">37:12</span></div>
 </details>
 <details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="37" data-pos-col="15">
   <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(1 stmts, scope)</span><span class="pos">37:15</span></summary>
 <details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="38" data-pos-col="16">
   <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">38:16</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="38" data-pos-col="16"><span class="kind">[VARIABLE]</span> <span class="name">counter</span><span class="raw">raw</span><span class="pos">38:16</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="38" data-pos-col="16" data-sym-id="4"><span class="kind">[VARIABLE]</span> <span class="name">counter</span><span class="pos">38:16</span></div>
 <details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="38" data-pos-col="26">
   <summary><span class="kind">[BINARY_OPER]</span> <span class="op">+</span><span class="pos">38:26</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="38" data-pos-col="26"><span class="kind">[VARIABLE]</span> <span class="name">counter</span><span class="raw">raw</span><span class="pos">38:26</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="38" data-pos-col="26" data-sym-id="4"><span class="kind">[VARIABLE]</span> <span class="name">counter</span><span class="pos">38:26</span></div>
 <div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="38" data-pos-col="28"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="pos">38:28</span></div>
 </details>
 </details>
@@ -220,17 +324,17 @@
   <summary><span class="kind">[WHILE_BLOCK]</span> while<span class="pos">40:4</span></summary>
 <details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="40" data-pos-col="13">
   <summary><span class="kind">[BINARY_OPER]</span> <span class="op">&gt;</span><span class="pos">40:13</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="40" data-pos-col="13"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="raw">raw</span><span class="pos">40:13</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="40" data-pos-col="13" data-sym-id="9"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="pos">40:13</span></div>
 <div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="40" data-pos-col="15"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="pos">40:15</span></div>
 </details>
 <details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="40" data-pos-col="18">
   <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(2 stmts, scope)</span><span class="pos">40:18</span></summary>
 <details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="41" data-pos-col="10">
   <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">41:10</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="41" data-pos-col="10"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="raw">raw</span><span class="pos">41:10</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="41" data-pos-col="10" data-sym-id="9"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="pos">41:10</span></div>
 <details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="41" data-pos-col="14">
   <summary><span class="kind">[BINARY_OPER]</span> <span class="op">-</span><span class="pos">41:14</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="41" data-pos-col="14"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="raw">raw</span><span class="pos">41:14</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="41" data-pos-col="14" data-sym-id="9"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="pos">41:14</span></div>
 <div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="41" data-pos-col="16"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="pos">41:16</span></div>
 </details>
 </details>
@@ -240,7 +344,7 @@
   <summary><span class="kind">[IF_BRANCH]</span> if<span class="pos">42:8</span></summary>
 <details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="42" data-pos-col="14">
   <summary><span class="kind">[BINARY_OPER]</span> <span class="op">==</span><span class="pos">42:14</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="42" data-pos-col="14"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="raw">raw</span><span class="pos">42:14</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="42" data-pos-col="14" data-sym-id="9"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="pos">42:14</span></div>
 <div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="42" data-pos-col="17"><span class="kind">[VALUE_INT]</span> <span class="lit">5</span><span class="pos">42:17</span></div>
 </details>
 <details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="42" data-pos-col="20">
@@ -255,4 +359,24 @@
 </details>
 </details>
 </details>
+<script>
+document.addEventListener('click', function(e) {
+  var t = e.target.closest('summary, tr, .leaf');
+  if (!t) return;
+  var el = t.closest ? t.closest('[data-sym-id]') : null;
+  if (!el) return;
+  var id = el.getAttribute('data-sym-id');
+  if (!id) return;
+  document.querySelectorAll('.hl-sym').forEach(x=>x.classList.remove('hl-sym'));
+  var hits = document.querySelectorAll('[data-sym-id="'+id+'"]');
+  hits.forEach(function(x) {
+    x.classList.add('hl-sym');
+    var p = x.parentElement;
+    while (p) {
+      if (p.tagName === 'DETAILS' && !p.open) p.open = true;
+      p = p.parentElement;
+    }
+  });
+});
+</script>
 </body></html>

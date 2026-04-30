@@ -12,8 +12,11 @@ struct KTL_DumpAstContext {
     KTL_TypeMap    *type_map;
     KTL_SymbolMap  *global_map;
 
-    KTL_AstNode    *cur_node;
     FILE           *stream;
+
+    KTL_SymbolEntry **all_syms;
+    int               n_syms;
+    int               cap_syms;
 };
 
 

@@ -1,4 +1,5 @@
 KasTLe Grammar:
+
 <file>       ::= { <top_decl> } <main> { <top_decl> }
 
 <top_decl>   ::= ( <var_decl> ";" ) | <func_decl> | <type_decl>
@@ -35,7 +36,7 @@ KasTLe Grammar:
 
 <for>        ::= "for" "(" [ <var_decl> | <assign> ] ";"
                            [ <expr> ] ";"
-                            [ <assign> ] ")"
+                           [ <assign> ] ")"
                  <body>
 
 <while>      ::= "while" "(" <expr> ")" <body>
@@ -54,7 +55,7 @@ KasTLe Grammar:
 <unary>      ::= { "&" | "*" | "-" } <atom>
 <atom>       ::= "(" <expr> ")" | <call> | <var> | <number> | <string>
 
-<var>        ::= <name> { ( "." <name> ) | ( "[" <expr> "]" ) }
+<var>        ::= <name> { ( "." <name> ) | ( "->" <name> ) | ( "[" <expr> "]" ) }
 <name>       ::= (A-Z | a-z | "_") { A-Z | a-z | 0-9 | "_" }
 <number>     ::= 0-9 { 0-9 }
 <string>     ::= "\"" { ASCII } "\""

@@ -1316,6 +1316,7 @@ static KTL_AstNode *ktl_parse_loop_common(KTL_ParseContext *cont, bool is_loop) 
         KTL_AstNode *node = ktl_parse_line(cont);
         if (node == NULL)   goto fail;
 
+        /* Do not needed in currect grammar */
         // if (equal(cont, KTL_PARSE_END_LINE) == false) {
         //     KTL_DiagEmit(cont->diag, get_t_pos(cont),
         //                  KTL_DIAG_PARSE_EXPECTED_TOKEN,
