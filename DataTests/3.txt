@@ -32,12 +32,16 @@ func i32 add(i32 a, i32 b) {
 }
 
 main {
+    var i32 x = "768";
+    /*
     var i32 x = "0123456789";
     var i32 y = 'a';
     var i32 z = add(x, y);
 
     var i32[10] value = {0, 1, 2, 15 + 2};
+*/
 
+    /*
     if (z > 0) {
         counter = counter + 1;
     }
@@ -46,15 +50,12 @@ main {
     }
     else {
         x.nnb[0]->field.index->oss = 8;
-    }
+    }*/
     x.nnb[0]->field.index->oss = 8;
 
     while (1) {
 
     }
-
-
-    xxx_www(4, x, y);
 
     while (x > 0) {
         x = x - 1;

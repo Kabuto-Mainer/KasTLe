@@ -94,6 +94,8 @@ KTL_Error KTL_TokenProcess(KTL_TokenContext *cont) {
     assert(cont->str_map);
     assert(cont->diag);
 
+    printf("[  0%%] START TOKENIZATION\n");
+
     while (true) {
         ktl_skip_trivia(cont);
         // ktl_dump_buffer(cont);
@@ -119,6 +121,8 @@ KTL_Error KTL_TokenProcess(KTL_TokenContext *cont) {
     for (int i = 0; i < 10; i++) {
         ktl_add_token(cont, &eof_token);
     }
+    printf("[ 20%%] END TOKENIZATION\n");
+
 
     return KTL_OK;
 }

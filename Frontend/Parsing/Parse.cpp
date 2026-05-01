@@ -312,6 +312,8 @@ static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
 
             advance(cont);
 
+            KTL_SourcePos pos = get_t_pos(cont);
+
             name = ktl_parse_name(cont);
             if (StrIDCheck(name) == false) {
                 KTL_DiagEmit(cont->diag, get_t_pos(cont),
@@ -331,6 +333,7 @@ static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
             field->kind              = KTL_AST_FIELD_ACCESS;
             field->data.field.name   = name;
             field->data.field.is_ptr = is_ptr;
+            field->pos               = pos;
 
             add_node_u(field, node);
             node = field;
@@ -1489,8 +1492,8 @@ static KTL_AstNode *ktl_parse_block_decl(KTL_ParseContext *cont) {
 
     bool has_field = false;
     while (equal(cont, KTL_PARSE_BLOCK_RIGHT) == false) {
-        KTL_StrID     field_name;
-        KTL_SourcePos field_pos;
+        KTL_StrID     field_name = KTL_BAD_STR_ID;
+        KTL_SourcePos field_pos  = {};
         KTL_TypeID    field_type = ktl_parse_field(cont, &field_name, &field_pos);
 
         if (TypeIDCheck(field_type) == false)   return NULL;
@@ -1716,7 +1719,7 @@ static KTL_AstNode *ktl_parse_main(KTL_ParseContext *cont) {
 
     node->kind = KTL_AST_MAIN;
     node->pos  = pos;
-    add_node_n(node, body);
+    add_node_u(node, body);
 
     return node;
 }
@@ -1870,7 +1873,12 @@ KTL_Error KTL_ParseProcess(KTL_ParseContext *cont) {
     assert(cont->tokens);
     assert(cont->global_map);
 
+    printf("[ 30%%] START PARSING\n");
+
     cont->root = ktl_parse_file(cont);
+
+    printf("[ 50%%] START PARSING\n");
+
     if (cont->root == NULL)     return KTL_LOGICAL_ERR;
 
     if (cont->diag->fatal_count > 0)    return KTL_LOGICAL_ERR;

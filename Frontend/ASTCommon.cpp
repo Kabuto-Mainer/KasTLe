@@ -1,9 +1,11 @@
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 #include "ASTType.h"
 #include "ASTCommon.h"
 #include "SymMap.h"
+#include "TypeMap.h"
 
 KTL_AstChildren KTL_AstGetTypeChildren(KTL_AstNode *node) {
     assert(node);
@@ -11,7 +13,6 @@ KTL_AstChildren KTL_AstGetTypeChildren(KTL_AstNode *node) {
     switch (node->kind) {
         /* Kinds with n children */
         case KTL_AST_FILE:
-        case KTL_AST_MAIN:
 
         case KTL_AST_FUNCTION_DECL:
         case KTL_AST_FUNCTION_CALL:
@@ -32,6 +33,7 @@ KTL_AstChildren KTL_AstGetTypeChildren(KTL_AstNode *node) {
             return KTL_AST_BINARY_CHILDREN;
 
         /* One child */
+        case KTL_AST_MAIN:
         case KTL_AST_ELSE_BRANCH:
         case KTL_AST_UNARY_OPER:
         case KTL_AST_RETURN:
@@ -93,4 +95,29 @@ void ktl_destroy_node(KTL_AstNode *node) {
         KTL_SymbolMapUninit(node->data.for_block.map);
     }
     free(node);
+}
+
+int ktl_print_type(KTL_TypeMap *map, KTL_TypeID type, char *buffer) {
+    assert(map);
+    assert(TypeIDCheck(type));
+    assert(buffer);
+
+    KTL_TypeEntry *e = KTL_TypeGetEntry(map, type);
+    if (e == NULL)  return 0;
+
+    switch (e->kind) {
+        case KTL_TYPE_ARRAY:
+            buffer += ktl_print_type(map, e->dt.arr.base_type, buffer);
+            return sprintf(buffer, "[%d]", e->dt.arr.elem_count);
+
+        case KTL_TYPE_BLOCK:
+            return sprintf(buffer, "%s", e->dt.block.name);
+
+        case KTL_TYPE_PTR:
+            buffer += ktl_print_type(map, e->dt.ptr.prev_type, buffer);
+            return sprintf(buffer, "*");
+
+        case KTL_TYPE_BASE:
+            return sprintf(buffer, "%s", e->dt.base.name);
+    }
 }

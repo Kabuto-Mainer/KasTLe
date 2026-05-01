@@ -14,9 +14,18 @@ enum KTL_Error {
     KTL_LOGICAL_ERR   = -3,
 };
 
+// #define DEBUG
+
 #define ExitF(__text__,__val__) \
  do { printf("ERROR[%s:%d]: %s\n", __FILE__, __LINE__, __text__); \
     return __val__; } while (0)
+
+#ifdef DEBUG
+    #define debug_out(_fmt_, ...) printf("[DEBUG] " _fmt_, ##__VA_ARGS__)
+#else
+    #define debug_out(fmt, ...) ((void)0)
+#endif
+
 
 constexpr int KTL_POINTER_SIZE = 8;
 

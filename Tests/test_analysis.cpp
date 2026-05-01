@@ -3,7 +3,11 @@
 #include "DumpAst.h"
 #include "Analysis.h"
 
+
+
 constexpr char *NAME_FILE = "DataTests/3.txt";
+
+
 
 int main() {
     KTL_StrMap str_map = {};
@@ -46,6 +50,8 @@ int main() {
                      &diag, parse_cont.root);
 
     KTL_AnalysisProcess(&an_cont);
+
+    // KTL_DiagFlush(&diag, NAME_FILE);
 
     KTL_AstDumpRaw(parse_cont.root, &str_map, parse_cont.global_map, &type_map, "dump.html");
 

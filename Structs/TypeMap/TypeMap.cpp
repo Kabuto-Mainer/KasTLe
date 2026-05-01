@@ -189,9 +189,9 @@ KTL_TypeID KTL_TypeAddBlock(KTL_TypeMap *map, const KTL_StrID name) {
     return map->size - 1;
 }
 
-KTL_Error KTL_TypeBlockAddField(KTL_TypeMap *map, KTL_TypeID block_id,
-                                                  KTL_TypeID field_id,
-                                                  KTL_StrID  name) {
+KTL_Error KTL_TypeBlockAddField(KTL_TypeMap *map, KTL_TypeID    block_id,
+                                                  KTL_TypeID    field_id,
+                                                  KTL_StrID     name) {
     assert(map);
     assert(StrIDCheck(name));
     if (!TypeIDCheck(map, block_id))  return KTL_BAD_ARG_ERR;
@@ -439,3 +439,5 @@ static int ktl_align_up(int offset, int align) {
 
     return ((offset + align - 1) / align) * align;
 }
+
+
