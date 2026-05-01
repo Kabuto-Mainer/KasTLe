@@ -15,6 +15,13 @@
 constexpr static int KTL_DUMP_AUTO_OPEN_DEPTH = 3;
 constexpr static int KTL_DUMP_SYMS_INIT_CAP   = 64;
 
+enum KTL_DumpStage {
+    KTL_STAGE_EMPTY,
+    KTL_STAGE_PARSE,        /* есть raw VAR/CALL                       */
+    KTL_STAGE_RESOLVED,     /* всё резолвлено, но не все expr типизировны */
+    KTL_STAGE_ANALYZED,     /* всё типизировано (с возможными ошибками)  */
+};
+
 // =======================================================================
 // HELPER FUNCTIONS DECLARATION
 // =======================================================================
@@ -33,8 +40,11 @@ static void ktl_dump_pos        (KTL_DumpAstContext *cont,
                                  KTL_SourcePos       pos);
 static void ktl_dump_extra_attrs(KTL_DumpAstContext *cont,
                                  KTL_AstNode        *node);
+static void ktl_dump_type_annot (KTL_DumpAstContext *cont,
+                                 KTL_AstNode        *node);
 
-/* sym/type tables */
+/* sym/type tables / status */
+static void ktl_dump_pipeline   (KTL_DumpAstContext *cont);
 static void ktl_dump_global_syms(KTL_DumpAstContext *cont);
 static void ktl_dump_types_table(KTL_DumpAstContext *cont);
 static void ktl_dump_sym_table  (KTL_DumpAstContext *cont,
@@ -43,13 +53,18 @@ static void ktl_dump_scope_syms (KTL_DumpAstContext *cont,
                                  KTL_AstNode        *node);
 static void ktl_dump_mods       (FILE *s, int mod);
 
-/* sym registry  */
+/* pre-pass: registers symbols and counts statistics */
 static int  ktl_sym_index       (KTL_DumpAstContext *cont, KTL_SymbolEntry *e);
 static void ktl_sym_register    (KTL_DumpAstContext *cont, KTL_SymbolEntry *e);
 static void ktl_register_map    (KTL_DumpAstContext *cont, KTL_SymbolMap   *map);
-static void ktl_collect_syms    (KTL_DumpAstContext *cont, KTL_AstNode     *node);
+static void ktl_pre_walk        (KTL_DumpAstContext *cont, KTL_AstNode     *node);
 
-/* tiny helpers */
+/* type access — "is expression with a type" */
+static bool ktl_get_expr_type      (KTL_AstNode *node, KTL_TypeID *out);
+static bool ktl_should_show_annot  (KTL_AstNode *node);
+static KTL_DumpStage ktl_detect_stage(KTL_DumpStats *st);
+
+/* small */
 static void        ktl_html_escape (FILE *stream, const char *s);
 static const char *ktl_kind_name   (KTL_AstNodeKind kind);
 static const char *ktl_oper_symbol (KTL_Oper        op);
@@ -82,17 +97,23 @@ void KTL_AstDumpRaw(KTL_AstNode   *root,
     cont.stream     = fopen(file, "wb");
     if (cont.stream == NULL)    ExitF("NULL File", );
 
+    /* Реестр символов */
     cont.all_syms = (KTL_SymbolEntry **)calloc(KTL_DUMP_SYMS_INIT_CAP,
                                                sizeof(KTL_SymbolEntry *));
     if (cont.all_syms == NULL)  ExitF("NULL Calloc", );
     cont.cap_syms = KTL_DUMP_SYMS_INIT_CAP;
     cont.n_syms   = 0;
 
+    /* 1. Пред-проход: символы + статистика. */
     ktl_register_map(&cont, global_map);
-    ktl_collect_syms(&cont, root);
+    ktl_pre_walk(&cont, root);
 
+    cont.stage = (int) ktl_detect_stage(&cont.stats);
+
+    /* 2. Печатаем. */
     ktl_dump_header(&cont);
 
+    ktl_dump_pipeline   (&cont);
     ktl_dump_global_syms(&cont);
     ktl_dump_types_table(&cont);
 
@@ -105,7 +126,81 @@ void KTL_AstDumpRaw(KTL_AstNode   *root,
 }
 
 // =======================================================================
-// HEADER
+// STAGE / STATS
+// =======================================================================
+static bool ktl_get_expr_type(KTL_AstNode *node, KTL_TypeID *out) {
+    assert(out);
+    *out = KTL_BAD_TYPE_ID;
+    if (node == NULL)   return false;
+
+    switch (node->kind) {
+        case KTL_AST_VALUE_INT:
+            *out = node->data.int_val.type_res;
+            return true;
+        case KTL_AST_VALUE_STR:
+            *out = node->data.str_val.type_res;
+            return true;
+        case KTL_AST_BINARY_OPER:
+        case KTL_AST_UNARY_OPER:
+            *out = node->data.oper.type_res;
+            return true;
+        case KTL_AST_INDEX_ACCESS:
+            *out = node->data.index.type_value;
+            return true;
+        case KTL_AST_FIELD_ACCESS:
+            *out = node->data.field.type;
+            return true;
+        case KTL_AST_CAST:
+            *out = node->data.cast.target;
+            return true;
+        case KTL_AST_VARIABLE:
+            if (!node->data.var.is_raw &&
+                node->data.var.info.res.entry != NULL) {
+                *out = node->data.var.info.res.entry->var.type;
+            }
+            return true;
+        case KTL_AST_FUNCTION_CALL:
+            if (!node->data.func_call.is_raw &&
+                node->data.func_call.info.res.entry != NULL) {
+                *out = node->data.func_call.info.res.entry->func.ret_type;
+            }
+            return true;
+        default:
+            return false;
+    }
+}
+
+/* CAST уже печатает свой target в summary — не дублируем. */
+static bool ktl_should_show_annot(KTL_AstNode *node) {
+    if (node == NULL)               return false;
+    if (node->kind == KTL_AST_CAST) return false;
+
+    KTL_TypeID t;
+    return ktl_get_expr_type(node, &t);
+}
+
+static KTL_DumpStage ktl_detect_stage(KTL_DumpStats *st) {
+    assert(st);
+
+    if (st->total == 0)                                 return KTL_STAGE_EMPTY;
+    if (st->raw_vars + st->raw_calls > 0)               return KTL_STAGE_PARSE;
+    if (st->exprs_total == 0)                           return KTL_STAGE_PARSE;
+    if (st->exprs_typed < st->exprs_total)              return KTL_STAGE_RESOLVED;
+    return KTL_STAGE_ANALYZED;
+}
+
+static const char *ktl_stage_name(KTL_DumpStage st) {
+    switch (st) {
+        case KTL_STAGE_EMPTY:    return "Empty AST";
+        case KTL_STAGE_PARSE:    return "Parse";
+        case KTL_STAGE_RESOLVED: return "Resolved";
+        case KTL_STAGE_ANALYZED: return "Analyzed";
+    }
+    return "?";
+}
+
+// =======================================================================
+// HEADER / FOOTER
 // =======================================================================
 static void ktl_dump_header(KTL_DumpAstContext *cont) {
     assert(cont);
@@ -126,6 +221,9 @@ static void ktl_dump_header(KTL_DumpAstContext *cont) {
 "    --expr:      #dcdcaa;\n"
 "    --leaf:      #9cdcfe;\n"
 "    --block:     #808080;\n"
+"    --bad:       #f48771;\n"
+"    --ok:        #6abf69;\n"
+"    --warn:      #d7ba7d;\n"
 "    --hl:        rgba(78, 201, 176, 0.22);\n"
 "  }\n"
 "  body { background: var(--bg); color: var(--fg);\n"
@@ -133,12 +231,25 @@ static void ktl_dump_header(KTL_DumpAstContext *cont) {
 "         font-size: 13px; padding: 16px; margin: 0; }\n"
 "  .toolbar { position: sticky; top: 0; background: var(--bg);\n"
 "             padding: 8px 0; border-bottom: 1px solid #333;\n"
-"             margin-bottom: 8px; z-index: 10; }\n"
+"             margin-bottom: 8px; z-index: 10; display: flex;\n"
+"             gap: 6px; align-items: center; flex-wrap: wrap; }\n"
 "  .toolbar button { background: var(--bg3); color: var(--fg);\n"
 "                    border: 1px solid #444; padding: 4px 10px;\n"
-"                    margin-right: 6px; cursor: pointer;\n"
-"                    font-family: inherit; font-size: 12px; }\n"
+"                    cursor: pointer; font-family: inherit; font-size: 12px; }\n"
 "  .toolbar button:hover { background: #3a3a3a; }\n"
+"  .toolbar label { font-size: 12px; color: var(--muted);\n"
+"                   user-select: none; cursor: pointer;\n"
+"                   margin-left: 8px; }\n"
+"  .toolbar label input { vertical-align: middle; margin-right: 3px; }\n"
+"  .toolbar .stage-badge { margin-left: auto; padding: 2px 10px;\n"
+"                          border-radius: 3px; background: var(--bg3);\n"
+"                          font-size: 12px; }\n"
+"  .toolbar .stage-badge.parse    { color: var(--warn); }\n"
+"  .toolbar .stage-badge.resolved { color: var(--decl); }\n"
+"  .toolbar .stage-badge.analyzed { color: var(--ok); }\n"
+"  .toolbar .stage-badge.errors   { color: var(--bad);\n"
+"                                   border: 1px solid var(--bad); }\n"
+"\n"
 "  details { margin-left: 14px; border-left: 1px solid #2f2f2f;\n"
 "            padding-left: 8px; }\n"
 "  details > summary { cursor: pointer; padding: 2px 4px;\n"
@@ -155,15 +266,23 @@ static void ktl_dump_header(KTL_DumpAstContext *cont) {
 "  .op   { color: var(--expr); font-weight: bold; }\n"
 "  .lit  { color: #b5cea8; }\n"
 "  .str  { color: #ce9178; }\n"
-"  .raw  { color: #d7ba7d; font-style: italic; font-size: 10px;\n"
+"  .raw  { color: var(--warn); font-style: italic; font-size: 10px;\n"
 "          margin-left: 6px; }\n"
 "  .pos  { color: var(--muted); float: right; font-size: 11px; }\n"
 "\n"
-"  /* tables */\n"
+"  .annot { color: var(--accent); opacity: 0.65;\n"
+"           margin-left: 8px; font-size: 11px; font-weight: normal; }\n"
+"  .annot .type { color: var(--accent); }\n"
+"  .annot.bad { color: var(--bad); opacity: 1; font-weight: bold; }\n"
+"  body.hide-annot .annot { display: none; }\n"
+"\n"
+"  /* sections */\n"
 "  details.section { margin: 0 0 12px 0; border-left: 3px solid var(--decl);\n"
 "                    padding-left: 10px; background: var(--bg2); }\n"
 "  details.section > summary { font-weight: bold; padding: 6px 4px;\n"
 "                              color: var(--decl); }\n"
+"  details.section.pipeline { border-left-color: var(--ok); }\n"
+"  details.section.pipeline > summary { color: var(--ok); }\n"
 "  details.scope-syms { margin: 2px 0 4px 14px; border-left-color: #444; }\n"
 "  details.scope-syms > summary { color: var(--muted); font-size: 11px;\n"
 "                                  font-style: italic; }\n"
@@ -182,12 +301,19 @@ static void ktl_dump_header(KTL_DumpAstContext *cont) {
 "  h4.subhead { color: var(--muted); font-weight: normal;\n"
 "               margin: 8px 0 2px 14px; font-size: 12px; }\n"
 "\n"
-"  /* highlight by data-sym-id click */\n"
+"  /* pipeline status grid */\n"
+"  .stat-grid { display: grid; grid-template-columns: auto 1fr;\n"
+"               gap: 4px 18px; margin: 6px 0 6px 14px;\n"
+"               font-size: 12px; }\n"
+"  .stat-grid .label { color: var(--muted); }\n"
+"  .stat-grid .ok    { color: var(--ok); }\n"
+"  .stat-grid .bad   { color: var(--bad); }\n"
+"  .stat-grid .warn  { color: var(--warn); }\n"
+"\n"
 "  .hl-sym, table.sym-table tbody tr.hl-sym {\n"
 "     background: var(--hl) !important;\n"
 "     outline: 1px solid var(--accent); }\n"
 "\n"
-"  /* tree-coloring by kind */\n"
 "  .node-FUNCTION_DECL > summary,\n"
 "  .node-VARIABLE_DECL,\n"
 "  .node-TYPEDEF      > summary,\n"
@@ -198,14 +324,31 @@ static void ktl_dump_header(KTL_DumpAstContext *cont) {
 "  .node-FOR_BLOCK    > summary,\n"
 "  .node-COND_BLOCK   > summary { border-left-color: var(--ctrl); }\n"
 "  .node-BLOCK        > summary { color: var(--block); }\n"
+"  [data-typed=\"bad\"]  > summary,\n"
+"  [data-typed=\"bad\"].leaf { background: rgba(244,135,113,0.07); }\n"
 "</style>\n"
 "</head>\n"
-"<body>\n"
+"<body>\n");
+
+    /* Toolbar */
+    KTL_DumpStage   stage     = (KTL_DumpStage) cont->stage;
+    bool            has_errs  = (stage == KTL_STAGE_ANALYZED) &&
+                                 cont->stats.bad_types > 0;
+    const char     *stage_cls = "parse";
+    if      (stage == KTL_STAGE_RESOLVED)   stage_cls = "resolved";
+    else if (stage == KTL_STAGE_ANALYZED)   stage_cls = "analyzed";
+
+    fprintf(cont->stream,
 "<div class=\"toolbar\">\n"
 "  <button onclick=\"document.querySelectorAll('details').forEach(d=>d.open=true)\">Expand all</button>\n"
 "  <button onclick=\"document.querySelectorAll('details').forEach(d=>d.open=false)\">Collapse all</button>\n"
 "  <button onclick=\"document.querySelectorAll('.hl-sym').forEach(x=>x.classList.remove('hl-sym'))\">Clear highlight</button>\n"
-"</div>\n");
+"  <label><input type=\"checkbox\" id=\"show-types\" checked> Show types</label>\n"
+"  <span class=\"stage-badge %s%s\">%s%s</span>\n"
+"</div>\n",
+        stage_cls, has_errs ? " errors" : "",
+        ktl_stage_name(stage),
+        has_errs ? " (with errors)" : "");
 }
 
 static void ktl_dump_footer(KTL_DumpAstContext *cont) {
@@ -216,13 +359,12 @@ static void ktl_dump_footer(KTL_DumpAstContext *cont) {
 "document.addEventListener('click', function(e) {\n"
 "  var t = e.target.closest('summary, tr, .leaf');\n"
 "  if (!t) return;\n"
-"  var el = t.closest ? t.closest('[data-sym-id]') : null;\n"
+"  var el = t.closest('[data-sym-id]');\n"
 "  if (!el) return;\n"
 "  var id = el.getAttribute('data-sym-id');\n"
 "  if (!id) return;\n"
 "  document.querySelectorAll('.hl-sym').forEach(x=>x.classList.remove('hl-sym'));\n"
-"  var hits = document.querySelectorAll('[data-sym-id=\"'+id+'\"]');\n"
-"  hits.forEach(function(x) {\n"
+"  document.querySelectorAll('[data-sym-id=\"'+id+'\"]').forEach(function(x) {\n"
 "    x.classList.add('hl-sym');\n"
 "    var p = x.parentElement;\n"
 "    while (p) {\n"
@@ -231,12 +373,16 @@ static void ktl_dump_footer(KTL_DumpAstContext *cont) {
 "    }\n"
 "  });\n"
 "});\n"
+"var cb = document.getElementById('show-types');\n"
+"if (cb) cb.addEventListener('change', function() {\n"
+"  document.body.classList.toggle('hide-annot', !cb.checked);\n"
+"});\n"
 "</script>\n"
 "</body></html>\n");
 }
 
 // =======================================================================
-// SYMBOL REGISTRY
+// PRE-WALK: симсбол-реестр + статистика
 // =======================================================================
 static int ktl_sym_index(KTL_DumpAstContext *cont, KTL_SymbolEntry *e) {
     assert(cont);
@@ -282,10 +428,13 @@ static void ktl_register_map(KTL_DumpAstContext *cont, KTL_SymbolMap *map) {
     }
 }
 
-static void ktl_collect_syms(KTL_DumpAstContext *cont, KTL_AstNode *node) {
+static void ktl_pre_walk(KTL_DumpAstContext *cont, KTL_AstNode *node) {
     assert(cont);
     if (node == NULL)   return ;
 
+    cont->stats.total++;
+
+    /* Регистрация локальных скоупов. */
     switch (node->kind) {
         case KTL_AST_BLOCK:
             ktl_register_map(cont, node->data.block.map);
@@ -300,23 +449,122 @@ static void ktl_collect_syms(KTL_DumpAstContext *cont, KTL_AstNode *node) {
             break;
     }
 
+    /* Подсчёт raw vs resolved. */
+    switch (node->kind) {
+        case KTL_AST_VARIABLE:
+            if (node->data.var.is_raw)              cont->stats.raw_vars++;
+            else                                    cont->stats.resolved_vars++;
+            break;
+        case KTL_AST_FUNCTION_CALL:
+            if (node->data.func_call.is_raw)        cont->stats.raw_calls++;
+            else                                    cont->stats.resolved_calls++;
+            break;
+        default:
+            break;
+    }
+
+    /* Подсчёт типизированных выражений. */
+    KTL_TypeID t;
+    if (ktl_get_expr_type(node, &t)) {
+        cont->stats.exprs_total++;
+        if (TypeIDCheck(t))     cont->stats.exprs_typed++;
+        else                    cont->stats.bad_types++;
+    }
+
+    /* Рекурсия. */
     switch (KTL_AstGetTypeChildren(node)) {
         case KTL_AST_N_CHILDREN:
             for (int i = 0; i < node->move.n.amount; i++) {
-                ktl_collect_syms(cont, node->move.n.children[i]);
+                ktl_pre_walk(cont, node->move.n.children[i]);
             }
             break;
         case KTL_AST_BINARY_CHILDREN:
-            ktl_collect_syms(cont, node->move.binary.left);
-            ktl_collect_syms(cont, node->move.binary.right);
+            ktl_pre_walk(cont, node->move.binary.left);
+            ktl_pre_walk(cont, node->move.binary.right);
             break;
         case KTL_AST_UNARY_CHILD:
-            ktl_collect_syms(cont, node->move.unary.next);
+            ktl_pre_walk(cont, node->move.unary.next);
             break;
         case KTL_AST_NO_CHILDREN:
         default:
             break;
     }
+}
+
+// =======================================================================
+// PIPELINE STATUS
+// =======================================================================
+static void ktl_dump_pipeline(KTL_DumpAstContext *cont) {
+    assert(cont);
+
+    KTL_DumpStats *s     = &cont->stats;
+    KTL_DumpStage  stage = (KTL_DumpStage) cont->stage;
+
+    fprintf(cont->stream,
+            "<details class=\"section pipeline\" open>\n"
+            "  <summary>Pipeline status — %s</summary>\n"
+            "<div class=\"stat-grid\">\n",
+            ktl_stage_name(stage));
+
+    fprintf(cont->stream,
+            "<span class=\"label\">Total nodes</span><span>%d</span>\n",
+            s->total);
+
+    /* Variable refs */
+    int  v_total = s->raw_vars + s->resolved_vars;
+    fprintf(cont->stream,
+            "<span class=\"label\">Variable refs</span><span>%d "
+            "<span class=\"%s\">(%d resolved)</span> "
+            "<span class=\"%s\">(%d raw)</span></span>\n",
+            v_total,
+            s->resolved_vars > 0 ? "ok" : "label", s->resolved_vars,
+            s->raw_vars      > 0 ? "warn" : "label", s->raw_vars);
+
+    /* Function calls */
+    int  c_total = s->raw_calls + s->resolved_calls;
+    fprintf(cont->stream,
+            "<span class=\"label\">Function calls</span><span>%d "
+            "<span class=\"%s\">(%d resolved)</span> "
+            "<span class=\"%s\">(%d raw)</span></span>\n",
+            c_total,
+            s->resolved_calls > 0 ? "ok" : "label", s->resolved_calls,
+            s->raw_calls      > 0 ? "warn" : "label", s->raw_calls);
+
+    /* Expressions */
+    fprintf(cont->stream,
+            "<span class=\"label\">Expressions</span><span>%d "
+            "<span class=\"%s\">(%d typed)</span> "
+            "<span class=\"%s\">(%d untyped)</span></span>\n",
+            s->exprs_total,
+            s->exprs_typed > 0 ? "ok" : "label", s->exprs_typed,
+            s->bad_types   > 0
+                ? (stage == KTL_STAGE_ANALYZED ? "bad" : "warn")
+                : "label",
+            s->bad_types);
+
+    /* Подсказка по стадии */
+    const char *hint = "";
+    switch (stage) {
+        case KTL_STAGE_PARSE:
+            hint = "names not yet resolved — run name resolution";
+            break;
+        case KTL_STAGE_RESOLVED:
+            hint = "types not yet inferred — run type analysis";
+            break;
+        case KTL_STAGE_ANALYZED:
+            hint = (s->bad_types > 0)
+                 ? "type analysis completed with errors"
+                 : "type analysis completed";
+            break;
+        case KTL_STAGE_EMPTY:
+            hint = "empty AST";
+            break;
+    }
+    fprintf(cont->stream,
+            "<span class=\"label\">Hint</span><span class=\"label\">%s</span>\n",
+            hint);
+
+    fprintf(cont->stream, "</div>\n</details>\n");
 }
 
 // =======================================================================
@@ -379,7 +627,6 @@ static void ktl_dump_types_table(KTL_DumpAstContext *cont) {
                     if (!e->dt.block.complete) {
                         fprintf(cont->stream, " (incomplete)");
                     }
-                    /* список полей через ", " — в том же поле */
                     if (e->dt.block.field_count > 0) {
                         fprintf(cont->stream, ": ");
                         for (int j = 0; j < e->dt.block.field_count; j++) {
@@ -420,7 +667,6 @@ static void ktl_dump_types_table(KTL_DumpAstContext *cont) {
         fprintf(cont->stream, "</tbody></table>\n");
     }
 
-    /* aliases */
     if (map->alias_size > 0) {
         fprintf(cont->stream,
                 "<h4 class=\"subhead\">Aliases (%d)</h4>\n"
@@ -547,8 +793,9 @@ static void ktl_dump_node(KTL_DumpAstContext *cont,
                 kname, kname, node->pos.line, node->pos.column);
         ktl_dump_extra_attrs(cont, node);
         fprintf(cont->stream, ">");
-        ktl_dump_summary(cont, node);
-        ktl_dump_pos    (cont, node->pos);
+        ktl_dump_summary   (cont, node);
+        ktl_dump_type_annot(cont, node);
+        ktl_dump_pos       (cont, node->pos);
         fprintf(cont->stream, "</div>\n");
         return ;
     }
@@ -560,13 +807,13 @@ static void ktl_dump_node(KTL_DumpAstContext *cont,
             kname, kname, node->pos.line, node->pos.column);
     ktl_dump_extra_attrs(cont, node);
     fprintf(cont->stream, "%s>\n  <summary>", open);
-    ktl_dump_summary(cont, node);
-    ktl_dump_pos    (cont, node->pos);
+    ktl_dump_summary   (cont, node);
+    ktl_dump_type_annot(cont, node);
+    ktl_dump_pos       (cont, node->pos);
     fprintf(cont->stream, "</summary>\n");
 
     ktl_dump_scope_syms(cont, node);
-
-    ktl_dump_children(cont, node, depth + 1);
+    ktl_dump_children  (cont, node, depth + 1);
 
     fprintf(cont->stream, "</details>\n");
 }
@@ -605,8 +852,8 @@ static void ktl_dump_children(KTL_DumpAstContext *cont,
 static void ktl_dump_extra_attrs(KTL_DumpAstContext *cont, KTL_AstNode *node) {
     assert(cont); assert(node);
 
+    /* data-sym-id для подсветки */
     KTL_SymbolEntry *e = NULL;
-
     switch (node->kind) {
         case KTL_AST_VARIABLE:
             if (!node->data.var.is_raw)         e = node->data.var.info.res.entry;
@@ -614,15 +861,54 @@ static void ktl_dump_extra_attrs(KTL_DumpAstContext *cont, KTL_AstNode *node) {
         case KTL_AST_FUNCTION_CALL:
             if (!node->data.func_call.is_raw)   e = node->data.func_call.info.res.entry;
             break;
-        case KTL_AST_VARIABLE_DECL:             e = node->data.var_decl.entry;      break;
-        case KTL_AST_FUNCTION_DECL:             e = node->data.func_decl.func;      break;
-        default:                                                                    break;
+        case KTL_AST_VARIABLE_DECL:             e = node->data.var_decl.entry;  break;
+        case KTL_AST_FUNCTION_DECL:             e = node->data.func_decl.func;  break;
+        default:                                                                break;
     }
-
     int idx = ktl_sym_index(cont, e);
     if (idx >= 0) {
         fprintf(cont->stream, " data-sym-id=\"%d\"", idx);
     }
+
+    /* data-typed: ok / bad / raw — для будущих фильтров и подсветки */
+    KTL_DumpStage stage = (KTL_DumpStage) cont->stage;
+    KTL_TypeID    t;
+
+    bool is_raw = (node->kind == KTL_AST_VARIABLE      && node->data.var.is_raw)
+               || (node->kind == KTL_AST_FUNCTION_CALL && node->data.func_call.is_raw);
+
+    if (is_raw) {
+        fprintf(cont->stream, " data-typed=\"raw\"");
+    } else if (ktl_get_expr_type(node, &t)) {
+        if      (TypeIDCheck(t))                   fprintf(cont->stream, " data-typed=\"ok\"");
+        else if (stage == KTL_STAGE_ANALYZED)      fprintf(cont->stream, " data-typed=\"bad\"");
+    }
+}
+
+// =======================================================================
+// TYPE ANNOTATION (после summary, перед позицией)
+// =======================================================================
+static void ktl_dump_type_annot(KTL_DumpAstContext *cont, KTL_AstNode *node) {
+    assert(cont); assert(node);
+
+    if (!ktl_should_show_annot(node))   return ;
+
+    KTL_TypeID t;
+    if (!ktl_get_expr_type(node, &t))   return ;
+
+    KTL_DumpStage stage = (KTL_DumpStage) cont->stage;
+
+    if (TypeIDCheck(t)) {
+        fprintf(cont->stream,
+                "<span class=\"annot\">: <span class=\"type\">");
+        ktl_type_print(cont->stream, cont->type_map, t);
+        fprintf(cont->stream, "</span></span>");
+    } else if (stage == KTL_STAGE_ANALYZED) {
+        /* После анализа ожидаем валидный тип — отсутствие = ошибка. */
+        fprintf(cont->stream,
+                "<span class=\"annot bad\">: &#9888; bad type</span>");
+    }
+    /* На стадиях Parse/Resolved отсутствие типа — норма, ничего не печатаем. */
 }
 
 // =======================================================================
@@ -638,7 +924,6 @@ static void ktl_dump_summary(KTL_DumpAstContext *cont, KTL_AstNode *node) {
     switch (node->kind) {
         case KTL_AST_FILE:    fprintf(s, "FILE"); break;
         case KTL_AST_MAIN:    fprintf(s, "MAIN"); break;
-        case KTL_AST_ARRAY_INIT: fprintf(s, "{...}"); break;
 
         case KTL_AST_FUNCTION_DECL: {
             KTL_SymbolEntry *fn = node->data.func_decl.func;
@@ -702,6 +987,11 @@ static void ktl_dump_summary(KTL_DumpAstContext *cont, KTL_AstNode *node) {
                     node->data.var_decl.is_init ? " = ..." : "");
             break;
         }
+
+        case KTL_AST_ARRAY_INIT:
+            fprintf(s, "array init <span class=\"kind\">(%d elems)</span>",
+                    node->move.n.amount);
+            break;
 
         case KTL_AST_FIELD_ACCESS:
             fprintf(s, "<span class=\"op\">%s</span>"
@@ -808,6 +1098,7 @@ static const char *ktl_kind_name(KTL_AstNodeKind kind) {
         case KTL_AST_FUNCTION_CALL:  return "FUNCTION_CALL";
         case KTL_AST_VARIABLE:       return "VARIABLE";
         case KTL_AST_VARIABLE_DECL:  return "VARIABLE_DECL";
+        case KTL_AST_ARRAY_INIT:     return "ARRAY_INIT";
         case KTL_AST_FIELD_ACCESS:   return "FIELD_ACCESS";
         case KTL_AST_INDEX_ACCESS:   return "INDEX_ACCESS";
         case KTL_AST_BINARY_OPER:    return "BINARY_OPER";
@@ -828,7 +1119,6 @@ static const char *ktl_kind_name(KTL_AstNodeKind kind) {
         case KTL_AST_CONTINUE:       return "CONTINUE";
         case KTL_AST_EXIT:           return "EXIT";
         case KTL_AST_CAST:           return "CAST";
-        case KTL_AST_ARRAY_INIT:     return "ARRAY_LIST";
         default:                     return "?";
     }
 }
