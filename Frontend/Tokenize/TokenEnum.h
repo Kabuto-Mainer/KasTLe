@@ -33,6 +33,7 @@ enum KTL_KeyWord {
 
     KTL_KEY_VAR_DECL,
     KTL_KEY_FUNC_DECL,
+    KTL_KEY_CAST,
 
     KTL_KEY_EXIT,
 

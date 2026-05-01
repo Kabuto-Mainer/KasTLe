@@ -105,7 +105,7 @@
 </tbody></table>
 </details>
 <details class="section">
-  <summary>Types (10)</summary>
+  <summary>Types (9)</summary>
 <table class="sym-table">
 <thead><tr><th>#</th><th>kind</th><th>form</th><th>size</th><th>align</th><th>extra</th></tr></thead>
 <tbody>
@@ -118,7 +118,6 @@
 <tr><td class="idx">6</td><td>block</td><td class="type">stack_t</td><td>20</td><td>4</td><td>3 fields: head: i32, size: i32, data: i8[10]</td></tr>
 <tr><td class="idx">7</td><td>array</td><td class="type">i8[10]</td><td>—</td><td>—</td><td>-&gt; #3 &times; 10</td></tr>
 <tr><td class="idx">8</td><td>ptr</td><td class="type">stack_t*</td><td>—</td><td>—</td><td>-&gt; #6</td></tr>
-<tr><td class="idx">9</td><td>ptr</td><td class="type">i8*</td><td>—</td><td>—</td><td>-&gt; #3</td></tr>
 </tbody></table>
 <h4 class="subhead">Aliases (2)</h4>
 <table class="sym-table">
@@ -281,28 +280,18 @@
 </details>
 <details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="34" data-pos-col="4" data-sym-id="9">
   <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">x</span> = ...<span class="pos">34:4</span></summary>
-<div class="node leaf node-VALUE_STR" data-kind="VALUE_STR" data-pos-line="34" data-pos-col="16"><span class="kind">[VALUE_STR]</span> <span class="str">"768"</span><span class="pos">34:16</span></div>
-</details>
-<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="53" data-pos-col="31">
-  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">53:31</span></summary>
-<details class="node node-FIELD_ACCESS" data-kind="FIELD_ACCESS" data-pos-line="53" data-pos-col="27">
-  <summary><span class="kind">[FIELD_ACCESS]</span> <span class="op">-&gt;</span><span class="name">oss</span><span class="pos">53:27</span></summary>
-<details class="node node-FIELD_ACCESS" data-kind="FIELD_ACCESS" data-pos-line="53" data-pos-col="20">
-  <summary><span class="kind">[FIELD_ACCESS]</span> <span class="op">.</span><span class="name">index</span><span class="pos">53:20</span></summary>
-<details class="node node-FIELD_ACCESS" data-kind="FIELD_ACCESS" data-pos-line="53" data-pos-col="14">
-  <summary><span class="kind">[FIELD_ACCESS]</span> <span class="op">-&gt;</span><span class="name">field</span><span class="pos">53:14</span></summary>
-<details class="node node-INDEX_ACCESS" data-kind="INDEX_ACCESS" data-pos-line="0" data-pos-col="0">
-  <summary><span class="kind">[INDEX_ACCESS]</span> <span class="op">[ ]</span><span class="pos">0:0</span></summary>
-<details class="node node-FIELD_ACCESS" data-kind="FIELD_ACCESS" data-pos-line="53" data-pos-col="6">
-  <summary><span class="kind">[FIELD_ACCESS]</span> <span class="op">.</span><span class="name">nnb</span><span class="pos">53:6</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="53" data-pos-col="5" data-sym-id="9"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="pos">53:5</span></div>
-</details>
-<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="53" data-pos-col="10"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="pos">53:10</span></div>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="34" data-pos-col="22">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i32</span><span class="pos">34:22</span></summary>
+<div class="node leaf node-VALUE_STR" data-kind="VALUE_STR" data-pos-line="34" data-pos-col="27"><span class="kind">[VALUE_STR]</span> <span class="str">"768"</span><span class="pos">34:27</span></div>
 </details>
 </details>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="37" data-pos-col="6">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">37:6</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="37" data-pos-col="6" data-sym-id="9"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="pos">37:6</span></div>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="37" data-pos-col="14">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i32</span><span class="pos">37:14</span></summary>
+<div class="node leaf node-VALUE_STR" data-kind="VALUE_STR" data-pos-line="37" data-pos-col="19"><span class="kind">[VALUE_STR]</span> <span class="str">"0123456789"</span><span class="pos">37:19</span></div>
 </details>
-</details>
-<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="53" data-pos-col="33"><span class="kind">[VALUE_INT]</span> <span class="lit">8</span><span class="pos">53:33</span></div>
 </details>
 <details class="node node-WHILE_BLOCK" data-kind="WHILE_BLOCK" data-pos-line="55" data-pos-col="4">
   <summary><span class="kind">[WHILE_BLOCK]</span> while<span class="pos">55:4</span></summary>

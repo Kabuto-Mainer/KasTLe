@@ -52,7 +52,7 @@ KasTLe Grammar:
                | "greater" | "greater_or_equal"
 <add_step>   ::= <mul_step> { ( "+" | "-" ) <mul_step> }
 <mul_step>   ::= <unary> { ( "*" | "/" | "%" ) <unary> }
-<unary>      ::= { "&" | "*" | "-" } <atom>
+<unary>      ::= ( { "&" | "*" | "-" } | [ "cast" "<" <type> ">" ] ) <atom>
 <atom>       ::= "(" <expr> ")" | <call> | <var> | <number> | <string>
 
 <var>        ::= <name> { ( "." <name> ) | ( "->" <name> ) | ( "[" <expr> "]" ) }

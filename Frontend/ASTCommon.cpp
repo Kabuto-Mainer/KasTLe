@@ -33,6 +33,7 @@ KTL_AstChildren KTL_AstGetTypeChildren(KTL_AstNode *node) {
             return KTL_AST_BINARY_CHILDREN;
 
         /* One child */
+        case KTL_AST_CAST:
         case KTL_AST_MAIN:
         case KTL_AST_ELSE_BRANCH:
         case KTL_AST_UNARY_OPER:

@@ -43,6 +43,16 @@ int main() {
                   &diag);
 
     KTL_ParseProcess(&parse_cont);
+    if (diag.error_count > 0) {
+        KTL_DiagFlush(&diag, NAME_FILE);
+        KTL_StrMapDestroy (&str_map);
+        KTL_DiagDestroy   (&diag);
+        KTL_TokenUninit   (&token_cont);
+        KTL_TypeMapDestroy(&type_map);
+        KTL_ParseUninit   (&parse_cont);
+        return 0;
+    }
+
 
     KTL_AnalysisContext an_cont = {};
     KTL_AnalysisInit(&an_cont, &str_map,
