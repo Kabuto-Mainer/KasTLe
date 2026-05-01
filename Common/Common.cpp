@@ -36,3 +36,4 @@ int ktl_sup_get_file_size(const char *file) {
 
     return (int) file_stat.st_size;
 }
+

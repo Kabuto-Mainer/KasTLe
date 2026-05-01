@@ -80,7 +80,7 @@ KTL_Error KTL_TypeMapDestroy(KTL_TypeMap *map) {
     return KTL_OK;
 }
 
-KTL_TypeID KTL_TypeMapAddBase(KTL_TypeMap *map, const KTL_StrID name,
+KTL_TypeID KTL_TypeAddBase(KTL_TypeMap *map, const KTL_StrID name,
                               int size, int align) {
     assert(map);
     assert(StrIDCheck(name));
@@ -291,7 +291,7 @@ KTL_TypeID KTL_TypeFindByName(const KTL_TypeMap *map, const KTL_StrID name) {
  * @param id ID type in Map
  * @return KTL_TypeEntry* entry in success,
  * @return KTL_TypeEntry* NULL in error
- * @note DO NOT USE IT FOR IDENTIFIER TYPE !!! ONLY FOR TYPE INFO !!!
+ * @note DO NOT USE IT FOR IDENTIFIER TYPE !!! ONLY FOR GET TYPE INFO !!!
  */
 KTL_TypeEntry *KTL_TypeGetEntry(const KTL_TypeMap *map, const KTL_TypeID id) {
     assert(map);

@@ -32,9 +32,6 @@ static inline void        add_node_r (KTL_AstNode *parent, KTL_AstNode *child);
 static inline void        add_node_u (KTL_AstNode *parent, KTL_AstNode *child);
 static void               add_node_n (KTL_AstNode *parent, KTL_AstNode *child);
 
-static KTL_AstNode *      ktl_alloc_node    ();
-static void               ktl_destroy_node  (KTL_AstNode *node);
-
 static inline KTL_SourcePos get_t_pos       (KTL_ParseContext *cont);
 
 // =======================================================================
@@ -1760,9 +1757,19 @@ static KTL_Error ktl_register_standard_types(KTL_ParseContext *cont) {
         KTL_StrID name_id = KTL_StrMapFind(cont->str_map, KTL_STANDARD_TYPES[i].name);
         if (StrIDCheck(name_id) == false)   return KTL_MEMORY_ERR;
 
-        KTL_TypeID id = KTL_TypeMapAddBase(cont->type_map, name_id,
-                                            KTL_STANDARD_TYPES[i].size,
-                                            KTL_STANDARD_TYPES[i].align);
+        KTL_TypeID id = KTL_TypeAddBase(cont->type_map, name_id,
+                                        KTL_STANDARD_TYPES[i].size,
+                                        KTL_STANDARD_TYPES[i].align);
+        if (TypeIDCheck(id) == false)       return KTL_LOGICAL_ERR;
+    }
+
+    count = sizeof(KTL_STANDARD_ALIAS) / sizeof(KTL_STANDARD_ALIAS[0]);
+    for (int i = 0; i < count; i++) {
+        KTL_StrID name_id = KTL_StrMapFind(cont->str_map, KTL_STANDARD_ALIAS[i].name);
+        if (StrIDCheck(name_id) == false)   return KTL_MEMORY_ERR;
+
+        KTL_TypeID id = KTL_TypeAddDefine(cont->type_map, KTL_STANDARD_ALIAS[i].target,
+                                          name_id);
         if (TypeIDCheck(id) == false)       return KTL_LOGICAL_ERR;
     }
 
@@ -1977,49 +1984,6 @@ static void add_node_n(KTL_AstNode *parent, KTL_AstNode *child) {
     }
 
     parent->move.n.children[parent->move.n.amount++] = child;
-}
-
-static KTL_AstNode * ktl_alloc_node() {
-    KTL_AstNode *node = (KTL_AstNode *)calloc(1, sizeof(KTL_AstNode));
-    if (node == NULL) {
-        ExitF("NULL Calloc", NULL);
-    }
-    return node;
-}
-
-static void ktl_destroy_node(KTL_AstNode *node) {
-    if (node == NULL)   return ;
-
-    switch (KTL_AstGetTypeChildren(node)) {
-        case KTL_AST_N_CHILDREN:
-            for (int i = 0; i < node->move.n.amount; i++) {
-                ktl_destroy_node(node->move.n.children[i]);
-            }
-            free(node->move.n.children);
-            break;
-
-        case KTL_AST_BINARY_CHILDREN:
-            ktl_destroy_node(node->move.binary.left);
-            ktl_destroy_node(node->move.binary.right);
-            break;
-
-        case KTL_AST_UNARY_CHILD:
-            ktl_destroy_node(node->move.unary.next);
-            break;
-
-        case KTL_AST_NO_CHILDREN:
-        default:
-            break;
-    }
-
-    if (node->kind == KTL_AST_BLOCK) {
-        KTL_SymbolMapUninit(node->data.block.map);
-    } else if (node->kind == KTL_AST_FUNCTION_DECL) {
-        KTL_SymbolMapUninit(node->data.func_decl.map);
-    } else if (node->kind == KTL_AST_FOR_BLOCK) {
-        KTL_SymbolMapUninit(node->data.for_block.map);
-    }
-    free(node);
 }
 
 static inline KTL_SourcePos get_t_pos(KTL_ParseContext *cont) {

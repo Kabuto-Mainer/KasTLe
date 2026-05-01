@@ -348,7 +348,7 @@ static KTL_TokenStatus ktl_token_str_lit(KTL_TokenContext *cont) {
         if (sym == '\\') {
             advance(cont);
             char esc     = get_c(cont);
-            char decoded = esc;        /* fallback: пропускаем сырой символ */
+            char decoded = esc;
             switch (esc) {
                 case 'n':  decoded = '\n'; break;
                 case 't':  decoded = '\t'; break;

@@ -69,7 +69,6 @@ enum KTL_Oper {
     KTL_OPER_UNGET_PTR,
     KTL_OPER_ASSIGN,
 
-
     KTL_OPER_THIS_ERROR,
 };
 
@@ -105,14 +104,18 @@ struct KTL_AstNode {
         } func_call;
 
         struct {
-            KTL_StrID name;
+            KTL_StrID  name;
+            KTL_TypeID type;
             bool      is_ptr;
         } field;
 
-        struct { KTL_Oper op; } oper;
+        struct {
+            KTL_Oper    op;
+            KTL_TypeID  type_res;
+        } oper;
 
-        struct { int64_t   value; } int_val;
-        struct { KTL_StrID value; } str_val;
+        struct { int64_t   value; KTL_TypeID type_res; } int_val;
+        struct { KTL_StrID value; KTL_TypeID type_res; } str_val;
 
         struct {
             KTL_TypeID base_id;
@@ -134,6 +137,11 @@ struct KTL_AstNode {
         struct {
             KTL_TypeID target;
         } cast;
+
+        struct {
+            KTL_TypeID type_value;
+        } index;
+
     } data;
 
     /* Связи с потомками:

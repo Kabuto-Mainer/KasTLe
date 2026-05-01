@@ -24,6 +24,7 @@ static KTL_DiagPayload ktl_diag_payload(KTL_DiagError error) {
         case KTL_DIAG_SEM_RETURN_TYPE:
             return KTL_DIAG_PL_TWO_NAMES;
 
+
         case KTL_DIAG_PARSE_BAD_ARRAY_SIZE:
         case KTL_DIAG_PARSE_BAD_MODIFIERS:
             return KTL_DIAG_PL_NUMBER;
@@ -260,6 +261,7 @@ static const char * ktl_err_str(KTL_DiagError err) {
         case KTL_DIAG_SEM_BAD_FIELD:              return "bad field";
         case KTL_DIAG_SEM_NOT_INDEXABLE:          return "not indexable";
         case KTL_DIAG_SEM_RETURN_TYPE:            return "return type mismatch";
+        case KTL_DIAG_SEM_UNSUPPORTED_TYPE_OPER:  return "unsupported oper with type";
         case KTL_DIAG_SEM_BREAK_OUTSIDE_LOOP:     return "break outside loop";
         case KTL_DIAG_SEM_CONTINUE_OUTSIDE_LOOP:  return "continue outside loop";
         case KTL_DIAG_SEM_NO_MAIN:                return "no main";

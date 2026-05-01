@@ -15,6 +15,12 @@ enum KTL_TypeEntryKind {
     KTL_TYPE_ARRAY,
 };
 
+enum KTL_TypeCastKind {
+    KTL_TYPE_CAST_SAME,
+    KTL_TYPE_CAST_IMPLICIT,
+    KTL_TYPE_CAST_INCOMPATIBLE,
+};
+
 // =======================================================================
 struct KTL_TypeField {
     KTL_TypeID base_type;
@@ -75,6 +81,12 @@ struct KTL_TypeMap {
 };
 
 struct KTL_TypeStandard {
+    const char *name;
+    int         size;
+    int         align;
+};
+
+struct KTL_AliasStandard {
     const char *name;
     int         size;
     int         align;

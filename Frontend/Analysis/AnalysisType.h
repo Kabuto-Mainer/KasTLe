@@ -15,6 +15,9 @@ struct KTL_AnalysisContext {
 
     KTL_AstNode    *root;
     KTL_SymbolMap  *current_scope;
+    KTL_TypeID      currect_type_func;
+    KTL_TypeID      currect_type_array;
+    bool            in_func;
 };
 
 

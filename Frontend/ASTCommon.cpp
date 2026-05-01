@@ -1,7 +1,9 @@
+#include <stdlib.h>
 #include <assert.h>
 
 #include "ASTType.h"
 #include "ASTCommon.h"
+#include "SymMap.h"
 
 KTL_AstChildren KTL_AstGetTypeChildren(KTL_AstNode *node) {
     assert(node);
@@ -49,3 +51,46 @@ KTL_AstChildren KTL_AstGetTypeChildren(KTL_AstNode *node) {
             return KTL_AST_NO_CHILDREN;
     }
 };
+
+KTL_AstNode * ktl_alloc_node() {
+    KTL_AstNode *node = (KTL_AstNode *)calloc(1, sizeof(KTL_AstNode));
+    if (node == NULL) {
+        ExitF("NULL Calloc", NULL);
+    }
+    return node;
+}
+
+void ktl_destroy_node(KTL_AstNode *node) {
+    if (node == NULL)   return ;
+
+    switch (KTL_AstGetTypeChildren(node)) {
+        case KTL_AST_N_CHILDREN:
+            for (int i = 0; i < node->move.n.amount; i++) {
+                ktl_destroy_node(node->move.n.children[i]);
+            }
+            free(node->move.n.children);
+            break;
+
+        case KTL_AST_BINARY_CHILDREN:
+            ktl_destroy_node(node->move.binary.left);
+            ktl_destroy_node(node->move.binary.right);
+            break;
+
+        case KTL_AST_UNARY_CHILD:
+            ktl_destroy_node(node->move.unary.next);
+            break;
+
+        case KTL_AST_NO_CHILDREN:
+        default:
+            break;
+    }
+
+    if (node->kind == KTL_AST_BLOCK) {
+        KTL_SymbolMapUninit(node->data.block.map);
+    } else if (node->kind == KTL_AST_FUNCTION_DECL) {
+        KTL_SymbolMapUninit(node->data.func_decl.map);
+    } else if (node->kind == KTL_AST_FOR_BLOCK) {
+        KTL_SymbolMapUninit(node->data.for_block.map);
+    }
+    free(node);
+}
