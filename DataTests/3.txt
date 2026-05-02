@@ -12,57 +12,39 @@ func bool stack_init(stack_t* stk,
                     i32 size)
 {
     if (size <= 0 or size > MAX_STACK_SIZE) {
-        return 0;
+        return cast <bool> 0;
     }
 
     for (var i32 i = 0; i < MAX_STACK_SIZE; i = i + 1) {
-        stk->data[i] = 0;
+        stk->data[i] = cast <stack_value> 0;
     }
 
     stk->head = 0;
     stk->size = size;
 
-    return ;
+    return cast <bool> 0;
 }
 
 var i32 counter = 0;
 
-func i32 add(i32 a, i32 b) {
+func const i32 add(i32 a, i32 b) {
     return a + b;
 }
 
 main {
-    var i32 x = cast <i32> "768";
+    // var i32 x = 10;
+    var const char* i;
+    i = "fopf";
+    *i = "fomr";
 
-
-    x = cast <i32> "0123456789";
-/*
-    var i32 y = 'a';
-    var i32 z = add(x, y);
-    var i32[10] value = {0, 1, 2, 15 + 2};
-
-    if (z > 0) {
-        counter = counter + 1;
-    }
-    elif (x > 0) {
-        counter = counter + 1;
-    }
-    else {
-        x.nnb[0]->field.index->oss = 8;
-    }
-    x.nnb[0]->field.index->oss = 8;
-*/
-
-    while (1) {
-
-    }
-
+    /*
     while (x > 0) {
         x = x - 1;
-        if (x == 5) {
+        if (x = 5) {
             break;
         }
     }
+    */
     exit;
 }
 

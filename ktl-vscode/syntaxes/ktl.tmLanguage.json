@@ -1,0 +1,209 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "KasTLe",
+  "scopeName": "source.ktl",
+  "fileTypes": ["ktl"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#cast-expr" },
+    { "include": "#keywords" },
+    { "include": "#operators-word" },
+    { "include": "#types-builtin" },
+    { "include": "#modifiers" },
+    { "include": "#constants" },
+    { "include": "#decl-func" },
+    { "include": "#decl-block" },
+    { "include": "#decl-var-name" },
+    { "include": "#typedef-target" },
+    { "include": "#field-access" },
+    { "include": "#func-call" },
+    { "include": "#operators" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.ktl",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.ktl",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+
+    "strings": {
+      "name": "string.quoted.double.ktl",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.ktl",
+          "match": "\\\\."
+        }
+      ]
+    },
+
+    "numbers": {
+      "name": "constant.numeric.ktl",
+      "match": "\\b[0-9]+\\b"
+    },
+
+    "keywords": {
+      "name": "keyword.control.ktl",
+      "match": "\\b(if|elif|else|while|for|return|break|continue|exit)\\b"
+    },
+
+    "modifiers": {
+      "name": "storage.modifier.ktl",
+      "match": "\\b(const|mutable|register|stack)\\b"
+    },
+
+    "types-builtin": {
+      "name": "support.type.builtin.ktl",
+      "match": "\\b(i8|i16|i32|i64|bool|void|char)\\b"
+    },
+
+    "constants": {
+      "name": "constant.language.ktl",
+      "match": "\\b(true|false)\\b"
+    },
+
+    "operators-word": {
+      "patterns": [
+        {
+          "name": "keyword.operator.logical.ktl",
+          "match": "\\b(and|or)\\b"
+        },
+        {
+          "name": "keyword.operator.comparison.ktl",
+          "match": "\\b(equal|not_equal|less|less_or_equal|greater|greater_or_equal)\\b"
+        }
+      ]
+    },
+
+    "cast-expr": {
+      "begin": "\\b(cast)\\s*(<)",
+      "beginCaptures": {
+        "1": { "name": "keyword.operator.cast.ktl" },
+        "2": { "name": "punctuation.definition.generic.begin.ktl" }
+      },
+      "end": ">",
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.generic.end.ktl" }
+      },
+      "patterns": [
+        { "include": "#types-builtin" },
+        { "include": "#modifiers" },
+        {
+          "name": "entity.name.type.ktl",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+        },
+        {
+          "name": "keyword.operator.pointer.ktl",
+          "match": "\\*"
+        },
+        {
+          "name": "constant.numeric.ktl",
+          "match": "[0-9]+"
+        },
+        {
+          "name": "punctuation.bracket.square.ktl",
+          "match": "[\\[\\]]"
+        }
+      ]
+    },
+
+    "decl-func": {
+      "match": "\\b(func)\\b\\s+(?:(?:const|mutable|register|stack)\\s+)*(?:[A-Za-z_][A-Za-z0-9_]*\\s*\\**\\s*(?:\\[\\s*[0-9]+\\s*\\]\\s*)*)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "storage.type.function.ktl" },
+        "2": { "name": "entity.name.function.ktl" }
+      }
+    },
+
+    "decl-block": {
+      "match": "\\b(block)\\b\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "storage.type.struct.ktl" },
+        "2": { "name": "entity.name.type.ktl" }
+      }
+    },
+
+    "decl-var-name": {
+      "match": "\\b(var)\\b",
+      "captures": {
+        "1": { "name": "storage.type.var.ktl" }
+      }
+    },
+
+    "typedef-target": {
+      "match": "\\b(typedef)\\b\\s+(?:[A-Za-z_][A-Za-z0-9_]*\\s*\\**\\s*(?:\\[\\s*[0-9]+\\s*\\]\\s*)*)\\s*(->)\\s*([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "storage.type.typedef.ktl" },
+        "2": { "name": "keyword.operator.typedef.ktl" },
+        "3": { "name": "entity.name.type.ktl" }
+      }
+    },
+
+    "main-keyword": {
+      "match": "\\b(main)\\b",
+      "name": "entity.name.function.main.ktl"
+    },
+
+    "func-call": {
+      "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+      "captures": {
+        "1": { "name": "entity.name.function.call.ktl" }
+      }
+    },
+
+    "field-access": {
+      "match": "(\\.|->)\\s*([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.operator.access.ktl" },
+        "2": { "name": "variable.other.property.ktl" }
+      }
+    },
+
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.ktl",
+          "match": "==|!=|<=|>=|<|>"
+        },
+        {
+          "name": "keyword.operator.assignment.ktl",
+          "match": "="
+        },
+        {
+          "name": "keyword.operator.arithmetic.ktl",
+          "match": "\\+|-|\\*|/|%"
+        },
+        {
+          "name": "keyword.operator.address.ktl",
+          "match": "&"
+        },
+        {
+          "name": "punctuation.separator.ktl",
+          "match": "[,;]"
+        }
+      ]
+    },
+
+    "identifiers": {
+      "patterns": [
+        { "include": "#main-keyword" },
+        {
+          "name": "variable.other.ktl",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+}

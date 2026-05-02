@@ -74,6 +74,9 @@ static bool cast_to_type                      (KTL_AstNode *node,    KTL_TypeID 
 static KTL_StrID get_full_name_type           (KTL_AnalysisContext *cont, KTL_TypeID type);
 static KTL_StrID get_name                     (KTL_AnalysisContext *cont, const char *string);
 
+static bool              checking_consts(KTL_AnalysisContext *cont, KTL_AstNode *node);
+static KTL_AnalysisConst is_const       (KTL_AnalysisContext *cont, KTL_AstNode *node);
+
 
 
 // =======================================================================
@@ -115,6 +118,12 @@ KTL_Error KTL_AnalysisProcess(KTL_AnalysisContext *cont) {
     printf("[ 80%%] START TYP'S ANALYSIS\n");
 
     is_correct = analyze_file(cont, cont->root);
+
+    printf("[ 90%%] END ANALYSIS\n");
+
+    if (is_correct == false)    return KTL_LOGICAL_ERR;
+
+    is_correct = checking_consts(cont, cont->root);
 
     printf("[100%%] END ANALYSIS\n");
 
@@ -212,33 +221,37 @@ static bool analyze_file(KTL_AnalysisContext *cont,
     bool is_correct = true;
 
     for (int i = 0; i < root->move.n.amount; i++) {
+
         KTL_AstNode *node = root->move.n.children[i];
 
         switch (get_k(node)) {
             case KTL_AST_MAIN: {
-                debug_out("MAIN\n");
+                debug_out("=== MAIN\n");
                 cont->in_func = false;
                 is_correct = analyze_line(cont, node->move.unary.next);
+                debug_out("=== IS CORRECT: %d\n", (int) is_correct);
                 break;
             }
             case KTL_AST_FUNCTION_DECL: {
-                debug_out("VAR DECL [%s]\n", node->data.func_decl.func->str_id);
+                // debug_out("VAR DECL [%s]\n", node->data.func_decl.func->str_id);
                 cont->currect_type_func = node->data.func_decl.func->func.ret_type;
                 cont->in_func           = true;
                 for (int j = 0; j < node->move.n.amount; j++) {
                     is_correct &= analyze_line(cont, node->move.n.children[j]);
                 }
+                debug_out("=== IS CORRECT: %d\n", (int) is_correct);
                 break;
             }
 
             case KTL_AST_VARIABLE_DECL:
-                debug_out("VAR DECL [%s]\n", node->data.var_decl.entry->str_id);
+                // debug_out("VAR DECL [%s]\n", node->data.var_decl.entry->str_id);
                 is_correct &= analyze_var_decl(cont, node);
+                debug_out("=== IS CORRECT: %d\n", (int) is_correct);
                 break;
 
             case KTL_AST_TYPEDEF:
             case KTL_AST_STRUCT_DECL:
-                debug_out("TYPEDEF | STRUCT DECL\n");
+                // debug_out("TYPEDEF | STRUCT DECL\n");
                 break;
 
             default:
@@ -258,34 +271,50 @@ static bool analyze_line(KTL_AnalysisContext *cont,
 
     bool is_correct = true;
 
+    debug_out("====== IS CORRECT: %d\n", (int) is_correct);
+
     switch (get_k(node)) {
         case KTL_AST_FUNCTION_CALL:
-            debug_out("FUNC CALL [%s]\n", node->data.func_call.info.res.entry->str_id);
-            return analyze_func_call_param(cont, node);
+            // debug_out("FUNC CALL [%s]\n", node->data.func_call.info.res.entry->str_id);
+            is_correct = analyze_func_call_param(cont, node);
+            debug_out("====== IS CORRECT: %d\n", (int) is_correct);
+            return is_correct;
 
         case KTL_AST_VARIABLE_DECL:
-            debug_out("VAR DECL [%s]\n", node->data.var_decl.entry->str_id);
-            return analyze_var_decl(cont, node);
+            // debug_out("VAR DECL [%s]\n", node->data.var_decl.entry->str_id);
+            is_correct = analyze_var_decl(cont, node);
+            debug_out("====== IS CORRECT: %d\n", (int) is_correct);
+            return is_correct;
 
         case KTL_AST_ASSIGN:
-            debug_out("ASSIGN\n");
-            return analyze_assign(cont, node);
+            // debug_out("ASSIGN\n");
+            is_correct = analyze_assign(cont, node);
+            debug_out("====== IS CORRECT: %d\n", (int) is_correct);
+            return is_correct;
 
         case KTL_AST_WHILE_BLOCK:
+            debug_out("*\n");
         case KTL_AST_IF_BRANCH:
-        case KTL_AST_ELSE_BRANCH:
+            debug_out("*\n");
+        case KTL_AST_ELSE_BRANCH: {
+            debug_out("*\n");
             debug_out("BINARY (BLOCK | BRANCH)\n");
-            is_correct &= analyze_line(cont, node->move.binary.left);
+            KTL_TypeID type_cond = analyze_type_expr(cont, node->move.binary.left);
+            is_correct &= type_cond != KTL_BAD_TYPE_ID;
+            debug_out("====== IS CORRECT: %d\n", (int) is_correct);
             is_correct &= analyze_line(cont, node->move.binary.right);
             return is_correct;
+        }
 
         case KTL_AST_COND_BLOCK:
         case KTL_AST_FOR_BLOCK:
         case KTL_AST_BLOCK:
             debug_out("BLOCK\n");
             for (int i = 0; i < node->move.n.amount; i++) {
+                debug_out("CIRCLE %d\n", i);
                 is_correct &= analyze_line(cont, node->move.n.children[i]);
             }
+            debug_out("====== IS CORRECT: %d\n", (int) is_correct);
             return is_correct;
 
         case KTL_AST_RETURN:
@@ -295,7 +324,9 @@ static bool analyze_line(KTL_AnalysisContext *cont,
                              KTL_DIAG_SEM_RETURN_OUTSIDE_FUNC,
                              KTL_DIAG_SEV_ERROR);
             }
-            return analyze_return(cont, node);
+            is_correct = analyze_return(cont, node);
+            debug_out("====== IS CORRECT: %d\n", (int) is_correct);
+            return is_correct;
 
         case KTL_AST_BREAK:
         case KTL_AST_CONTINUE:
@@ -304,6 +335,7 @@ static bool analyze_line(KTL_AnalysisContext *cont,
             return true;
 
         default:
+            debug_out("DEFAULT %d\n", (int) is_correct);
             return false;
     }
 }
@@ -330,8 +362,12 @@ static KTL_TypeID get_type_binary_oper(KTL_AnalysisContext *cont, KTL_AstNode *n
             result = type_res_oper(cont->type_map, type_l, type_r);
             if (result == KTL_BAD_TYPE_ID)  goto fail;
 
-            apply_type_compat(cont, node->move.binary.left,  result, type_l);
-            apply_type_compat(cont, node->move.binary.right, result, type_r);
+            if (is_l_ptr) {
+                apply_type_compat(cont, node->move.binary.right, KTL_I64_TYPE_ID, type_r);
+            }
+            if (is_r_ptr) {
+                apply_type_compat(cont, node->move.binary.left,  KTL_I64_TYPE_ID, type_l);
+            }
             break;
 
         case KTL_OPER_COMP_BE:
@@ -436,25 +472,24 @@ static KTL_TypeID analyze_type_expr(KTL_AnalysisContext *cont,
     assert(cont);
     if (node == NULL)  return KTL_BAD_TYPE_ID;
 
-    debug_out("EXPR: ");
+    // debug_out("EXPR: ");
 
     switch (get_k(node)) {
 
     case KTL_AST_VALUE_INT: {
-        debug_out("VALUE INT\n");
-        node->data.int_val.type_res = KTL_I32_TYPE_ID;
-        return KTL_I32_TYPE_ID;
+        // debug_out("VALUE INT\n");
+        return node->data.int_val.type_res;
     }
 
     case KTL_AST_VALUE_STR: {
-        debug_out("STR LITERAL\n");
+        // debug_out("STR LITERAL\n");
         KTL_TypeID type = KTL_TypeAddPointer(cont->type_map, KTL_CHAR_TYPE_ID);
         node->data.str_val.type_res = type;
         return type;
     }
 
     case KTL_AST_VARIABLE: {
-        debug_out("VARIABLE");
+        // debug_out("VARIABLE");
         KTL_SymbolEntry *entry = node->data.var.info.res.entry;
         if (entry == NULL)  return KTL_BAD_TYPE_ID;
         debug_out("[%s]\n", entry->str_id);
@@ -462,7 +497,7 @@ static KTL_TypeID analyze_type_expr(KTL_AnalysisContext *cont,
     }
 
     case KTL_AST_FUNCTION_CALL: {
-        debug_out("FUNCTION CALL\n");
+        // debug_out("FUNCTION CALL\n");
         analyze_func_call_param(cont, node);
 
         KTL_SymbolEntry *entry = node->data.func_call.info.res.entry;
@@ -471,9 +506,9 @@ static KTL_TypeID analyze_type_expr(KTL_AnalysisContext *cont,
     }
 
     case KTL_AST_FIELD_ACCESS: {
-        debug_out("FIELD ACCESS\n");
+        // debug_out("FIELD ACCESS\n");
         KTL_TypeID base_type = analyze_type_expr(cont, node->move.unary.next);
-        debug_out("BASE TYPE IN ACCESS FIELD = %d\n", base_type);
+        // debug_out("BASE TYPE IN ACCESS FIELD = %d\n", base_type);
         if (base_type == KTL_BAD_TYPE_ID)  return KTL_BAD_TYPE_ID;
 
         KTL_TypeEntry *base_entry = KTL_TypeGetEntry(cont->type_map, base_type);
@@ -516,9 +551,9 @@ static KTL_TypeID analyze_type_expr(KTL_AnalysisContext *cont,
     }
 
     case KTL_AST_INDEX_ACCESS: {
-        debug_out("INDEX ACCESS\n");
+        // debug_out("INDEX ACCESS\n");
         KTL_TypeID base_type = analyze_type_expr(cont, node->move.binary.left);
-        debug_out("BASE TYPE IN ACCESS INDEX = %d\n", base_type);
+        // debug_out("BASE TYPE IN ACCESS INDEX = %d\n", base_type);
         if (base_type == KTL_BAD_TYPE_ID)  return KTL_BAD_TYPE_ID;
 
         KTL_TypeEntry *base_entry = KTL_TypeGetEntry(cont->type_map, base_type);
@@ -539,7 +574,7 @@ static KTL_TypeID analyze_type_expr(KTL_AnalysisContext *cont,
         KTL_TypeID idx_type = analyze_type_expr(cont, node->move.binary.right);
         if (idx_type == KTL_BAD_TYPE_ID)  return KTL_BAD_TYPE_ID;
 
-        debug_out("INDEX TYPE = %d\n", idx_type);
+        // debug_out("INDEX TYPE = %d\n", idx_type);
 
         if (cmp_type_kind(cont, idx_type, KTL_TYPE_BASE) == false) {
             KTL_DiagEmit(cont->diag, get_pos(node),
@@ -825,6 +860,173 @@ static KTL_StrID get_full_name_type(KTL_AnalysisContext *cont, KTL_TypeID type) 
 static KTL_StrID get_name(KTL_AnalysisContext *cont, const char *string) {
     return KTL_StrMapFind(cont->str_map, string);
 }
+
+
+
+
+static bool checking_consts(KTL_AnalysisContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+
+    bool is_correct = true;
+
+    if (get_k(node) == KTL_AST_ASSIGN) {
+        KTL_AnalysisConst const_type_l = is_const(cont, node->move.binary.left);
+        if (const_type_l == KTL_ANALYSIS_CONST_VALUE) {
+            KTL_DiagEmit(cont->diag, get_pos(node),
+                         KTL_DIAG_SEM_ASSIGN_TO_CONST,
+                         KTL_DIAG_SEV_ERROR);
+
+            is_correct = false;
+        }
+        KTL_AnalysisConst const_type_r = is_const(cont, node->move.binary.right);
+        if (const_type_r == KTL_ANALYSIS_CONST_PTR &&
+            const_type_l != KTL_ANALYSIS_CONST_PTR) {
+            KTL_DiagEmit(cont->diag, get_pos(node),
+                         KTL_DIAG_SEM_ASSIGN_CONST_TO_NCONST,
+                         KTL_DIAG_SEV_ERROR);
+
+            is_correct = false;
+        }
+    }
+    else if (get_k(node) == KTL_AST_VARIABLE_DECL) {
+        if (node->data.var_decl.is_init == false)   return true;
+
+        KTL_SymbolEntry  *var     = node->data.var_decl.entry;
+        bool              is_cont = var->var.mod & KTL_VAR_CONST;
+        bool              is_ptr  = (KTL_TypeGetEntry(cont->type_map, var->var.type)->kind == KTL_TYPE_PTR);
+
+        KTL_AnalysisConst const_type_r = is_const(cont, node->move.unary.next);
+        if (const_type_r == KTL_ANALYSIS_CONST_PTR &&
+            is_ptr == true && is_cont == false) {
+                KTL_DiagEmit(cont->diag, get_pos(node),
+                            KTL_DIAG_SEM_ASSIGN_CONST_TO_NCONST,
+                            KTL_DIAG_SEV_ERROR);
+
+                is_correct = false;
+        }
+
+    }
+    else {
+        KTL_AstChildren type_mov = KTL_AstGetTypeChildren(node);
+        switch (type_mov) {
+
+        case KTL_AST_N_CHILDREN: {
+            for (int i = 0; i < node->move.n.amount; i++) {
+                is_correct &= checking_consts(cont, node->move.n.children[i]);
+            }
+            break;
+        }
+
+        case KTL_AST_BINARY_CHILDREN:
+            is_correct &= checking_consts(cont, node->move.binary.left);
+            is_correct &= checking_consts(cont, node->move.binary.right);
+            break;
+
+        case KTL_AST_UNARY_CHILD:
+            is_correct &= checking_consts(cont, node->move.unary.next);
+
+        case KTL_AST_NO_CHILDREN:
+        default:
+            break;
+        }
+    }
+
+    return is_correct;
+}
+
+static KTL_AnalysisConst is_const(KTL_AnalysisContext *cont,
+                                  KTL_AstNode *node) {
+    assert(node);
+
+    switch (get_k(node)) {
+
+    case KTL_AST_VARIABLE: {
+        KTL_SymbolEntry *var = node->data.var.info.res.entry;
+        bool is_const        = var->var.mod & KTL_VAR_CONST;
+        bool is_ptr          = (KTL_TypeGetEntry(cont->type_map, var->var.type)->kind == KTL_TYPE_PTR);
+        if (is_const) {
+            return is_ptr ? KTL_ANALYSIS_CONST_PTR : KTL_ANALYSIS_CONST_VALUE;
+        }
+        return KTL_ANALYSIS_MUTABLE;
+    }
+
+    case KTL_AST_FUNCTION_CALL: {
+        KTL_SymbolEntry *func = node->data.func_call.info.res.entry;
+        bool is_const         = func->func.is_ret_const;
+        bool is_ptr           = (KTL_TypeGetEntry(cont->type_map, func->func.ret_type));
+        if (is_const) {
+            return is_ptr ? KTL_ANALYSIS_CONST_PTR : KTL_ANALYSIS_CONST_VALUE;
+        }
+        return KTL_ANALYSIS_MUTABLE;
+    }
+
+    case KTL_AST_VALUE_INT:
+        return KTL_ANALYSIS_CONST_VALUE;
+
+    case KTL_AST_VALUE_STR:
+        return KTL_ANALYSIS_CONST_PTR;
+
+    case KTL_AST_UNARY_OPER: {
+        KTL_AnalysisConst const_type = is_const(cont, node->move.unary.next);
+
+        switch (node->data.oper.op) {
+
+        case KTL_OPER_NEG: {
+            return const_type;
+        }
+        case KTL_OPER_GET_PTR: {
+            if (const_type == KTL_ANALYSIS_CONST_VALUE) {
+                return KTL_ANALYSIS_CONST_VALUE;
+            }
+        }
+        case KTL_OPER_UNGET_PTR: {
+            if (const_type == KTL_ANALYSIS_CONST_PTR) {
+                return KTL_ANALYSIS_CONST_VALUE;
+            }
+            return KTL_ANALYSIS_MUTABLE;
+        }
+        default: {
+            return KTL_ANALYSIS_CONST_VALUE;
+        }
+
+        }
+    }
+
+    case KTL_AST_BINARY_OPER: {
+        KTL_AnalysisConst const_l = is_const(cont, node->move.binary.left);
+        KTL_AnalysisConst const_r = is_const(cont, node->move.binary.right);
+
+        debug_out("L: [%d]   R: [%d]\n", const_l, const_r);
+
+        if (const_l == KTL_ANALYSIS_CONST_PTR ||
+            const_r == KTL_ANALYSIS_CONST_PTR)  return KTL_ANALYSIS_CONST_PTR;
+        return KTL_ANALYSIS_MUTABLE;
+    }
+
+
+    case KTL_AST_INDEX_ACCESS: {
+        KTL_AnalysisConst const_type = is_const(cont, node->move.binary.left);
+        if (const_type == KTL_ANALYSIS_CONST_PTR) {
+            return KTL_ANALYSIS_CONST_VALUE;
+        }
+        return KTL_ANALYSIS_MUTABLE;
+    }
+
+    case KTL_AST_FIELD_ACCESS: {
+        KTL_AnalysisConst const_type = is_const(cont, node->move.binary.left);
+        if (const_type == KTL_ANALYSIS_CONST_PTR) {
+            return KTL_ANALYSIS_CONST_VALUE;
+        }
+        return KTL_ANALYSIS_MUTABLE;
+    }
+
+
+    default:
+        return KTL_ANALYSIS_MUTABLE;
+    }
+}
+
 
 
 

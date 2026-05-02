@@ -258,6 +258,7 @@ static const char * ktl_err_str(KTL_DiagError err) {
         case KTL_DIAG_SEM_NOT_A_VARIABLE:         return "not a variable";
         case KTL_DIAG_SEM_BAD_ARG_COUNT:          return "wrong number of arguments";
         case KTL_DIAG_SEM_ASSIGN_TO_CONST:        return "assignment to const";
+        case KTL_DIAG_SEM_ASSIGN_CONST_TO_NCONST: return "assignment const ptr to not const value";
         case KTL_DIAG_SEM_BAD_FIELD:              return "bad field";
         case KTL_DIAG_SEM_NOT_INDEXABLE:          return "not indexable";
         case KTL_DIAG_SEM_RETURN_TYPE:            return "return type mismatch";

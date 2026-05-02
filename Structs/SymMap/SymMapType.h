@@ -37,6 +37,7 @@ struct KTL_SymbolEntry {
             int               amount;
             KTL_SymbolEntry **params;
             KTL_TypeID        ret_type;
+            bool              is_ret_const;
         } func;
     };
 };

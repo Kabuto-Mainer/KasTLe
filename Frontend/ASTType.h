@@ -112,6 +112,7 @@ struct KTL_AstNode {
         struct {
             KTL_Oper    op;
             KTL_TypeID  type_res;
+            bool        is_const;
         } oper;
 
         struct { int64_t   value; KTL_TypeID type_res; } int_val;

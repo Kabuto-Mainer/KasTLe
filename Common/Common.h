@@ -21,7 +21,7 @@ enum KTL_Error {
     return __val__; } while (0)
 
 #ifdef DEBUG
-    #define debug_out(_fmt_, ...) printf("[DEBUG] " _fmt_, ##__VA_ARGS__)
+    #define debug_out(_fmt_, ...) printf("[DEBUG][%s:%d] " _fmt_, __FILE__, __LINE__, ##__VA_ARGS__)
 #else
     #define debug_out(fmt, ...) ((void)0)
 #endif

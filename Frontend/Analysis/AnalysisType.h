@@ -20,5 +20,12 @@ struct KTL_AnalysisContext {
     bool            in_func;
 };
 
+enum KTL_AnalysisConst {
+    KTL_ANALYSIS_CONST_VALUE,
+    KTL_ANALYSIS_CONST_PTR,
+    KTL_ANALYSIS_MUTABLE,
+};
+
+
 
 #endif /* ANALYSES_TYPE_H */

@@ -1,0 +1,22 @@
+{
+  "name": "ktl",
+  "displayName": "KasTLe",
+  "description": "Syntax highlighting for the KasTLe language",
+  "version": "0.0.1",
+  "publisher": "you",
+  "engines": { "vscode": "^1.60.0" },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [{
+      "id": "ktl",
+      "aliases": ["KasTLe", "ktl"],
+      "extensions": [".ktl"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "ktl",
+      "scopeName": "source.ktl",
+      "path": "./syntaxes/ktl.tmLanguage.json"
+    }]
+  }
+}

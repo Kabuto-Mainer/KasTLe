@@ -259,9 +259,11 @@ static KTL_AstNode *ktl_parse_number(KTL_ParseContext *cont) {
     KTL_AstNode *node = ktl_alloc_node();
     if (node == NULL)   return NULL;
 
-    node->kind               = KTL_AST_VALUE_INT;
-    node->data.int_val.value = equal(cont, KTL_TOKEN_CHAR) ?
-                               (int64_t) get_t(cont)->data.char_ : get_t(cont)->data.value;
+    node->kind                  = KTL_AST_VALUE_INT;
+    node->data.int_val.type_res = equal(cont, KTL_TOKEN_VALUE) ?
+                                  KTL_I32_TYPE_ID : KTL_CHAR_TYPE_ID;
+    node->data.int_val.value    = equal(cont, KTL_TOKEN_CHAR) ?
+                                  (int64_t) get_t(cont)->data.char_ : get_t(cont)->data.value;
 
     node->pos                = get_t_pos(cont);
 
@@ -909,7 +911,7 @@ static KTL_AstNode *ktl_parse_var_decl(KTL_ParseContext *cont) {
     node->data.var_decl.is_init = (init != NULL);
 
     KTL_SymbolEntry *entry = KTL_SymbolInsertVar(cont->current_scope,
-                                                  name, type, mod);
+                                                 name, type, mod);
     if (entry == NULL) {
         KTL_DiagEmit(cont->diag, name_pos,
                      KTL_DIAG_SEM_REDECLARATION,
@@ -1625,7 +1627,6 @@ static KTL_AstNode *ktl_parse_func_decl(KTL_ParseContext *cont) {
     advance(cont);
 
     int mod = ktl_parse_type_mod(cont);
-    (void) mod;
 
     KTL_TypeID ret_type = ktl_parse_type(cont);
     if (TypeIDCheck(ret_type) == false)     return NULL;
@@ -1646,6 +1647,7 @@ static KTL_AstNode *ktl_parse_func_decl(KTL_ParseContext *cont) {
                      KTL_DIAG_SEM_REDECLARATION,
                      KTL_DIAG_SEV_ERROR, name);
     }
+    func->func.is_ret_const = mod & KTL_VAR_CONST;
 
     /* "(" */
     if (equal(cont, KTL_PARSE_PAREN_LEFT) == false) {

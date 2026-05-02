@@ -26,6 +26,7 @@ struct KTL_TypeField {
     KTL_TypeID base_type;
     int        offset;
     KTL_StrID  name;
+    bool       is_const;
 };
 
 struct KTL_TypeBase {
