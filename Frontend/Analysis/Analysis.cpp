@@ -77,7 +77,8 @@ static KTL_StrID get_name                     (KTL_AnalysisContext *cont, const 
 static bool              checking_consts(KTL_AnalysisContext *cont, KTL_AstNode *node);
 static KTL_AnalysisConst is_const       (KTL_AnalysisContext *cont, KTL_AstNode *node);
 
-
+static bool checking_addr_param(KTL_AnalysisContext *cont, KTL_AstNode *root);
+static bool checking_params    (KTL_AnalysisContext *cont, KTL_AstNode *node);
 
 // =======================================================================
 // API
@@ -128,6 +129,13 @@ KTL_Error KTL_AnalysisProcess(KTL_AnalysisContext *cont) {
     printf("[100%%] END ANALYSIS\n");
 
     if (is_correct == false)    return KTL_LOGICAL_ERR;
+
+    is_correct = checking_addr_param(cont, cont->root);
+
+    if (is_correct == false)    return KTL_LOGICAL_ERR;
+
+    printf("[100%%] END ANALYSIS\n");
+
 
     return KTL_OK;
 }
@@ -1027,7 +1035,82 @@ static KTL_AnalysisConst is_const(KTL_AnalysisContext *cont,
     }
 }
 
+static bool checking_addr_param(KTL_AnalysisContext *cont, KTL_AstNode *root) {
+    assert(cont);
+    assert(root);
 
+    bool is_correct = true;
+
+    for (int i = 0; i < root->move.n.amount; i++) {
+        KTL_AstNode *node = root->move.n.children[i];
+        if (get_k(node) == KTL_AST_FUNCTION_DECL) {
+            cont->current_scope = node->data.func_decl.map;
+
+            is_correct &= checking_params(cont, node);
+        }
+    }
+
+    return is_correct;
+}
+
+static bool checking_params(KTL_AnalysisContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+
+    bool is_correct = true;
+    KTL_AstChildren type_move = KTL_AstGetTypeChildren(node);
+
+    if (get_k(node)        == KTL_AST_UNARY_OPER &&
+        node->data.oper.op == KTL_OPER_GET_PTR) {
+
+        KTL_SourcePos pos = get_pos(node);
+
+        node = node->move.unary.next;
+        while (get_k(node) != KTL_AST_VARIABLE) {
+            if (get_k(node) == KTL_AST_FIELD_ACCESS) {
+                node = node->move.unary.next;
+            }
+            else {
+                node = node->move.binary.left;
+            }
+        }
+
+        KTL_SymbolEntry *var = node->data.var.info.res.entry;
+        if (KTL_SymbolFindLocal(cont->current_scope, var->str_id, KTL_SYMBOL_VAR) != NULL &&
+            (KTL_TypeGetEntry(cont->type_map, var->var.type)->kind                != KTL_TYPE_BLOCK ||
+             KTL_TypeGetEntry(cont->type_map, var->var.type)->kind                != KTL_TYPE_ARRAY)) {
+
+            KTL_DiagEmit(cont->diag, pos,
+                         KTL_DIAG_SEM_ADDR_PARAM,
+                         KTL_DIAG_SEV_ERROR);
+            return false;
+        }
+        return true;
+    }
+
+    switch (type_move) {
+
+    case KTL_AST_N_CHILDREN:
+        for (int i = 0; i < node->move.n.amount; i++) {
+            is_correct &= checking_params(cont, node->move.n.children[i]);
+        }
+        break;
+
+    case KTL_AST_BINARY_CHILDREN:
+        is_correct &= checking_params(cont, node->move.binary.left);
+        is_correct &= checking_params(cont, node->move.binary.right);
+        break;
+
+    case KTL_AST_UNARY_CHILD:
+        is_correct &= checking_params(cont, node->move.unary.next);
+        break;
+
+    case KTL_AST_NO_CHILDREN:
+    default:
+        break;
+    }
+    return is_correct;
+}
 
 
 

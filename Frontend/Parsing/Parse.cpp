@@ -282,8 +282,31 @@ static KTL_AstNode *ktl_parse_number(KTL_ParseContext *cont) {
 static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
     assert(cont);
 
+    KTL_AstNode *node  = NULL;
+    KTL_AstNode *addr = NULL;
+
+    if (equal(cont, KTL_PARSE_PTR_ADDR) == true) {
+        addr = ktl_alloc_node();
+        if (addr == NULL)   return NULL;
+
+        addr->kind         = KTL_AST_UNARY_OPER;
+        addr->data.oper.op = KTL_OPER_GET_PTR;
+        addr->pos          = get_t_pos(cont);
+        advance(cont);
+    }
+
+    if (equal(cont, KTL_PARSE_PTR_ADDR) == true) {
+        KTL_DiagEmit(cont->diag, get_t_pos(cont),
+                     KTL_DIAG_PARSE_ONLY_ONE_ADDR,
+                     KTL_DIAG_SEV_ERROR);
+        ktl_destroy_node(addr);
+
+        return NULL;
+    }
+
     if (equal  (cont, KTL_TOKEN_STRING)     == false ||
         equal_n(cont, KTL_PARSE_PAREN_LEFT) == true) {
+        ktl_destroy_node(addr);
         return NULL;
     }
 
@@ -294,11 +317,15 @@ static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
         KTL_DiagEmit(cont->diag, get_t_pos(cont),
                      KTL_DIAG_PARSE_EXPECTED_NAME,
                      KTL_DIAG_SEV_ERROR);
-
+        ktl_destroy_node(addr);
         return NULL;
     }
-    KTL_AstNode *node = ktl_alloc_node();
-    if (node == NULL)   return NULL;
+
+    node = ktl_alloc_node();
+    if (node == NULL) {
+        ktl_destroy_node(addr);
+        return NULL;
+    }
 
     node->kind                   = KTL_AST_VARIABLE;
     node->data.var.info.raw.name = name;
@@ -323,12 +350,14 @@ static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
                              KTL_DIAG_SEV_ERROR);
 
                 ktl_destroy_node(node);
+                ktl_destroy_node(addr);
                 return NULL;
             }
 
             KTL_AstNode *field = ktl_alloc_node();
             if (field == NULL) {
                 ktl_destroy_node(node);
+                ktl_destroy_node(addr);
                 return NULL;
             }
 
@@ -347,6 +376,7 @@ static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
 
             if (idx == NULL) {
                 ktl_destroy_node(node);
+                ktl_destroy_node(addr);
                 return NULL;
             }
             if (equal(cont, KTL_PARSE_INDEX_RIGHT) == false) {
@@ -356,6 +386,7 @@ static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
 
                 ktl_destroy_node(node);
                 ktl_destroy_node(idx);
+                ktl_destroy_node(addr);
 
                 return NULL;
             }
@@ -365,6 +396,7 @@ static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
             if (get_idx == NULL) {
                 ktl_destroy_node(node);
                 ktl_destroy_node(idx);
+                ktl_destroy_node(addr);
 
                 return NULL;
             }
@@ -375,6 +407,10 @@ static KTL_AstNode *ktl_parse_var(KTL_ParseContext *cont) {
 
             node = get_idx;
         }
+    }
+    if (addr) {
+        add_node_u(addr, node);
+        return addr;
     }
 
     return node;
@@ -529,46 +565,42 @@ static KTL_AstNode *ktl_parse_unary(KTL_ParseContext *cont) {
         }
         advance(cont);
     }
-    else {
-        while (true) {
-            if (equal(cont, KTL_PARSE_PTR_ADDR)  == false &&
-                equal(cont, KTL_PARSE_PTR_DEREF) == false &&
-                equal(cont, KTL_PARSE_OP_NEG)    == false )  break;
+    while (true) {
+        if (equal(cont, KTL_PARSE_PTR_DEREF)  == false &&
+            equal(cont, KTL_PARSE_OP_NEG)    == false )  break;
 
-            KTL_Oper oper     = KTL_OPER_GET_PTR;
-            KTL_SourcePos pos = get_t_pos(cont);
+        KTL_Oper oper     = KTL_OPER_GET_PTR;
+        KTL_SourcePos pos = get_t_pos(cont);
 
-            if      (equal(cont, KTL_PARSE_PTR_DEREF)) oper = KTL_OPER_UNGET_PTR;
-            else if (equal(cont, KTL_PARSE_OP_NEG))    oper = KTL_OPER_NEG;
-            else if (equal(cont, KTL_PARSE_PTR_ADDR))  oper = KTL_OPER_GET_PTR;
+        if      (equal(cont, KTL_PARSE_OP_NEG))    oper = KTL_OPER_NEG;
+        else if (equal(cont, KTL_PARSE_PTR_DEREF))  oper = KTL_OPER_UNGET_PTR;
 
-            if (node == NULL) {
-                node = ktl_alloc_node();
+        if (node == NULL) {
+            node = ktl_alloc_node();
 
-                if (node == NULL)   return NULL;
+            if (node == NULL)   return NULL;
 
-                node->kind         = KTL_AST_UNARY_OPER;
-                node->data.oper.op = oper;
-                node->pos          = pos;
+            node->kind         = KTL_AST_UNARY_OPER;
+            node->data.oper.op = oper;
+            node->pos          = pos;
 
-                cur_node           = node;
-            } else {
-                KTL_AstNode *new_oper = ktl_alloc_node();
-                if (new_oper == NULL) {
-                    ktl_destroy_node(node);
-                    return NULL;
-                }
-
-                new_oper->kind         = KTL_AST_UNARY_OPER;
-                new_oper->data.oper.op = oper;
-                new_oper->pos          = pos;
-
-                add_node_u(cur_node, new_oper);
-                cur_node = new_oper;
+            cur_node           = node;
+        } else {
+            KTL_AstNode *new_oper = ktl_alloc_node();
+            if (new_oper == NULL) {
+                ktl_destroy_node(node);
+                return NULL;
             }
 
-            advance(cont);
+            new_oper->kind         = KTL_AST_UNARY_OPER;
+            new_oper->data.oper.op = oper;
+            new_oper->pos          = pos;
+
+            add_node_u(cur_node, new_oper);
+            cur_node = new_oper;
         }
+
+        advance(cont);
     }
 
     KTL_AstNode *atom = ktl_parse_atom(cont);

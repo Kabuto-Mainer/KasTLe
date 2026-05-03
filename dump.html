@@ -131,10 +131,10 @@
 <details class="section pipeline" open>
   <summary>Pipeline status — Analyzed</summary>
 <div class="stat-grid">
-<span class="label">Total nodes</span><span>69</span>
-<span class="label">Variable refs</span><span>16 <span class="ok">(16 resolved)</span> <span class="label">(0 raw)</span></span>
+<span class="label">Total nodes</span><span>61</span>
+<span class="label">Variable refs</span><span>13 <span class="ok">(13 resolved)</span> <span class="label">(0 raw)</span></span>
 <span class="label">Function calls</span><span>0 <span class="label">(0 resolved)</span> <span class="label">(0 raw)</span></span>
-<span class="label">Expressions</span><span>41 <span class="ok">(41 typed)</span> <span class="label">(0 untyped)</span></span>
+<span class="label">Expressions</span><span>35 <span class="ok">(35 typed)</span> <span class="label">(0 untyped)</span></span>
 <span class="label">Hint</span><span class="label">type analysis completed</span>
 </div>
 </details>
@@ -314,10 +314,9 @@
   <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(1 stmts, scope)</span><span class="pos">29:33</span></summary>
 <details class="node node-RETURN" data-kind="RETURN" data-pos-line="30" data-pos-col="4">
   <summary><span class="kind">[RETURN]</span> return<span class="pos">30:4</span></summary>
-<details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="30" data-pos-col="13" data-typed="ok">
-  <summary><span class="kind">[BINARY_OPER]</span> <span class="op">+</span><span class="annot">: <span class="type">i32</span></span><span class="pos">30:13</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="30" data-pos-col="13" data-sym-id="6" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">a</span><span class="annot">: <span class="type">i32</span></span><span class="pos">30:13</span></div>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="30" data-pos-col="16" data-sym-id="7" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">b</span><span class="annot">: <span class="type">i32</span></span><span class="pos">30:16</span></div>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="30" data-pos-col="16" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i32</span><span class="pos">30:16</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="30" data-pos-col="22" data-sym-id="6" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">a</span><span class="annot">: <span class="type">i32</span></span><span class="pos">30:22</span></div>
 </details>
 </details>
 </details>
@@ -325,7 +324,7 @@
 <details class="node node-MAIN" data-kind="MAIN" data-pos-line="33" data-pos-col="0" open>
   <summary><span class="kind">[MAIN]</span> MAIN<span class="pos">33:0</span></summary>
 <details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="33" data-pos-col="5" open>
-  <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(4 stmts, scope)</span><span class="pos">33:5</span></summary>
+  <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(2 stmts, scope)</span><span class="pos">33:5</span></summary>
 <details class="scope-syms">
   <summary>Scope symbols (1)</summary>
 <table class="sym-table">
@@ -337,20 +336,7 @@
 <details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="35" data-pos-col="4" data-sym-id="9">
   <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i8*</span> <span class="name">i</span><span class="pos">35:4</span></summary>
 </details>
-<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="36" data-pos-col="6">
-  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">36:6</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="36" data-pos-col="6" data-sym-id="9" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">i</span><span class="annot">: <span class="type">i8*</span></span><span class="pos">36:6</span></div>
-<div class="node leaf node-VALUE_STR" data-kind="VALUE_STR" data-pos-line="36" data-pos-col="8" data-typed="ok"><span class="kind">[VALUE_STR]</span> <span class="str">"fopf"</span><span class="annot">: <span class="type">i8*</span></span><span class="pos">36:8</span></div>
-</details>
-<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="37" data-pos-col="7">
-  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">37:7</span></summary>
-<details class="node node-UNARY_OPER" data-kind="UNARY_OPER" data-pos-line="37" data-pos-col="4" data-typed="ok">
-  <summary><span class="kind">[UNARY_OPER]</span> <span class="op">*</span><span class="annot">: <span class="type">bool</span></span><span class="pos">37:4</span></summary>
-<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="37" data-pos-col="7" data-sym-id="9" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">i</span><span class="annot">: <span class="type">i8*</span></span><span class="pos">37:7</span></div>
-</details>
-<div class="node leaf node-VALUE_STR" data-kind="VALUE_STR" data-pos-line="37" data-pos-col="9" data-typed="ok"><span class="kind">[VALUE_STR]</span> <span class="str">"fomr"</span><span class="annot">: <span class="type">i8*</span></span><span class="pos">37:9</span></div>
-</details>
-<div class="node leaf node-EXIT" data-kind="EXIT" data-pos-line="47" data-pos-col="4"><span class="kind">[EXIT]</span> exit<span class="pos">47:4</span></div>
+<div class="node leaf node-EXIT" data-kind="EXIT" data-pos-line="45" data-pos-col="4"><span class="kind">[EXIT]</span> exit<span class="pos">45:4</span></div>
 </details>
 </details>
 </details>

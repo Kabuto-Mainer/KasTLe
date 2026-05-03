@@ -46,13 +46,14 @@ parse_d = 		Frontend/Parsing
 analysis_d =    Frontend/Analysis
 
 common_d = 		Common
+system_d =      Structs/BackMap
 ast_common_d =  Frontend
 ast_dump_d =    Frontend/Dump
 diagnostic_d =  $(common_d)
 
 dir_flags =  -I$(token_d) 		-I$(type_map_d) 	-I$(str_map_d) 		-I$(sym_map_d) \
 			 -I$(parse_d)       -I$(common_d)		-I$(ast_common_d) 	-I$(ast_dump_d) \
-			 -I$(analysis_d)
+			 -I$(analysis_d)    -I$(system_d)
 
 
 # ===================================================================

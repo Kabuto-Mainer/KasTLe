@@ -4,6 +4,7 @@
 #include <assert.h>
 
 #include "TypeMap.h"
+#include "CallingConvention.h"
 
 constexpr static int KTL_TYPE_FIELD_GROW   = 2;
 constexpr static int KTL_TYPE_MAP_GROW     = 10;
@@ -401,7 +402,7 @@ static int ktl_get_type_size(const KTL_TypeMap *map, const KTL_TypeID id) {
 
     switch (entry->kind) {
         case KTL_TYPE_BASE:  return entry->dt.base.size;
-        case KTL_TYPE_PTR:   return KTL_POINTER_SIZE;
+        case KTL_TYPE_PTR:   return KTL_SYSTEM_PTR_SIZE;
 
         case KTL_TYPE_ARRAY: {
             int elem_size = ktl_get_type_size(map, entry->dt.arr.base_type);
@@ -423,7 +424,7 @@ static int ktl_get_type_align(const KTL_TypeMap *map, const KTL_TypeID id) {
 
     switch (entry->kind) {
         case KTL_TYPE_BASE:  return entry->dt.base.align;
-        case KTL_TYPE_PTR:   return KTL_POINTER_SIZE;
+        case KTL_TYPE_PTR:   return KTL_SYSTEM_PTR_SIZE;
         case KTL_TYPE_ARRAY: return ktl_get_type_align(map, entry->dt.arr.base_type);
 
         case KTL_TYPE_BLOCK:

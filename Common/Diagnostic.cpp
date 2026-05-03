@@ -250,6 +250,8 @@ static const char * ktl_err_str(KTL_DiagError err) {
         case KTL_DIAG_PARSE_BAD_ARRAY_SIZE:       return "bad array size";
         case KTL_DIAG_PARSE_BAD_MODIFIERS:        return "conflicting modifiers";
         case KTL_DIAG_PARSE_NON_CONST_EXPR:       return "expression is not constant";
+        case KTL_DIAG_PARSE_ONLY_ONE_ADDR:        return "can get only one address";
+
 
         case KTL_DIAG_SEM_UNDECLARED_NAME:        return "undeclared name";
         case KTL_DIAG_SEM_REDECLARATION:          return "redeclaration";
@@ -257,6 +259,7 @@ static const char * ktl_err_str(KTL_DiagError err) {
         case KTL_DIAG_SEM_NOT_A_FUNCTION:         return "not a function";
         case KTL_DIAG_SEM_NOT_A_VARIABLE:         return "not a variable";
         case KTL_DIAG_SEM_BAD_ARG_COUNT:          return "wrong number of arguments";
+        case KTL_DIAG_SEM_ADDR_PARAM:             return "can't get address of func param";
         case KTL_DIAG_SEM_ASSIGN_TO_CONST:        return "assignment to const";
         case KTL_DIAG_SEM_ASSIGN_CONST_TO_NCONST: return "assignment const ptr to not const value";
         case KTL_DIAG_SEM_BAD_FIELD:              return "bad field";

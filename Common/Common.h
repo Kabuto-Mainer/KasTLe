@@ -27,8 +27,6 @@ enum KTL_Error {
 #endif
 
 
-constexpr int KTL_POINTER_SIZE = 8;
-
 char *               ktl_sup_create_file_buffer(const char *file);
 int                  ktl_sup_get_file_size     (const char *file);
 constexpr KTL_Hash   ktl_gnu_hash              (const char *string) {
@@ -43,5 +41,13 @@ constexpr KTL_Hash   ktl_gnu_hash              (const char *string) {
 
     return hash;
 }
+
+struct KTL_CharBuffer {
+    char *data;
+    int   pos;
+    int   capacity;
+};
+
+
 
 #endif /* COMMON_H */

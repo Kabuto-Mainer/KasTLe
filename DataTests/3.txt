@@ -28,14 +28,12 @@ func bool stack_init(stack_t* stk,
 var i32 counter = 0;
 
 func const i32 add(i32 a, i32 b) {
-    return a + b;
+    return cast<i32> a;
 }
 
 main {
     // var i32 x = 10;
     var const char* i;
-    i = "fopf";
-    *i = "fomr";
 
     /*
     while (x > 0) {
