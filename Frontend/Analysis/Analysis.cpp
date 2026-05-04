@@ -275,7 +275,7 @@ static bool analyze_file(KTL_AnalysisContext *cont,
 static bool analyze_line(KTL_AnalysisContext *cont,
                          KTL_AstNode         *node) {
     assert(cont);
-    assert(node);
+    if (node == NULL)   return true;
 
     bool is_correct = true;
 
@@ -302,15 +302,18 @@ static bool analyze_line(KTL_AnalysisContext *cont,
 
         case KTL_AST_WHILE_BLOCK:
             debug_out("*\n");
-        case KTL_AST_IF_BRANCH:
-            debug_out("*\n");
-        case KTL_AST_ELSE_BRANCH: {
+        case KTL_AST_IF_BRANCH: {
             debug_out("*\n");
             debug_out("BINARY (BLOCK | BRANCH)\n");
             KTL_TypeID type_cond = analyze_type_expr(cont, node->move.binary.left);
             is_correct &= type_cond != KTL_BAD_TYPE_ID;
             debug_out("====== IS CORRECT: %d\n", (int) is_correct);
             is_correct &= analyze_line(cont, node->move.binary.right);
+            return is_correct;
+        }
+
+        case KTL_AST_ELSE_BRANCH: {
+            is_correct &= analyze_line(cont, node->move.unary.next);
             return is_correct;
         }
 
@@ -1112,8 +1115,22 @@ static bool checking_params(KTL_AnalysisContext *cont, KTL_AstNode *node) {
     return is_correct;
 }
 
+/*
+static void calculation_const(KTL_AnalysisContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
 
+    if (node)
+}
 
+static bool is_number(KTL_AnalysisContext *cont, KTL_AstNode *node, int64_t *value) {
+    assert(cont);
+    assert(node);
+    assert(value);
+
+    if (node->kind == KTL_AST_VALUE_INT)
+}
+*/
 
 static inline KTL_AstNodeKind get_k(KTL_AstNode *node) {
     return node->kind;

@@ -52,4 +52,3 @@ KTL_Error KTL_CharBufferInit(KTL_CharBuffer *buf) {
     return KTL_OK;
 }
 
-KTL_Error KTL_CharBuffer

@@ -7,6 +7,7 @@
 #include "StrMapType.h"
 #include "TypeMapType.h"
 #include "SymMapType.h"
+#include "BackMapType.h"
 
 enum KTL_RegId {
     KTL_REG_RAX = 0,
@@ -35,41 +36,6 @@ constexpr int KTL_PARAM_REGS_COUNT = 6;
 constexpr int KTL_SYSTEM_PTR_SIZE = 8;
 
 
-enum KTL_BackendStorage {
-    KTL_BACKEND_STORAGE_NONE = 0,
-    KTL_BACKEND_STORAGE_STACK,
-    KTL_BACKEND_STORAGE_STATIC,
-};
-
-struct KTL_BackendVarInfo {
-    KTL_SymbolEntry    *origin;
-    KTL_BackendStorage  storage;
-
-    union {
-        struct { int       offset; } stack;
-        struct { KTL_StrID label;  } stat;
-    } loc;
-};
-
-struct KTL_BackendFuncInfo {
-    KTL_SymbolEntry *origin;
-    KTL_StrID        label;
-    int              frame_size; /* mod 16 = 0 */
-
-    int label_counter;
-};
-
-
-struct KTL_BackendTable {
-    KTL_BackendVarInfo *vars;
-    int                 vars_size;
-    int                 vars_capacity;
-
-    KTL_BackendFuncInfo *funcs;
-    int                  funcs_size;
-    int                  funcs_capacity;
-};
-
 struct KTL_BackendContext {
     KTL_TypeMap   *type_map;
     KTL_StrMap    *str_map;
@@ -82,11 +48,15 @@ struct KTL_BackendContext {
 
     int loop_label_break;
     int loop_label_continue;
-    int string_counter;
+    int label_counter;
+    int stack_depth;
 
     int frame_offset;
 
     const char *symbol_prefix;  /* for MacOS users */
 };
+
+#define print_asm(_fmt_, ...)     fprintf(cont->output, _fmt_,  ##__VA_ARGS__)
+
 
 #endif /* BACKEND_TYPE_H */

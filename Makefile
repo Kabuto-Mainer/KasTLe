@@ -21,9 +21,11 @@ token_f = 		Frontend/Tokenize/Token.cpp
 type_map_f =	Structs/TypeMap/TypeMap.cpp
 sym_map_f = 	Structs/SymMap/SymMap.cpp
 str_map_f = 	Structs/StrMap/StrMap.cpp
+back_map_f = 	Structs/BackMap/BackMap.cpp
 
 parse_f =       Frontend/Parsing/Parse.cpp
 analysis_f = 	Frontend/Analysis/Analysis.cpp
+backend_f = 	Backend/Backend.cpp
 
 common_f = 		Common/Common.cpp
 ast_common_f =  Frontend/ASTCommon.cpp
@@ -41,9 +43,11 @@ token_d = 		Frontend/Tokenize
 type_map_d =	Structs/TypeMap
 sym_map_d =		Structs/SymMap
 str_map_d = 	Structs/StrMap
+back_map_d = 	Structs/BackMap
 
 parse_d = 		Frontend/Parsing
 analysis_d =    Frontend/Analysis
+backend_d = 	Backend
 
 common_d = 		Common
 system_d =      Structs/BackMap
@@ -53,7 +57,7 @@ diagnostic_d =  $(common_d)
 
 dir_flags =  -I$(token_d) 		-I$(type_map_d) 	-I$(str_map_d) 		-I$(sym_map_d) \
 			 -I$(parse_d)       -I$(common_d)		-I$(ast_common_d) 	-I$(ast_dump_d) \
-			 -I$(analysis_d)    -I$(system_d)
+			 -I$(analysis_d)    -I$(system_d)		-I$(backend_d)		-I$(back_map_d)
 
 
 # ===================================================================
@@ -74,6 +78,16 @@ build_test_analysis:
 	clang Tests/test_analysis.cpp $(token_f) $(struct_f) $(parse_f) $(common_f) \
 	$(ast_dump_f) $(ast_common_f) $(diagnostic_f) $(analysis_f) $(flags) $(dir_flags) -o Tests/analysis_test.elf
 
+build:
+	clang compiler.cpp $(token_f) $(struct_f) $(parse_f) $(common_f) \
+	$(ast_dump_f) $(ast_common_f) $(diagnostic_f) $(analysis_f) $(backend_f) \
+	$(back_map_f) $(flags) $(dir_flags) -o Bin/KasTle.elf
+
+
+build_prog:
+	nasm -f elf64 -o Bin/1.o Bin/1.asm
+	ld Bin/1.o -o Bin/1.elf
+	chmod +x Bin/1.elf
 
 # ===================================================================
 # RUN
@@ -89,3 +103,17 @@ run_test_parse:
 
 run_test_analysis:
 	./Tests/analysis_test.elf
+
+run:
+	./Bin/KasTle.elf
+
+run_prog:
+	./Bin/1.elf
+
+comp:
+	./Bin/KasTle.elf
+	nasm -f elf64 -o Bin/1.o Bin/1.asm
+	ld Bin/1.o -o Bin/1.elf
+	chmod +x Bin/1.elf
+	./Bin/1.elf
+

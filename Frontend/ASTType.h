@@ -147,7 +147,7 @@ struct KTL_AstNode {
 
     /* Связи с потомками:
      *
-     *   FILE, MAIN, BLOCK, FUNCTION_DECL    -> move.n        (список инструкций/деклараций)
+     *   FILE, MAIN, BLOCK,                  -> move.n        (список инструкций/деклараций)
      *   FUNCTION_CALL, ARRAY                -> move.n        (аргументы)
      *
      *   COND_BLOCK                          -> move.n        (IF_BRANCH, [IF_BRANCH...], [ELSE_BRANCH])
@@ -159,7 +159,7 @@ struct KTL_AstNode {
      *
      *   ASSIGN, BINARY_OPER, INDEX_ACCESS   -> move.binary
      *   UNARY_OPER, RETURN, VARIABLE_DECL,
-     *   FIELD_ACCESS                        -> move.unary
+     *   FIELD_ACCESS, FUNC_DECL             -> move.unary
      *
      *   VARIABLE, VALUE_*, BREAK, CONTINUE,
      *   EXIT, TYPEDEF, STRUCT_DECL          -> листья, move не используется

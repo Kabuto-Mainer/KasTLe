@@ -265,7 +265,7 @@ static KTL_AstNode *ktl_parse_number(KTL_ParseContext *cont) {
     node->data.int_val.value    = equal(cont, KTL_TOKEN_CHAR) ?
                                   (int64_t) get_t(cont)->data.char_ : get_t(cont)->data.value;
 
-    node->pos                = get_t_pos(cont);
+    node->pos = get_t_pos(cont);
 
     advance(cont);
 
@@ -480,7 +480,6 @@ static KTL_AstNode *ktl_parse_call(KTL_ParseContext *cont) {
 }
 
 // -------------------------------------------------------------------------
-
 
 static KTL_AstNode *ktl_parse_atom(KTL_ParseContext *cont) {
     assert(cont);
@@ -2043,7 +2042,7 @@ static inline void add_node_u(KTL_AstNode *parent, KTL_AstNode *child) {
 
 static void add_node_n(KTL_AstNode *parent, KTL_AstNode *child) {
     assert(parent);
-    assert(child);
+    // assert(child); // child can be NULL
 
     if (parent->move.n.children == NULL) {
         parent->move.n.children = (KTL_AstNode **)calloc(
