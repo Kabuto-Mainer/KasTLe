@@ -42,7 +42,16 @@ struct KTL_BackendContext {
     KTL_SymbolMap *global_scope;
 
     KTL_BackendTable table;
-    FILE            *output;
+
+    union {
+        FILE *file;
+        struct {
+            KTL_CharBuffer *text;
+            KTL_CharBuffer *data;
+            KTL_CharBuffer *rodata;
+        } bin;
+    };
+
 
     KTL_BackendFuncInfo *current_func;
 

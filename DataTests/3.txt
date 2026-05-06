@@ -2,7 +2,7 @@ func i32 fact(i32 value) {
     if (value == 1) {
         return 1;
     }
-    return fact(value - 1);
+    return value * fact(value - 1);
 }
 main {
     var i32 res = fact(10);

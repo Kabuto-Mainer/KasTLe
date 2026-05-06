@@ -8,6 +8,7 @@
 #include "TypeMap.h"
 #include "ASTCommon.h"
 #include "BackMap.h"
+#include "OpCode.h"
 
 // =======================================================================
 // CONSTANTS
@@ -20,7 +21,6 @@ constexpr static int KTL_BACKEND_GROW_MOD   = 2;
 constexpr char *KTL_GLOBAL_PREFIX = "__global__";
 constexpr char *KTL_FUNC_PREFIX   = "__func__";
 constexpr char *KTL_STRING_PREFIX = "__string__";
-
 
 
 const KTL_RegId KTL_PARAM_REGS[6] = {
@@ -182,7 +182,7 @@ KTL_Error KTL_BackendInit(KTL_BackendContext *cont,
     cont->type_map     = type_map;
     cont->str_map      = str_map;
     cont->global_scope = global_scope;
-    cont->output       = output;
+    cont->file         = output;
 
     cont->current_func        = NULL;
     cont->loop_label_break    = -1;
@@ -263,7 +263,7 @@ static void layout_func(KTL_BackendContext *cont, KTL_AstNode *node) {
     int counter_params = 0;
                         /* rbp + _ret_adr_ */
     int offset_param   = 2 * KTL_SYSTEM_PTR_SIZE;   /* for 7+ (PARAM_REGS_COUNT + 1) params */
-    int offset_frame   = 0;                     /* for 1-6 (PARAM_REGS_COUNT) params + local vars */
+    int offset_frame   = 0;                         /* for 1-6 (PARAM_REGS_COUNT) params + local vars */
 
     KTL_SymbolMap *params = node->data.func_decl.map;
     for (int i = 0; i < params->size; i++) {
@@ -470,7 +470,7 @@ static void emit_global_var(KTL_BackendContext *cont, KTL_AstNode *node) {
     print_asm("%s:\n", info->loc.stat.label);
 
     if (!node->data.var_decl.is_init) {
-        print_asm("    times %d db 0\n", size);     // было ".zero"
+        print_asm("    times %d db 0\n", size);
         return ;
     }
 
@@ -585,13 +585,13 @@ static void fprintf_string_value(KTL_BackendContext *cont, KTL_StrID value) {
             print_asm("\", 0x%X, \"", c);
         }
         else {
-            fputc(c, cont->output);
+            fputc(c, cont->file);
         }
     }
 
-    fputc('\"', cont->output);
-    fputs(", 0", cont->output);
-    fputc('\n', cont->output);
+    fputc('\"',  cont->file);
+    fputs(", 0", cont->file);
+    fputc('\n',  cont->file);
 
     return ;
 }
@@ -692,10 +692,10 @@ static void emit_var_decl_array(KTL_BackendContext *cont, KTL_AstNode *node) {
     }
     for (int i = 0; i < array->move.n.amount; i++) {
         emit_load_address(cont, array->move.n.children[i]);
-        print_asm("    mov  rsi, rax\n");                                              /* src */
+        print_asm("    mov  rsi, rax\n");                                             /* src */
         print_asm("    lea  rdi, [rbp%+d]\n", var->loc.stack.offset + i * size_elem); /* dst */
         print_asm("    mov  rcx, %d\n", size_elem);
-        print_asm("    rep movsb\n");
+        print_asm("    rep  movsb\n");
     }
     return ;
 }
@@ -722,7 +722,7 @@ static void emit_var_decl_zero(KTL_BackendContext *cont, KTL_AstNode *node) {
     print_asm("    rep  stosb\n");
 
     return ;
-}
+}0x88
 
 
 
@@ -1226,7 +1226,7 @@ static void emit_func_call(KTL_BackendContext *cont, KTL_AstNode *node) {
 
     int cleanup = (need_align ? 8 : 0) + n_stack_par * 8;
     if (cleanup > 0) {
-        print_asm("    add  rsp, %d\n", cleanup);`
+        print_asm("    add  rsp, %d\n", cleanup);
         cont->stack_depth -= cleanup;
     }
 

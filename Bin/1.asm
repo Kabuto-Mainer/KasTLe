@@ -48,13 +48,20 @@ __func__fact:
     lea  rax, [rbp-8]
     mov  eax, dword [rax]
     push rax
+    lea  rax, [rbp-8]
+    mov  eax, dword [rax]
+    push rax
     mov  rax, 1
     pop  rdi
     sub  rdi, rax
     mov  rax, rdi
     push rax
     pop  rdi
+    sub  rsp, 8
     call __func__fact
+    add  rsp, 8
+    pop  rdi
+    imul rax, rdi
     mov  rsp, rbp
     pop  rbp
     ret
