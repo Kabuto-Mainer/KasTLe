@@ -5,10 +5,11 @@
 
 section .data
 
-section .rodata  ; constant strings
+section .rodata
+; Constant Strings
+
 section .text
 global _start
-
 _start:
     push rbp
     mov  rbp, rsp
@@ -18,17 +19,15 @@ _start:
     call __func__fact
     mov  dword [rbp-16], eax
     mov  rax, 60
-    xor rdi, rdi
+    xor  rdi, rdi
     syscall
-
-; Function: fact
 global __func__fact
 __func__fact:
     push rbp
     mov  rbp, rsp
     sub  rsp, 16
-    mov  [rbp-8], rdi
-    lea  rax, [rbp-8]
+    mov  qword [rbp-8], rdi
+    lea  rax, qword [rbp-8]
     mov  eax, dword [rax]
     push rax
     mov  rax, 1
@@ -37,18 +36,18 @@ __func__fact:
     sete al
     movzx rax, al
     test rax, rax
-    jz .L0
+    jz   .L0
     mov  rax, 1
     mov  rsp, rbp
     pop  rbp
     ret
-    jmp .L0
+    jmp  .L0
 .L0:
 .L0:
-    lea  rax, [rbp-8]
+    lea  rax, qword [rbp-8]
     mov  eax, dword [rax]
     push rax
-    lea  rax, [rbp-8]
+    lea  rax, qword [rbp-8]
     mov  eax, dword [rax]
     push rax
     mov  rax, 1
@@ -68,4 +67,3 @@ __func__fact:
     mov  rsp, rbp
     pop  rbp
     ret
-

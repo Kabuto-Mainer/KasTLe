@@ -8,7 +8,8 @@
 #include "TypeMap.h"
 #include "ASTCommon.h"
 #include "BackMap.h"
-#include "OpCode.h"
+#include "BackIR.h"
+
 
 // =======================================================================
 // CONSTANTS
@@ -23,57 +24,60 @@ constexpr char *KTL_FUNC_PREFIX   = "__func__";
 constexpr char *KTL_STRING_PREFIX = "__string__";
 
 
-const KTL_RegId KTL_PARAM_REGS[6] = {
+const KTL_RegID KTL_PARAM_REGS[6] = {
     KTL_REG_RDI, KTL_REG_RSI, KTL_REG_RDX,
     KTL_REG_RCX, KTL_REG_R8,  KTL_REG_R9,
 };
 
-
-
 // =======================================================================
-// REGISTER NAMES TABLE
+// HELPER FUNCTION'S DECLARATION
 // =======================================================================
-
-/*           0=8byte, 1=4byte, 2=2byte, 3=1byte. */
-static const char *KTL_REG_NAMES[KTL_REG_COUNT][4] = {
-    /* RAX */ {"rax",  "eax",  "ax",   "al"  },
-    /* RCX */ {"rcx",  "ecx",  "cx",   "cl"  },
-    /* RDX */ {"rdx",  "edx",  "dx",   "dl"  },
-    /* RBX */ {"rbx",  "ebx",  "bx",   "bl"  },
-    /* RSP */ {"rsp",  "esp",  "sp",   "spl" },
-    /* RBP */ {"rbp",  "ebp",  "bp",   "bpl" },
-    /* RSI */ {"rsi",  "esi",  "si",   "sil" },
-    /* RDI */ {"rdi",  "edi",  "di",   "dil" },
-    /* R8  */ {"r8",   "r8d",  "r8w",  "r8b" },
-    /* R9  */ {"r9",   "r9d",  "r9w",  "r9b" },
-    /* R10 */ {"r10",  "r10d", "r10w", "r10b"},
-    /* R11 */ {"r11",  "r11d", "r11w", "r11b"},
-    /* R12 */ {"r12",  "r12d", "r12w", "r12b"},
-    /* R13 */ {"r13",  "r13d", "r13w", "r13b"},
-    /* R14 */ {"r14",  "r14d", "r14w", "r14b"},
-    /* R15 */ {"r15",  "r15d", "r15w", "r15b"},
-};
-
-static const char *KTL_STATIC_SIZE_NAME[4] = {
-    "db",
-    "dw",
-    "dd",
-    "dq",
-};
-
-const char * reg_name          (KTL_RegId reg, int size);
-const char * size_prefix       (int size);
-const char * global_size_prefix(int size);
-
 
 static void layout_global       (KTL_BackendContext *cont, KTL_AstNode *root);
 static void layout_all_functions(KTL_BackendContext *cont, KTL_AstNode *root);
 static void layout_func         (KTL_BackendContext *cont, KTL_AstNode *node);
 static void layout_body         (KTL_BackendContext *cont, KTL_AstNode *node);
 
-static int get_size (KTL_TypeMap *map, KTL_TypeID type);
-static int get_align(KTL_TypeMap *map, KTL_TypeID type);
-static int align_up (int offset,       int align);
+static int get_size            (KTL_TypeMap        *map,      KTL_TypeID  type);
+static int get_align           (KTL_TypeMap        *map,      KTL_TypeID  type);
+static int align_up            (int                 offset,   int         align);
+static int get_offset_field    (KTL_TypeEntry      *block,    KTL_StrID   name);
+KTL_TypeEntryKind get_type_kind(KTL_BackendContext *cont,     KTL_AstNode *node);
+KTL_TypeEntry *   get_type     (KTL_BackendContext *cont,     KTL_AstNode *node);
+KTL_StrID get_global_name      (KTL_StrMap         *str_map,  const char  *prefix, KTL_StrID name);
+KTL_StrID get_func_name        (KTL_StrMap         *str_map,  const char  *prefix, KTL_StrID name);
+KTL_StrID get_string_name      (KTL_StrMap         *str_map,  const char  *prefix, KTL_StrID name);
+KTL_StrID get_name             (KTL_StrMap         *str_map,  const char  *prefix_1,
+                                const char         *prefix_2, KTL_StrID    name);
+
+
+static KTL_BackIR_InstrOperand op_reg    (KTL_RegID reg, int size);
+static KTL_BackIR_InstrOperand op_imm    (int64_t value, int size);
+static KTL_BackIR_InstrOperand op_mem    (KTL_RegID base, KTL_RegID idx,
+                                          int scale, int offset, int size);
+static KTL_BackIR_InstrOperand op_mem_rip(KTL_StrID sym,
+                                          KTL_BackIR_SymbolKind kind, int size);
+static KTL_BackIR_InstrOperand op_sym    (KTL_StrID sym,
+                                          KTL_BackIR_SymbolKind kind, int size);
+static KTL_BackIR_InstrOperand op_label  (KTL_StrID name);
+
+static void ir_txt           (KTL_BackendContext *cont, KTL_AsmInstr instr);
+static void ir_txt           (KTL_BackendContext *cont, KTL_AsmInstr instr,
+                              KTL_BackIR_InstrOperand op);
+static void ir_txt           (KTL_BackendContext *cont, KTL_AsmInstr instr,
+                              KTL_BackIR_InstrOperand dst, KTL_BackIR_InstrOperand src);
+static void ir_label         (KTL_BackendContext *cont, KTL_StrID name, bool is_global);
+static void ir_comment       (KTL_BackendContext *cont, KTL_StrID text);
+static void ir_align         (KTL_BackendContext *cont, int align);
+static void ir_data_zero     (KTL_BackendContext *cont, int count);
+static void ir_data_int      (KTL_BackendContext *cont, int64_t value, int size);
+static void ir_data_bytes    (KTL_BackendContext *cont, KTL_StrID bytes, int len);
+static void ir_data_symbol   (KTL_BackendContext *cont, KTL_StrID sym,
+                              KTL_BackIR_SymbolKind kind, int64_t addend, int size);
+static void ir_section_text  (KTL_BackendContext *cont);
+static void ir_section_data  (KTL_BackendContext *cont);
+static void ir_section_rodata(KTL_BackendContext *cont);
+
 
 static void emit_header    (KTL_BackendContext *cont, KTL_AstNode *root);
 static void emit_globals   (KTL_BackendContext *cont, KTL_AstNode *root);
@@ -92,8 +96,6 @@ static void emit_var_decl       (KTL_BackendContext *cont, KTL_AstNode *node);
 static void emit_var_decl_array (KTL_BackendContext *cont, KTL_AstNode *node);
 static void emit_var_decl_zero  (KTL_BackendContext *cont, KTL_AstNode *node);
 static void emit_load_address   (KTL_BackendContext *cont, KTL_AstNode *node);
-/* static void emit_variable(KTL_BackendContext *cont, KTL_AstNode *node); */
-static int  get_offset_field    (KTL_TypeEntry *block, KTL_StrID name);
 static void emit_cond_block     (KTL_BackendContext *cont, KTL_AstNode *node);
 static void emit_for_block      (KTL_BackendContext *cont, KTL_AstNode *node);
 static void emit_while_block    (KTL_BackendContext *cont, KTL_AstNode *node);
@@ -107,8 +109,6 @@ static void emit_assign_struct  (KTL_BackendContext *cont,
                                  KTL_AstNode       *l_val,
                                  KTL_AstNode       *r_val,
                                  KTL_TypeEntry     *type);
-KTL_TypeEntryKind get_type_kind (KTL_BackendContext *cont, KTL_AstNode *node);
-KTL_TypeEntry *   get_type      (KTL_BackendContext *cont, KTL_AstNode *node);
 static void emit_func_call      (KTL_BackendContext *cont, KTL_AstNode *node);
 static void emit_expr           (KTL_BackendContext *cont, KTL_AstNode *node);
 static void emit_cast           (KTL_BackendContext *cont,
@@ -117,8 +117,8 @@ static void emit_cast           (KTL_BackendContext *cont,
 static void emit_oper           (KTL_BackendContext *cont, KTL_AstNode *node);
 static void emit_block          (KTL_BackendContext *cont, KTL_AstNode *node);
 static void emit_body           (KTL_BackendContext *cont, KTL_AstNode *node);
-static void emit_push           (KTL_BackendContext *cont, const char *reg);
-static void emit_pop            (KTL_BackendContext *cont, const char *reg);
+static void emit_push           (KTL_BackendContext *cont, KTL_RegID    reg);
+static void emit_pop            (KTL_BackendContext *cont, KTL_RegID    reg);
 
 KTL_StrID get_global_name(KTL_StrMap *str_map, const char *prefix, KTL_StrID name);
 KTL_StrID get_func_name  (KTL_StrMap *str_map, const char *prefix, KTL_StrID name);
@@ -127,62 +127,32 @@ KTL_StrID get_name       (KTL_StrMap *str_map, const char *prefix_1,
                           const char *prefix_2, KTL_StrID name);
 
 
-
-const char * reg_name(KTL_RegId reg, int size) {
-    assert(reg >= 0 && reg < KTL_REG_COUNT);
-
-    int idx;
-    switch (size) {
-        case 8: idx = 0; break;
-        case 4: idx = 1; break;
-        case 2: idx = 2; break;
-        case 1: idx = 3; break;
-        default:
-            assert(false && "unsupported register size");
-            return "?";
-    }
-    return KTL_REG_NAMES[reg][idx];
-}
-
-const char * size_prefix(int size) {
-    switch (size) {
-        case 1: return "byte";
-        case 2: return "word";
-        case 4: return "dword";
-        case 8: return "qword";
-        default:
-            assert(false && "unsupported memory operand size");
-            return "?";
-    }
-}
-
-const char * global_size_prefix(int size) {
-    switch (size) {
-        case 1: return KTL_STATIC_SIZE_NAME[0];
-        case 2: return KTL_STATIC_SIZE_NAME[1];
-        case 4: return KTL_STATIC_SIZE_NAME[2];
-        case 8: return KTL_STATIC_SIZE_NAME[3];
-        default:
-            assert(false && "unsupported memory operand size");
-            return "?";
-    }
-}
+// =======================================================================
+// API
+// =======================================================================
 
 KTL_Error KTL_BackendInit(KTL_BackendContext *cont,
                           KTL_TypeMap        *type_map,
                           KTL_StrMap         *str_map,
                           KTL_SymbolMap      *global_scope,
-                          FILE               *output) {
+                          KTL_BackIR_Buffer  *text,
+                          KTL_BackIR_Buffer  *data,
+                          KTL_BackIR_Buffer  *rodata) {
     assert(cont);
     assert(type_map);
     assert(str_map);
     assert(global_scope);
-    assert(output);
+    assert(text);
+    assert(data);
+    assert(rodata);
 
     cont->type_map     = type_map;
     cont->str_map      = str_map;
     cont->global_scope = global_scope;
-    cont->file         = output;
+
+    cont->output.text   = text;
+    cont->output.data   = data;
+    cont->output.rodata = rodata;
 
     cont->current_func        = NULL;
     cont->loop_label_break    = -1;
@@ -200,9 +170,6 @@ KTL_Error KTL_BackendUninit(KTL_BackendContext *cont) {
     return KTL_BackendTableUninit(&cont->table);
 }
 
-
-
-
 KTL_Error KTL_BackendRun(KTL_BackendContext *cont, KTL_AstNode *root) {
     assert(cont);
     assert(root);
@@ -218,6 +185,10 @@ KTL_Error KTL_BackendRun(KTL_BackendContext *cont, KTL_AstNode *root) {
     return KTL_OK;
 }
 
+
+// =======================================================================
+// LAYOUT
+// =======================================================================
 
 static void layout_global(KTL_BackendContext *cont, KTL_AstNode *root) {
     assert(cont);
@@ -344,6 +315,14 @@ static void layout_body(KTL_BackendContext *cont, KTL_AstNode *node) {
     return ;
 }
 
+
+
+
+
+// =======================================================================
+// HELPERS
+// =======================================================================
+
 static int get_size(KTL_TypeMap *map, KTL_TypeID type) {
     assert(map);
     assert(TypeIDCheck(type));
@@ -375,547 +354,6 @@ static int align_up(int offset, int align) {
     return ((offset + align - 1) / align) * align;
 }
 
-
-
-static void emit_header(KTL_BackendContext *cont, KTL_AstNode *root) {
-    assert(cont);
-    assert(root);
-
-    print_asm(";============================================\n"
-              "; THIS FILE IS AUTOGENERATED BY KasTLe\n"
-              "; DO NOT MODIFY IT\n"
-              ";============================================\n\n");
-
-    print_asm("section .data\n");
-
-    for (int i = 0; i < root->move.n.amount; i++) {
-        KTL_AstNode *node = root->move.n.children[i];
-        if (node->kind == KTL_AST_VARIABLE_DECL) {
-            emit_global_var(cont, node);
-        }
-    }
-
-    print_asm("\n");
-    return ;
-}
-
-static void emit_globals(KTL_BackendContext *cont, KTL_AstNode *root) {
-    assert(cont);
-    assert(root);
-
-    for (int i = 0; i < root->move.n.amount; i++) {
-        emit_global_var(cont, root->move.n.children[i]);
-    }
-
-    return ;
-}
-
-static void emit_text(KTL_BackendContext *cont, KTL_AstNode *root) {
-    print_asm("section .text\n");
-    print_asm("global _start\n\n");
-    cont->stack_depth = 0;
-
-    for (int i = 0; i < root->move.n.amount; i++) {
-        KTL_AstNode *node = root->move.n.children[i];
-        if (node->kind != KTL_AST_MAIN)  continue;
-
-        print_asm("_start:\n");
-        print_asm("    push rbp\n");
-        print_asm("    mov  rbp, rsp\n");
-        emit_function(cont, node);
-        emit_exit(cont);
-        break;
-    }
-
-    for (int i = 0; i < root->move.n.amount; i++) {
-        KTL_AstNode *node = root->move.n.children[i];
-        if (node->kind == KTL_AST_FUNCTION_DECL) {
-            emit_function(cont, node);
-        }
-    }
-    return ;
-}
-static void emit_function(KTL_BackendContext *cont, KTL_AstNode *node) {
-    if (node->kind != KTL_AST_FUNCTION_DECL && node->kind != KTL_AST_MAIN) return;
-
-    if (node->kind == KTL_AST_FUNCTION_DECL) {
-        print_asm("\n; Function: %s\n", node->data.func_decl.func->str_id);
-        emit_function_header(cont, node);
-        emit_block(cont, node->move.n.children[0]);
-    }
-    else {
-        emit_block(cont, node->move.unary.next);
-    }
-
-    if (node->kind == KTL_AST_FUNCTION_DECL) {
-        print_asm("    mov  rsp, rbp\n");
-        print_asm("    pop  rbp\n");
-        print_asm("    ret\n\n");
-    }
-}
-
-static void emit_global_var(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-    if (node->kind != KTL_AST_VARIABLE_DECL)  return;
-
-    KTL_SymbolEntry    *sym  = node->data.var_decl.entry;
-    KTL_BackendVarInfo *info = KTL_BackendFindVar(&cont->table, sym);
-    KTL_TypeEntry      *type = KTL_TypeGetEntry(cont->type_map, sym->var.type);
-
-    int size  = get_size(cont->type_map, sym->var.type);
-    int align = get_align(cont->type_map, sym->var.type);
-
-    print_asm("align %d\n", align);
-    print_asm("%s:\n", info->loc.stat.label);
-
-    if (!node->data.var_decl.is_init) {
-        print_asm("    times %d db 0\n", size);
-        return ;
-    }
-
-    KTL_AstNode *init = node->move.unary.next;
-    emit_global_value(cont, init, type);
-}
-
-static void emit_global_value(KTL_BackendContext *cont,
-                               KTL_AstNode       *init,
-                               KTL_TypeEntry     *type) {
-    assert(cont);
-    assert(init);
-    assert(type);
-
-    if (type->kind == KTL_TYPE_BASE || type->kind == KTL_TYPE_PTR) {
-        int size = (type->kind == KTL_TYPE_PTR)
-                 ? KTL_SYSTEM_PTR_SIZE
-                 : type->dt.base.size;
-
-        int64_t value = 0;
-        if (init->kind == KTL_AST_VALUE_INT) {
-            value = init->data.int_val.value;
-        }
-
-        print_asm("    %s %lld\n", global_size_prefix(size),
-                  (long long) value);
-        return;
-    }
-    if (type->kind == KTL_TYPE_ARRAY) {
-        KTL_TypeEntry *elem_type = KTL_TypeGetEntry(cont->type_map,
-                                                    type->dt.arr.base_type);
-        int total     = type->dt.arr.elem_count;
-        int elem_size = get_size(cont->type_map, type->dt.arr.base_type);
-
-        int n_init = 0;
-        if (init->kind == KTL_AST_ARRAY_INIT) {
-            n_init = init->move.n.amount;
-            if (n_init > total)  n_init = total;
-
-            for (int i = 0; i < n_init; i++) {
-                emit_global_value(cont, init->move.n.children[i], elem_type);
-            }
-        }
-
-        if (n_init < total) {
-            print_asm("    times %d db 0\n", (total - n_init) * elem_size);
-        }
-        return;
-    }
-    if (type->kind == KTL_TYPE_BLOCK) {
-        print_asm("    times %d db 0\n", type->dt.block.size);
-        return;
-    }
-}
-
-
-static void emit_strings(KTL_BackendContext *cont, KTL_AstNode *root) {
-    assert(cont);
-    assert(root);
-
-    print_asm("section .rodata  ; constant strings\n");
-    emit_string_literal(cont, root);
-
-    return ;
-}
-
-static void emit_string_literal(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    if (node == NULL)   return ;
-
-    if (node->kind == KTL_AST_VALUE_STR) {
-        fprintf_string_value(cont, node->data.str_val.value);
-        return ;
-    }
-
-    KTL_AstChildren mov_type = KTL_AstGetTypeChildren(node);
-
-    switch (mov_type) {
-
-    case KTL_AST_N_CHILDREN:
-        for (int i = 0; i < node->move.n.amount; i++) {
-            emit_string_literal(cont, node->move.n.children[i]);
-        }
-        break;
-
-    case KTL_AST_BINARY_CHILDREN:
-        emit_string_literal(cont, node->move.binary.left);
-        emit_string_literal(cont, node->move.binary.right);
-        break;
-
-    case KTL_AST_UNARY_CHILD:
-        emit_string_literal(cont, node->move.unary.next);
-        break;
-
-    case KTL_AST_NO_CHILDREN:
-    default:
-        break;
-    }
-    return ;
-}
-
-static void fprintf_string_value(KTL_BackendContext *cont, KTL_StrID value) {
-    assert(cont);
-    assert(value);
-
-    print_asm("    %s db", get_string_name(cont->str_map, cont->symbol_prefix, value));
-    fputc('\"', cont->output);
-
-    for (int i = 0; i < strlen(value); i++) {
-        char c = value[i];
-        if (c == '\n' || c == '\t' || c == '\r') {
-            print_asm("\", 0x%X, \"", c);
-        }
-        else {
-            fputc(c, cont->file);
-        }
-    }
-
-    fputc('\"',  cont->file);
-    fputs(", 0", cont->file);
-    fputc('\n',  cont->file);
-
-    return ;
-}
-
-
-
-static void emit_function_header(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-    if (node->kind != KTL_AST_FUNCTION_DECL)    return ;
-
-    KTL_BackendFuncInfo *func = KTL_BackendFindFunc(&cont->table,
-                                        node->data.func_decl.func);
-    if (func == NULL)   return ;
-
-    print_asm("global %s\n", func->label);
-    print_asm("%s:\n",       func->label);
-
-    print_asm("    push rbp\n");
-    print_asm("    mov  rbp, rsp\n");
-
-    if (func->frame_size > 0) {
-        print_asm("    sub  rsp, %d\n",  func->frame_size);
-    }
-
-    KTL_SymbolMap *params = node->data.func_decl.map;
-    int n_reg = (params->size < KTL_PARAM_REGS_COUNT) ?
-                params->size : KTL_PARAM_REGS_COUNT;
-
-    for (int i = 0; i < n_reg; i++) {
-        KTL_SymbolEntry    *param = params->data[i];
-        KTL_BackendVarInfo *info  = KTL_BackendFindVar(&cont->table, param);
-
-        if (info == NULL || info->storage != KTL_BACKEND_STORAGE_STACK) {
-            return ;
-        }
-
-        const char *reg = reg_name(KTL_PARAM_REGS[i],
-                                             KTL_SYSTEM_PTR_SIZE);
-        print_asm("    mov  [rbp%+d], %s\n",
-                info->loc.stack.offset, reg);
-    }
-    cont->stack_depth = 0;
-    return ;
-}
-
-
-static void emit_var_decl(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-
-    if (node->data.var_decl.is_init && node->move.unary.next->kind == KTL_AST_ARRAY_INIT) {
-        emit_var_decl_array(cont, node);
-        return ;
-    }
-
-    debug_out("VARIABLE: %s\n", node->data.var_decl.entry->str_id);
-    /* structs can't be initted */
-    KTL_BackendVarInfo *var = KTL_BackendFindVar(&cont->table, node->data.var_decl.entry);
-    if (node->data.var_decl.is_init) {
-        emit_expr(cont, node->move.unary.next);
-        KTL_TypeEntry *type = KTL_TypeGetEntry(cont->type_map,
-                            node->data.var_decl.entry->var.type);
-        int size = (type->kind == KTL_TYPE_PTR)
-                    ? KTL_SYSTEM_PTR_SIZE
-                    : type->dt.base.size;
-
-        print_asm("    mov  %s [rbp%+d], %s\n",
-                size_prefix(size),
-                var->loc.stack.offset,
-                reg_name(KTL_REG_RAX, size));
-    }
-    else {
-        emit_var_decl_zero(cont, node);
-    }
-}
-
-static void emit_var_decl_array(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-
-    KTL_AstNode   *array      = node->move.unary.next;
-    KTL_TypeEntry *type_array = KTL_TypeGetEntry(cont->type_map, node->data.var_decl.entry->var.type);
-    KTL_TypeEntry *type_elem  = KTL_TypeGetEntry(cont->type_map, type_array->dt.arr.base_type);
-    int            size_elem  = get_size(cont->type_map, type_array->dt.arr.base_type);
-    KTL_BackendVarInfo *var   = KTL_BackendFindVar(&cont->table, node->data.var_decl.entry);
-
-    if (type_elem->kind == KTL_TYPE_PTR ||
-        type_elem->kind == KTL_TYPE_BASE) {
-        for (int i = 0; i < array->move.n.amount; i++) {
-            emit_expr(cont, array->move.n.children[i]);
-            print_asm("    mov  %s [rbp%+d], %s\n",
-                    size_prefix(size_elem),
-                    var->loc.stack.offset + i * size_elem,
-                    reg_name(KTL_REG_RAX, size_elem));
-        }
-        return ;
-    }
-    for (int i = 0; i < array->move.n.amount; i++) {
-        emit_load_address(cont, array->move.n.children[i]);
-        print_asm("    mov  rsi, rax\n");                                             /* src */
-        print_asm("    lea  rdi, [rbp%+d]\n", var->loc.stack.offset + i * size_elem); /* dst */
-        print_asm("    mov  rcx, %d\n", size_elem);
-        print_asm("    rep  movsb\n");
-    }
-    return ;
-}
-
-static void emit_var_decl_zero(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-
-    KTL_TypeEntry *type_var = KTL_TypeGetEntry(cont->type_map, node->data.var_decl.entry->var.type);
-    KTL_BackendVarInfo *var = KTL_BackendFindVar(&cont->table, node->data.var_decl.entry);
-    int                size = get_size(cont->type_map, node->data.var_decl.entry->var.type);
-
-    if (type_var->kind == KTL_TYPE_PTR ||
-        type_var->kind == KTL_TYPE_BASE) {
-        print_asm("    xor  rax, rax\n");
-        print_asm("    mov  [rbp%+d], %s\n", var->loc.stack.offset, reg_name(KTL_REG_RAX,
-                                get_size(cont->type_map, node->data.var_decl.entry->var.type)));
-        return ;
-    }
-
-    print_asm("    lea  rdi, [rbp%+d]\n", var->loc.stack.offset);
-    print_asm("    xor  al, al\n");
-    print_asm("    mov  rcx, %d\n", size);
-    print_asm("    rep  stosb\n");
-
-    return ;
-}0x88
-
-
-
-static void emit_load_address(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-
-    switch (node->kind) {
-
-    case KTL_AST_VARIABLE: {
-        KTL_BackendVarInfo *var = KTL_BackendFindVar(&cont->table,
-                                  node->data.var.info.res.entry);
-
-        if (var->storage == KTL_BACKEND_STORAGE_STATIC) {
-            print_asm("    lea  rax, [rel %s]\n", var->loc.stat.label);
-        }
-        else {
-            print_asm("    lea  rax, [rbp%+d]\n", var->loc.stack.offset);
-        }
-        return;
-    }
-
-    case KTL_AST_FIELD_ACCESS: {
-        KTL_AstNode   *base      = node->move.unary.next;
-        KTL_TypeEntry *base_type = get_type(cont, base);
-
-        if (node->data.field.is_ptr) {
-            emit_expr(cont, base);
-
-            KTL_TypeEntry *struct_type = KTL_TypeGetEntry(cont->type_map,
-                                                          base_type->dt.ptr.prev_type);
-            int offset = get_offset_field(struct_type, node->data.field.name);
-            if (offset != 0) {
-                print_asm("    add  rax, %d\n", offset);
-            }
-        }
-        else {
-            emit_load_address(cont, base);
-
-            int offset = get_offset_field(base_type, node->data.field.name);
-            if (offset != 0) {
-                print_asm("    add  rax, %d\n", offset);
-            }
-        }
-        return;
-    }
-
-    case KTL_AST_INDEX_ACCESS: {
-        KTL_AstNode   *base      = node->move.binary.left;
-        KTL_AstNode   *index     = node->move.binary.right;
-        KTL_TypeEntry *base_type = get_type(cont, base);
-
-        KTL_TypeID elem_id;
-        if (base_type->kind == KTL_TYPE_ARRAY) {
-            elem_id = base_type->dt.arr.base_type;
-        }
-        else if (base_type->kind == KTL_TYPE_PTR) {
-            elem_id = base_type->dt.ptr.prev_type;
-        }
-        else {
-            assert(false && "indexing non-array non-pointer");
-            return;
-        }
-        int elem_size = get_size(cont->type_map, elem_id);
-
-        if (base_type->kind == KTL_TYPE_PTR) {
-            emit_expr(cont, base);
-        }
-        else {
-            emit_load_address(cont, base);
-        }
-        emit_push(cont, "rax");
-
-        emit_expr(cont, index);
-        if (elem_size != 1) {
-            print_asm("    imul rax, %d\n", elem_size);
-        }
-
-        emit_pop(cont, "rdi");
-        print_asm("    add  rax, rdi\n");
-        return;
-    }
-
-    case KTL_AST_UNARY_OPER: {
-        if (node->data.oper.op == KTL_OPER_UNGET_PTR) {
-            emit_expr(cont, node->move.unary.next);
-            return;
-        }
-        assert(false && "non-lvalue unary in lvalue context");
-        return;
-    }
-
-    default:
-        assert(false && "not a valid lvalue");
-        return;
-    }
-}
-
-/*
-static void emit_variable(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-
-    switch (node->kind) {
-
-    case KTL_AST_VARIABLE: {
-        KTL_BackendVarInfo *var = KTL_BackendFindVar(&cont->table, node->data.var.info.res.entry);
-        if (var->storage == KTL_BACKEND_STORAGE_STATIC) {
-            print_asm("    mov  rax, %s\n", get_global_name(cont->str_map, cont->symbol_prefix,
-                                                        var->origin->str_id));
-        }
-        else {
-            print_asm("    mov  rax, rsp\n");
-            if (var->loc.stack.offset > 0) {
-                print_asm("    add  rax, %d\n", var->loc.stack.offset);
-            }
-            else {
-                print_asm("    sub  rax, %d\n", (-1) * var->loc.stack.offset);
-            }
-        }
-        return ;
-    }
-
-    case KTL_AST_FIELD_ACCESS: {
-        KTL_AstNode   *base      = node->move.unary.next;
-        KTL_TypeEntry *base_type = get_type(cont, base);
-
-        if (node->data.field.is_ptr) {
-            emit_expr(cont, base);
-
-            KTL_TypeEntry *struct_type = KTL_TypeGetEntry(cont->type_map,
-                                                        base_type->dt.ptr.prev_type);
-            int offset = get_offset_field(struct_type, node->data.field.name);
-            if (offset != 0) {
-                print_asm("    add  rax, %d\n", offset);
-            }
-        }
-        else {
-            emit_load_address(cont, base);
-
-            int offset = get_offset_field(base_type, node->data.field.name);
-            if (offset != 0) {
-                print_asm("    add  rax, %d\n", offset);
-            }
-        }
-        return;
-    }
-
-    case KTL_AST_INDEX_ACCESS: {
-        KTL_AstNode   *base      = node->move.binary.left;
-        KTL_AstNode   *index     = node->move.binary.right;
-        KTL_TypeEntry *base_type = get_type(cont, base);
-
-        KTL_TypeID elem_id;
-        if (base_type->kind == KTL_TYPE_ARRAY) {
-            elem_id = base_type->dt.arr.base_type;
-        } else if (base_type->kind == KTL_TYPE_PTR) {
-            elem_id = base_type->dt.ptr.prev_type;
-        } else {
-            assert(false && "indexing non-array non-pointer");
-            return;
-        }
-        int elem_size = get_size(cont->type_map, elem_id);
-
-        if (base_type->kind == KTL_TYPE_PTR) {
-            emit_expr(cont, base);
-        } else {
-            emit_load_address(cont, base);
-        }
-        emit_push(cont, "rax");
-
-        emit_expr(cont, index);
-        if (elem_size != 1) {
-            print_asm("    imul rax, %d\n", elem_size);
-        }
-        emit_pop(cont, "rdi");
-        print_asm("    add  rax, rdi\n");
-        return;
-    }
-
-    case KTL_AST_UNARY_OPER:
-        if (node->data.oper.op == KTL_OPER_UNGET_PTR) {
-            emit_expr(cont, node->move.unary.next);
-            return;
-        }
-        assert(false && "non-lvalue unary operator");
-        return;
-
-    }
-    return ;
-}
-*/
-
 static int get_offset_field(KTL_TypeEntry *block, KTL_StrID name) {
     assert(block);
     assert(StrIDCheck(name));
@@ -927,240 +365,6 @@ static int get_offset_field(KTL_TypeEntry *block, KTL_StrID name) {
     }
     return 0;
 }
-
-
-
-static void emit_cond_block(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-
-    KTL_AstNode *branch = node->move.n.children[0];
-    int else_label         = cont->label_counter++;
-    int end_cond           = else_label;
-
-    if (node->move.n.amount != 1) {
-        end_cond = cont->label_counter++;
-    }
-
-    emit_expr(cont, branch->move.binary.left); /* condition */
-    print_asm("    test rax, rax\n");
-    print_asm("    jz .L%d\n", else_label);
-
-    emit_block(cont, branch->move.binary.right);
-    print_asm("    jmp .L%d\n", end_cond);
-
-    print_asm(".L%d:\n", else_label);
-
-    bool has_else = false;
-    for (int i = 1; i < node->move.n.amount; i++) {
-        branch = node->move.n.children[i];
-        if (branch->kind == KTL_AST_ELSE_BRANCH) {
-            has_else = true;
-            break;
-        };
-
-        else_label = cont->label_counter++;
-
-        emit_expr(cont, branch->move.binary.left);
-        print_asm("    test rax, rax\n");
-        print_asm("    jz .L%d\n", else_label);
-
-        emit_block(cont, branch->move.binary.right);
-        print_asm("    jmp .L%d\n", end_cond);
-
-        print_asm(".L%d:\n", else_label);
-    }
-    if (has_else) {
-        emit_block(cont, branch->move.unary.next);
-    }
-    print_asm(".L%d:\n", end_cond);
-
-    return ;
-}
-
-
-
-static void emit_for_block(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-
-    int last_break    = cont->loop_label_break;
-    int last_continue = cont->loop_label_continue;
-
-    int cur_break    = cont->label_counter++;
-    int cur_continue = cont->label_counter++;
-
-    cont->loop_label_break    = cur_break;
-    cont->loop_label_continue = cur_continue;
-
-    if (node->move.n.children[0]) {
-        if (node->move.n.children[0]->kind == KTL_AST_ASSIGN) {
-            emit_assign(cont, node->move.n.children[0]);
-        }
-        else {
-            emit_var_decl(cont, node->move.n.children[0]);
-        }
-    }
-    print_asm(".L%d:\n", cur_continue);
-    if (node->move.n.children[1]) {
-        emit_expr(cont, node->move.n.children[1]);
-    }
-    print_asm("    test rax, rax\n");
-    print_asm("    jz   .L%d\n", cur_break);
-    emit_block(cont, node->move.n.children[3]);
-
-    if (node->move.n.children[2]) {
-        emit_assign(cont, node->move.n.children[2]);
-    }
-    print_asm("    jmp  .L%d\n", cur_continue);
-    print_asm(".L%d:\n", cur_break);
-
-    cont->loop_label_break    = last_break;
-    cont->loop_label_continue = last_continue;
-
-    return ;
-}
-
-static void emit_while_block(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-
-    int last_break    = cont->loop_label_break;
-    int last_continue = cont->loop_label_continue;
-
-    int cur_break    = cont->label_counter++;
-    int cur_continue = cont->label_counter++;
-
-    cont->loop_label_break    = cur_break;
-    cont->loop_label_continue = cur_continue;
-
-    print_asm(".L%d:\n", cur_continue);
-    emit_expr(cont, node->move.binary.left);
-
-    print_asm("    test rax, rax\n");
-    print_asm("    jz   .L%d\n", cur_break);
-    emit_block(cont, node->move.binary.right);
-
-    print_asm("    jmp  .L%d\n", cur_continue);
-    print_asm(".L%d:\n", cur_break);
-
-    cont->loop_label_break    = last_break;
-    cont->loop_label_continue = last_continue;
-
-    return ;
-}
-
-static void emit_continue(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-
-    print_asm("    jmp .L%d\n", cont->loop_label_continue);
-    return ;
-}
-
-static void emit_break(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-
-    print_asm("    jmp .L%d\n", cont->loop_label_break);
-    return ;
-}
-
-static void emit_exit(KTL_BackendContext *cont) {
-    assert(cont);
-
-    print_asm("    mov  rax, 60\n");
-    print_asm("    xor rdi, rdi\n");
-    print_asm("    syscall\n");
-
-    return ;
-}
-
-static void emit_return(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-
-    if (node->move.unary.next != NULL)   emit_expr(cont, node->move.unary.next);
-
-    print_asm("    mov  rsp, rbp\n");
-    print_asm("    pop  rbp\n");
-    print_asm("    ret\n");
-
-    return ;
-}
-
-static void emit_assign(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-    assert(node->kind == KTL_AST_ASSIGN);
-
-    KTL_AstNode *l_val = node->move.binary.left;
-    KTL_AstNode *r_val = node->move.binary.right;
-
-    KTL_TypeEntry *type = get_type(cont, l_val);
-    int size            = get_assign_size(cont, type);
-
-    if (type->kind == KTL_TYPE_BLOCK ||
-        type->kind == KTL_TYPE_ARRAY) {
-        emit_assign_struct(cont, l_val, r_val, type);
-        return;
-    }
-
-    emit_load_address(cont, l_val);
-    emit_push(cont, "rax");
-
-    emit_expr(cont, r_val);
-    emit_pop(cont, "rdi");
-
-    print_asm("    mov  %s [rdi], %s\n",
-            size_prefix(size), reg_name(KTL_REG_RAX, size));
-    return ;
-}
-
-static int get_assign_size(KTL_BackendContext *cont, KTL_TypeEntry *type) {
-    switch (type->kind) {
-        case KTL_TYPE_BASE:  return type->dt.base.size;
-        case KTL_TYPE_PTR:   return KTL_SYSTEM_PTR_SIZE;
-        case KTL_TYPE_BLOCK: return type->dt.block.size;
-        case KTL_TYPE_ARRAY: {
-            int elem = get_size(cont->type_map, type->dt.arr.base_type);
-            return type->dt.arr.elem_count * elem;
-        }
-        default: assert(false); return -1;
-    }
-}
-
-static void emit_assign_struct(KTL_BackendContext *cont,
-                                KTL_AstNode       *l_val,
-                                KTL_AstNode       *r_val,
-                                KTL_TypeEntry     *type) {
-    assert(cont);
-    assert(r_val);
-    assert(l_val);
-    assert(type);
-
-    int size = -1;
-    if (type->kind == KTL_TYPE_BLOCK) {
-        size = type->dt.block.size;
-    } else {
-        int elem = get_size(cont->type_map, type->dt.arr.base_type);
-        size = type->dt.arr.elem_count * elem;
-    }
-
-    emit_load_address(cont, l_val);
-    emit_push(cont, "rax");
-
-    emit_load_address(cont, r_val);
-    print_asm("    mov  rsi, rax\n");   /* src */
-
-    emit_pop(cont, "rdi");              /* dst */
-
-    print_asm("    mov  rcx, %d\n", size);
-    print_asm("    rep  movsb\n");
-
-    return ;
-}
-
 
 KTL_TypeEntryKind get_type_kind(KTL_BackendContext *cont, KTL_AstNode *node) {
     assert(cont);
@@ -1194,327 +398,6 @@ KTL_TypeEntry * get_type(KTL_BackendContext *cont, KTL_AstNode *node) {
         return NULL;
     }
 }
-
-
-static void emit_func_call(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-    assert(node->kind == KTL_AST_FUNCTION_CALL);
-
-    int n_par = node->move.n.amount;
-    int n_reg_par   = n_par >= KTL_PARAM_REGS_COUNT    ? KTL_PARAM_REGS_COUNT : n_par;
-    int n_stack_par = n_par - n_reg_par;
-
-    for (int i = 0; i < n_par; i++) {
-        emit_expr(cont, node->move.n.children[n_par - 1 - i]);
-        emit_push(cont, reg_name(KTL_REG_RAX, KTL_SYSTEM_PTR_SIZE));
-    }
-
-    for (int i = 0; i < n_reg_par; i++) {
-        const char *reg = reg_name(KTL_PARAM_REGS[i], KTL_SYSTEM_PTR_SIZE);
-        emit_pop(cont, reg);
-    }
-
-    bool need_align = (cont->stack_depth % 16) != 0;
-    if (need_align) {
-        print_asm("    sub  rsp, 8\n");
-        cont->stack_depth += 8;
-    }
-
-    KTL_BackendFuncInfo *func = KTL_BackendFindFunc(&cont->table, node->data.func_call.info.res.entry);
-    print_asm("    call %s\n", func->label);
-
-    int cleanup = (need_align ? 8 : 0) + n_stack_par * 8;
-    if (cleanup > 0) {
-        print_asm("    add  rsp, %d\n", cleanup);
-        cont->stack_depth -= cleanup;
-    }
-
-
-    return ;
-}
-
-
-static void emit_expr(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-
-    switch (node->kind) {
-
-    case KTL_AST_FUNCTION_CALL:
-        emit_func_call(cont, node);
-        return ;
-
-    case KTL_AST_VARIABLE:
-    case KTL_AST_FIELD_ACCESS:
-    case KTL_AST_INDEX_ACCESS: {
-        emit_load_address(cont, node);
-
-        KTL_TypeEntry *type = get_type(cont, node);
-        if (type->kind == KTL_TYPE_BLOCK || type->kind == KTL_TYPE_ARRAY) {
-            return;
-        }
-
-        KTL_TypeID type_id = KTL_BAD_TYPE_ID;
-        switch (node->kind) {
-            case KTL_AST_VARIABLE:     type_id = node->data.var.info.res.entry->var.type; break;
-            case KTL_AST_FIELD_ACCESS: type_id = node->data.field.type;        break;
-            case KTL_AST_INDEX_ACCESS: type_id = node->data.index.type_value;  break;
-            default: assert(false); return;
-        }
-
-        int size = get_size(cont->type_map, type_id);
-        const char *reg    = reg_name(KTL_REG_RAX, size);
-        const char *prefix = size_prefix(size);
-        print_asm("    mov  %s, %s [rax]\n", reg, prefix);
-        return;
-    }
-    case KTL_AST_BINARY_OPER:
-    case KTL_AST_UNARY_OPER:
-        emit_oper(cont, node);
-        return ;
-
-    case KTL_AST_VALUE_INT:
-        print_asm("    mov  rax, %lld\n", node->data.int_val.value);
-        return;
-
-    case KTL_AST_VALUE_STR: {
-        KTL_StrID label = get_string_name(cont->str_map, cont->symbol_prefix,
-                                        node->data.str_val.value);
-        print_asm("    lea  rax, [rel %s]\n", label);
-        return;
-    }
-    case KTL_AST_CAST: {
-        emit_expr(cont, node->move.unary.next);
-
-        KTL_AstNode *src = node->move.unary.next;
-
-        KTL_TypeID src_id = KTL_BAD_TYPE_ID;
-        switch (src->kind) {
-            case KTL_AST_VARIABLE:     src_id = src->data.var.info.res.entry->var.type; break;
-            case KTL_AST_FIELD_ACCESS: src_id = src->data.field.type;       break;
-            case KTL_AST_INDEX_ACCESS: src_id = src->data.index.type_value; break;
-            case KTL_AST_VALUE_INT:    src_id = src->data.int_val.type_res; break;
-            case KTL_AST_BINARY_OPER:
-            case KTL_AST_UNARY_OPER:   src_id = src->data.oper.type_res;    break;
-            case KTL_AST_CAST:         src_id = src->data.cast.target;      break;
-            default:                   src_id = node->data.cast.target;     break;
-        }
-
-        emit_cast(cont, src_id, node->data.cast.target);
-        return;
-    }
-
-    default:
-        break;
-    }
-    return ;
-}
-
-static void emit_cast(KTL_BackendContext *cont,
-                      KTL_TypeID src_id, KTL_TypeID dst_id)
-{
-    if (src_id == dst_id)  return;
-
-    KTL_TypeEntry *src = KTL_TypeGetEntry(cont->type_map, src_id);
-    KTL_TypeEntry *dst = KTL_TypeGetEntry(cont->type_map, dst_id);
-
-    if (src->kind != KTL_TYPE_BASE || dst->kind != KTL_TYPE_BASE)  return;
-
-    int src_size = src->dt.base.size;
-    int dst_size = dst->dt.base.size;
-
-    if (dst_size == 1 && strcmp(dst->dt.base.name, "bool") == 0) {
-        print_asm("    test rax, rax\n");
-        print_asm("    setne al\n");
-        print_asm("    movzx rax, al\n");
-        return;
-    }
-
-    if (dst_size <= src_size)  return;
-
-    if      (src_size == 1 && dst_size >= 4) print_asm("    movsx rax, al\n");
-    else if (src_size == 1 && dst_size == 2) print_asm("    movsx ax, al\n");
-    else if (src_size == 2 && dst_size >= 4) print_asm("    movsx rax, ax\n");
-    else if (src_size == 4 && dst_size == 8) print_asm("    cdqe\n");
-
-    return ;
-}
-
-static void emit_oper(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    assert(node);
-
-    KTL_Oper op = node->data.oper.op;
-
-    switch (op) {
-
-    case KTL_OPER_ADD:
-    case KTL_OPER_SUB:
-    case KTL_OPER_MUL:
-    case KTL_OPER_DIV:
-    case KTL_OPER_MOD:
-        emit_expr(cont, node->move.binary.left);
-        emit_push(cont, "rax");
-        emit_expr(cont, node->move.binary.right);
-        emit_pop(cont, "rdi");
-        if     (op == KTL_OPER_ADD) {
-            print_asm("    add  rax, rdi\n");
-        }
-        else if (op == KTL_OPER_SUB) {
-            print_asm("    sub  rdi, rax\n");
-            print_asm("    mov  rax, rdi\n");
-        }
-        else {
-            if (op == KTL_OPER_MUL)     print_asm("    imul rax, rdi\n");
-            else {
-                print_asm("    cqo\n");
-                print_asm("    idiv rdi\n");
-                if (op == KTL_OPER_MOD)     print_asm("    mov  rax, rdx\n");
-            }
-        }
-        return ;
-
-    case KTL_OPER_NEG:
-        emit_expr(cont, node->move.unary.next);
-        print_asm("    neg  rax\n");
-        return ;
-
-    case KTL_OPER_AND:
-    case KTL_OPER_OR: {
-        int label_end = cont->label_counter++;
-
-        emit_expr(cont, node->move.binary.left);
-        print_asm("    test rax, rax\n");
-        if (op == KTL_OPER_AND) {
-            print_asm("    jz   .L%d\n", label_end);
-        } else {
-            print_asm("    jnz  .L%d\n", label_end);
-        }
-        emit_expr(cont, node->move.binary.right);
-        print_asm(".L%d:\n", label_end);
-        return;
-    }
-
-    case KTL_OPER_COMP_BE:
-    case KTL_OPER_COMP_LE:
-    case KTL_OPER_COMP_L:
-    case KTL_OPER_COMP_B:
-    case KTL_OPER_COMP_E:
-    case KTL_OPER_COMP_NE: {
-        emit_expr(cont, node->move.binary.left);
-        emit_push(cont, "rax");
-        emit_expr(cont, node->move.binary.right);
-        emit_pop(cont, "rdi");
-
-        print_asm("    cmp  rdi, rax\n");
-
-        const char *setcc = NULL;
-        switch (op) {
-            case KTL_OPER_COMP_BE: setcc = "setge"; break;
-            case KTL_OPER_COMP_B:  setcc = "setg";  break;
-            case KTL_OPER_COMP_LE: setcc = "setle"; break;
-            case KTL_OPER_COMP_L:  setcc = "setl";  break;
-            case KTL_OPER_COMP_E:  setcc = "sete";  break;
-            case KTL_OPER_COMP_NE: setcc = "setne"; break;
-            default: assert(false); return;
-        }
-
-        print_asm("    %s al\n", setcc);
-        print_asm("    movzx rax, al\n");
-        return;
-    }
-    case KTL_OPER_GET_PTR:
-        emit_load_address(cont, node->move.unary.next);
-        return ;
-
-    case KTL_OPER_UNGET_PTR:
-        emit_expr(cont, node->move.unary.next);
-        return ;
-    }
-    return ;
-}
-
-
-static void emit_block(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    if (node == NULL || node->kind != KTL_AST_BLOCK)  return;
-
-    debug_out("BLOCK\n");
-
-    for (int i = 0; i < node->move.n.amount; i++) {
-        emit_body(cont, node->move.n.children[i]);
-    }
-}
-
-static void emit_body(KTL_BackendContext *cont, KTL_AstNode *node) {
-    assert(cont);
-    if (node == NULL)  return;
-
-    switch (node->kind) {
-    case KTL_AST_VARIABLE_DECL:
-        debug_out("VARIABLE DECL\n");
-        emit_var_decl(cont, node);
-        return;
-
-    case KTL_AST_ASSIGN:
-        debug_out("ASSIGN\n");
-        emit_assign(cont, node);
-        return;
-
-    case KTL_AST_COND_BLOCK:
-        debug_out("COND BLOCK\n");
-        emit_cond_block(cont, node);
-        return;
-
-    case KTL_AST_WHILE_BLOCK:
-        debug_out("WHILE BLOCK\n");
-        emit_while_block(cont, node);
-        return;
-
-    case KTL_AST_FOR_BLOCK:
-        debug_out("FOR BLOCK\n");
-        emit_for_block(cont, node);
-        return;
-
-    case KTL_AST_RETURN:
-        debug_out("RETURN\n");
-        emit_return(cont, node);
-        return;
-
-    case KTL_AST_BREAK:
-        debug_out("BREAK\n");
-        emit_break(cont, node);
-        return;
-
-    case KTL_AST_CONTINUE:
-        debug_out("CONTINUE\n");
-        emit_continue(cont, node);
-        return;
-
-    case KTL_AST_FUNCTION_CALL:
-        debug_out("FUNC CALL\n");
-        emit_func_call(cont, node);
-        return;
-
-    default:
-        return;
-    }
-}
-
-
-static void emit_push(KTL_BackendContext *cont, const char *reg) {
-    print_asm("    push %s\n", reg);
-    cont->stack_depth += 8;
-}
-
-static void emit_pop(KTL_BackendContext *cont, const char *reg) {
-    print_asm("    pop  %s\n", reg);
-    cont->stack_depth -= 8;
-}
-
-
-
 
 KTL_StrID get_global_name(KTL_StrMap *str_map, const char *prefix, KTL_StrID name) {
     return get_name(str_map, prefix, KTL_GLOBAL_PREFIX, name);
@@ -1561,3 +444,1203 @@ KTL_StrID get_name(KTL_StrMap *str_map, const char *prefix_1, const char *prefix
 
     return KTL_StrMapFind(str_map, buffer);
 }
+
+
+
+// =======================================================================
+// EMIT CONVERT HELPERS
+// =======================================================================
+
+/* Operands */
+#define _REG_64(_reg_)               op_reg(_reg_, 8)
+#define _REG(_reg_,_size_)           op_reg(_reg_,_size_)
+#define _IMM_64(_imm_)               op_imm(_imm_, 8)
+#define _MEM_IDX(_base_,_off_,_size_)op_mem(_base_, KTL_REG_INVALID, 0, _off_, _size_)
+#define _MEM_RIP_VAR(_name_, _size_) op_mem_rip(_name_, KTL_BACK_IR_SYM_LOCAL_VAR, _size_)
+#define _LBL(_name_)                 op_label(_name_)
+#define _NR(_name_)                  KTL_REG_##_name_
+
+/* Instraction */
+#define _MOV(_dst_,_src_)            ir_txt(cont, KTL_ASM_MOV, _dst_, _src_)
+#define _MOVSX(_dst_,_src_)          ir_txt(cont, KTL_ASM_MOVSX, _dst_, _src_)
+#define _MOVZX(_dst_,_src_)          ir_txt(cont, KTL_ASM_MOVZX, _dst_, _src_)
+#define _LEA(_dst_,_src_)            ir_txt(cont, KTL_ASM_LEA, _dst_,_src_)
+
+#define _PUSH(_src_)                 ir_txt(cont, KTL_ASM_PUSH,_src_)
+#define _POP(_src_)                  ir_txt(cont, KTL_ASM_POP, _src_)
+
+#define _ADD(_dst_,_src_)            ir_txt(cont, KTL_ASM_ADD, _dst_, _src_)
+#define _SUB(_dst_,_src_)            ir_txt(cont, KTL_ASM_SUB, _dst_, _src_)
+#define _IMUL(_dst_,_src_)           ir_txt(cont, KTL_ASM_IMUL, _dst_, _src_)
+#define _IDIV(_dst_,_src_)           ir_txt(cont, KTL_ASM_IDIV, _dst_, _src_)
+#define _IDIV1(_src_)                ir_txt(cont, KTL_ASM_IDIV, _src_)  /* 1-op */
+
+#define _CMP(_dst_,_src_)            ir_txt(cont, KTL_ASM_CMP, _dst_, _src_)
+#define _TEST(_dst_,_src_)           ir_txt(cont, KTL_ASM_TEST, _dst_, _src_)
+#define _AND(_dst_,_src_)            ir_txt(cont, KTL_ASM_AND, _dst_, _src_)
+#define _XOR(_dst_,_src_)            ir_txt(cont, KTL_ASM_XOR, _dst_, _src_)
+#define _NEG(_src_)                  ir_txt(cont, KTL_ASM_NEG, _src_)
+
+#define _JMP(_label_)                ir_txt(cont, KTL_ASM_JMP, _label_)
+#define _JZ(_label_)                 ir_txt(cont, KTL_ASM_JZ, _label_)
+#define _JNZ(_label_)                ir_txt(cont, KTL_ASM_JNZ, _label_)
+
+#define _REP_MOVSB                   ir_txt(cont, KTL_ASM_REP_MOVSB)
+#define _REP_STOSB                   ir_txt(cont, KTL_ASM_REP_STOSB)
+
+#define _SYSCALL                     ir_txt(cont, KTL_ASM_SYSCALL)
+#define _CALL(_op_)                  ir_txt(cont, KTL_ASM_CALL, _op_)
+#define _RET                         ir_txt(cont, KTL_ASM_RET)
+
+#define _CDQE                        ir_txt(cont, KTL_ASM_CDQE)
+#define _CQO                         ir_txt(cont, KTL_ASM_CQO)
+
+#define _SET(_cc_,_dst_)             ir_txt(cont, KTL_ASM_SET##_cc_, _dst_)
+
+/* Data & Rodata Init */
+#define _INT(_val_,_size_)           ir_data_int(cont, _val_, _size_)
+#define _ZERO(_size_)                ir_data_zero(cont, _size_)
+#define _BYTE(_name_)                ir_data_bytes(cont, _name_, strlen(_name_) + 1)
+#define _LBYTE(_name_,_len_)         ir_data_bytes(cont, _name_, _len_)
+#define _SYM_FUNC(_sym_)             op_sym(_sym_, KTL_BACK_IR_SYM_LOCAL_FUNC, 0)
+
+/* Support */
+#define _COMMENT(_text_)             ir_comment(cont, _text_)
+#define _TEXT(_text_)                KTL_StrMapFind(cont->str_map, _text_)
+#define _LABEL(_name_)               ir_label(cont, _name_, false)
+#define _GLABEL(_name_)              ir_label(cont, _name_, true)
+#define _SWITCH_DATA                 ir_section_data(cont)
+#define _SWITCH_RODATA               ir_section_rodata(cont)
+#define _SWITCH_TEXT                 ir_section_text(cont)
+#define _ALIGN(_size_)               ir_align(cont, _size_)
+
+static KTL_BackIR_InstrOperand op_reg(KTL_RegID reg, int size) {
+    return (KTL_BackIR_InstrOperand){.kind     = KTL_BACK_IR_OP_REG,
+                                     .reg.reg  = reg,
+                                     .reg.size = (uint8_t) size};
+}
+
+static KTL_BackIR_InstrOperand op_imm(int64_t value, int size) {
+    return (KTL_BackIR_InstrOperand){.kind     = KTL_BACK_IR_OP_IMM,
+                                     .imm.imm  = value,
+                                     .imm.size = (uint8_t) size};
+}
+
+static KTL_BackIR_InstrOperand op_mem(KTL_RegID base, KTL_RegID idx,
+                                      int scale, int offset, int size) {
+    return (KTL_BackIR_InstrOperand){.kind       = KTL_BACK_IR_OP_MEM,
+                                     .mem.base   = base,
+                                     .mem.idx    = idx,
+                                     .mem.offset = offset,
+                                     .mem.scale  = (uint8_t) scale,
+                                     .mem.size   = size};
+}
+
+static KTL_BackIR_InstrOperand op_mem_rip(KTL_StrID sym,
+                                          KTL_BackIR_SymbolKind kind, int size) {
+    return (KTL_BackIR_InstrOperand){.kind         = KTL_BACK_IR_OP_MEM_RIP,
+                                     .mem_rip.kind = kind,
+                                     .mem_rip.size = (uint8_t) size,
+                                     .mem_rip.sym  = sym};
+}
+
+static KTL_BackIR_InstrOperand op_sym(KTL_StrID sym,
+                                      KTL_BackIR_SymbolKind kind, int size) {
+    return (KTL_BackIR_InstrOperand){.kind     = KTL_BACK_IR_OP_SYMBOL,
+                                     .sym.sym  = sym,
+                                     .sym.kind = kind,
+                                     .sym.size = size};
+}
+
+static KTL_BackIR_InstrOperand op_label(KTL_StrID name) {
+    return (KTL_BackIR_InstrOperand){.kind       = KTL_BACK_IR_OP_LABEL,
+                                     .label.name = name};
+}
+
+static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr) {
+    assert(cont);
+    KTL_BackIR_AddInstr(cont->cur_buf, instr);
+}
+
+static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr,
+                   KTL_BackIR_InstrOperand op) {
+    assert(cont);
+    KTL_BackIR_AddInstr(cont->cur_buf, instr, &op);
+}
+
+static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr,
+                   KTL_BackIR_InstrOperand dst, KTL_BackIR_InstrOperand src) {
+    assert(cont);
+    KTL_BackIR_AddInstr(cont->cur_buf, instr, &dst, &src);
+}
+
+static void ir_label(KTL_BackendContext *cont, KTL_StrID name, bool is_global) {
+    assert(cont);
+    assert(StrIDCheck(name));
+
+    KTL_BackIR_Item item      = {};
+    item.kind                 = KTL_BACK_IR_ITEM_LABEL;
+    item.label_decl.name      = name;
+    item.label_decl.is_global = is_global;
+
+    add_item(cont->cur_buf, &item);
+}
+
+static void ir_comment(KTL_BackendContext *cont, KTL_StrID text) {
+    assert(cont);
+    assert(StrIDCheck(text));
+
+    KTL_BackIR_AddComment(cont->cur_buf, text);
+}
+
+static void ir_align(KTL_BackendContext *cont, int align) {
+    assert(cont);
+    KTL_BackIR_AddAlign(cont->cur_buf, align);
+}
+
+static void ir_data_zero(KTL_BackendContext *cont, int count) {
+    assert(cont);
+    KTL_BackIR_AddZeroData(cont->cur_buf, count);
+}
+
+static void ir_data_int(KTL_BackendContext *cont, int64_t value, int size) {
+    assert(cont);
+    KTL_BackIR_AddIntData(cont->cur_buf, value, size);
+}
+
+static void ir_data_bytes(KTL_BackendContext *cont, KTL_StrID bytes, int len) {
+    assert(cont);
+    KTL_BackIR_AddByteData(cont->cur_buf, bytes, len);
+}
+
+static void ir_data_symbol(KTL_BackendContext *cont, KTL_StrID sym,
+                           KTL_BackIR_SymbolKind kind, int64_t addend, int size) {
+    assert(cont);
+    KTL_BackIR_AddSymbolData(cont->cur_buf, sym, kind, addend, size);
+}
+
+static void ir_section_text(KTL_BackendContext *cont) {
+    assert(cont);
+    cont->cur_buf = cont->output.text;
+}
+
+static void ir_section_data(KTL_BackendContext *cont) {
+    assert(cont);
+    cont->cur_buf = cont->output.data;
+}
+
+static void ir_section_rodata(KTL_BackendContext *cont) {
+    assert(cont);
+    cont->cur_buf = cont->output.rodata;
+}
+
+
+
+
+// =======================================================================
+// EMIT
+// =======================================================================
+
+static void emit_header(KTL_BackendContext *cont, KTL_AstNode *root) {
+    assert(cont);
+    assert(root);
+
+    _SWITCH_DATA;
+
+    for (int i = 0; i < root->move.n.amount; i++) {
+        KTL_AstNode *node = root->move.n.children[i];
+        if (node->kind == KTL_AST_VARIABLE_DECL) {
+            emit_global_var(cont, node);
+        }
+    }
+    return ;
+}
+
+static void emit_globals(KTL_BackendContext *cont, KTL_AstNode *root) {
+    assert(cont);
+    assert(root);
+
+    for (int i = 0; i < root->move.n.amount; i++) {
+        emit_global_var(cont, root->move.n.children[i]);
+    }
+
+    return ;
+}
+
+static void emit_text(KTL_BackendContext *cont, KTL_AstNode *root) {
+    assert(cont);
+    assert(root);
+
+    ir_section_text(cont);
+    cont->stack_depth = 0;
+
+    for (int i = 0; i < root->move.n.amount; i++) {
+        KTL_AstNode *node = root->move.n.children[i];
+        if (node->kind != KTL_AST_MAIN)  continue;
+
+        _GLABEL(_TEXT("_start"));
+        _PUSH(_REG_64(_NR(RBP)));
+        _MOV(_REG_64(_NR(RBP)), _REG_64(_NR(RSP)));
+        emit_function(cont, node);
+        emit_exit(cont);
+        break;
+    }
+
+    for (int i = 0; i < root->move.n.amount; i++) {
+        KTL_AstNode *node = root->move.n.children[i];
+        if (node->kind == KTL_AST_FUNCTION_DECL) {
+            emit_function(cont, node);
+        }
+    }
+    return ;
+}
+
+static void emit_function(KTL_BackendContext *cont, KTL_AstNode *node) {
+    if (node->kind != KTL_AST_FUNCTION_DECL && node->kind != KTL_AST_MAIN) return ;
+
+    if (node->kind == KTL_AST_FUNCTION_DECL) {
+        emit_function_header(cont, node);
+        emit_block(cont, node->move.n.children[0]);
+    }
+    else {
+        emit_block(cont, node->move.unary.next);
+    }
+
+    if (node->kind == KTL_AST_FUNCTION_DECL) {
+        _MOV(_REG_64(_NR(RSP)), _REG_64(_NR(RBP)));
+        _POP(_REG_64(_NR(RBP)));
+        _RET;
+    }
+    return ;
+}
+
+static void emit_global_var(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+    if (node->kind != KTL_AST_VARIABLE_DECL)  return ;
+
+    KTL_SymbolEntry    *sym  = node->data.var_decl.entry;
+    KTL_BackendVarInfo *info = KTL_BackendFindVar(&cont->table, sym);
+    KTL_TypeEntry      *type = KTL_TypeGetEntry(cont->type_map, sym->var.type);
+
+    int size  = get_size(cont->type_map, sym->var.type);
+    int align = get_align(cont->type_map, sym->var.type);
+
+    _ALIGN(align);
+    _LABEL(info->loc.stat.label);
+
+    if (!node->data.var_decl.is_init) {
+        _ZERO(size);
+        return ;
+    }
+
+    KTL_AstNode *init = node->move.unary.next;
+    emit_global_value(cont, init, type);
+}
+
+static void emit_global_value(KTL_BackendContext *cont,
+                               KTL_AstNode       *init,
+                               KTL_TypeEntry     *type) {
+    assert(cont);
+    assert(init);
+    assert(type);
+
+    if (type->kind == KTL_TYPE_BASE || type->kind == KTL_TYPE_PTR) {
+        int size = (type->kind == KTL_TYPE_PTR)
+                 ? KTL_SYSTEM_PTR_SIZE
+                 : type->dt.base.size;
+
+        int64_t value = 0;
+        if (init->kind == KTL_AST_VALUE_INT) {
+            value = init->data.int_val.value;
+        }
+
+        _INT(value, size); /* size value */
+        return ;
+    }
+    if (type->kind == KTL_TYPE_ARRAY) {
+        KTL_TypeEntry *elem_type = KTL_TypeGetEntry(cont->type_map,
+                                                    type->dt.arr.base_type);
+        int total     = type->dt.arr.elem_count;
+        int elem_size = get_size(cont->type_map, type->dt.arr.base_type);
+
+        int n_init = 0;
+        if (init->kind == KTL_AST_ARRAY_INIT) {
+            n_init = init->move.n.amount;
+            if (n_init > total)  n_init = total;
+
+            for (int i = 0; i < n_init; i++) {
+                emit_global_value(cont, init->move.n.children[i], elem_type);
+            }
+        }
+
+        if (n_init < total) {
+            _ZERO((total - n_init) * elem_size);
+        }
+        return ;
+    }
+    if (type->kind == KTL_TYPE_BLOCK) {
+        _ZERO(type->dt.block.size);
+        return ;
+    }
+}
+
+static void emit_strings(KTL_BackendContext *cont, KTL_AstNode *root) {
+    assert(cont);
+    assert(root);
+
+    _SWITCH_RODATA;
+    _COMMENT(_TEXT("; Constant Strings\n"));
+
+    emit_string_literal(cont, root);
+
+    return ;
+}
+
+static void emit_string_literal(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    if (node == NULL)   return ;
+
+    if (node->kind == KTL_AST_VALUE_STR) {
+        fprintf_string_value(cont, node->data.str_val.value);
+        return ;
+    }
+
+    KTL_AstChildren mov_type = KTL_AstGetTypeChildren(node);
+
+    switch (mov_type) {
+
+    case KTL_AST_N_CHILDREN:
+        for (int i = 0; i < node->move.n.amount; i++) {
+            emit_string_literal(cont, node->move.n.children[i]);
+        }
+        break;
+
+    case KTL_AST_BINARY_CHILDREN:
+        emit_string_literal(cont, node->move.binary.left);
+        emit_string_literal(cont, node->move.binary.right);
+        break;
+
+    case KTL_AST_UNARY_CHILD:
+        emit_string_literal(cont, node->move.unary.next);
+        break;
+
+    case KTL_AST_NO_CHILDREN:
+    default:
+        break;
+    }
+    return ;
+}
+
+static void fprintf_string_value(KTL_BackendContext *cont, KTL_StrID value) {
+    assert(cont);
+    assert(value);
+
+    KTL_StrID name_label = get_string_name(cont->str_map, cont->symbol_prefix, value);
+
+    _LABEL(name_label);
+    _BYTE(value);
+
+    return ;
+}
+
+static void emit_function_header(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+    if (node->kind != KTL_AST_FUNCTION_DECL)    return ;
+
+    KTL_BackendFuncInfo *func = KTL_BackendFindFunc(&cont->table,
+                                        node->data.func_decl.func);
+    if (func == NULL)   return ;
+
+    _GLABEL(func->label);
+
+    _PUSH(_REG_64(_NR(RBP)));
+    _MOV(_REG_64(_NR(RBP)), _REG_64(_NR(RSP)));
+
+    if (func->frame_size > 0) {
+        _SUB(_REG_64(_NR(RSP)), _IMM_64(func->frame_size));
+    }
+
+    KTL_SymbolMap *params = node->data.func_decl.map;
+    int n_reg = (params->size < KTL_PARAM_REGS_COUNT) ?
+                params->size : KTL_PARAM_REGS_COUNT;
+
+    for (int i = 0; i < n_reg; i++) {
+        KTL_SymbolEntry    *param = params->data[i];
+        KTL_BackendVarInfo *info  = KTL_BackendFindVar(&cont->table, param);
+
+        if (info == NULL || info->storage != KTL_BACKEND_STORAGE_STACK) {
+            return ;
+        }
+
+        _MOV(_MEM_IDX(_NR(RBP), info->loc.stack.offset, 8), _REG_64(KTL_PARAM_REGS[i]));
+    }
+    cont->stack_depth = 0;
+    return ;
+}
+
+static void emit_var_decl(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+
+    if (node->data.var_decl.is_init && node->move.unary.next->kind == KTL_AST_ARRAY_INIT) {
+        emit_var_decl_array(cont, node);
+        return ;
+    }
+
+    debug_out("VARIABLE: %s\n", node->data.var_decl.entry->str_id);
+    /* structs can't be initted */
+    KTL_BackendVarInfo *var = KTL_BackendFindVar(&cont->table, node->data.var_decl.entry);
+    if (node->data.var_decl.is_init) {
+        emit_expr(cont, node->move.unary.next);
+        KTL_TypeEntry *type = KTL_TypeGetEntry(cont->type_map,
+                            node->data.var_decl.entry->var.type);
+        int size = (type->kind == KTL_TYPE_PTR)
+                    ? KTL_SYSTEM_PTR_SIZE
+                    : type->dt.base.size;
+
+        _MOV(_MEM_IDX(_NR(RBP), var->loc.stack.offset, size), _REG(_NR(RAX), size));
+    }
+    else {
+        emit_var_decl_zero(cont, node);
+    }
+}
+
+static void emit_var_decl_array(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+
+    KTL_AstNode   *array      = node->move.unary.next;
+    KTL_TypeEntry *type_array = KTL_TypeGetEntry(cont->type_map, node->data.var_decl.entry->var.type);
+    KTL_TypeEntry *type_elem  = KTL_TypeGetEntry(cont->type_map, type_array->dt.arr.base_type);
+    int            size_elem  = get_size(cont->type_map, type_array->dt.arr.base_type);
+    KTL_BackendVarInfo *var   = KTL_BackendFindVar(&cont->table, node->data.var_decl.entry);
+
+    // TODO: Check size elem
+    if (type_elem->kind == KTL_TYPE_PTR ||
+        type_elem->kind == KTL_TYPE_BASE) {
+        for (int i = 0; i < array->move.n.amount; i++) {
+            emit_expr(cont, array->move.n.children[i]);
+            _MOV(_MEM_IDX(_NR(RBP), var->loc.stack.offset + i*size_elem, size_elem),
+                 _REG(_NR(RAX), size_elem));
+
+        }
+        return ;
+    }
+    for (int i = 0; i < array->move.n.amount; i++) {
+        emit_load_address(cont, array->move.n.children[i]);
+
+        _MOV(_REG_64(_NR(RSI)), _REG_64(_NR(RAX)));
+        _LEA(_REG_64(_NR(RDI)), _MEM_IDX(_NR(RBP), var->loc.stack.offset + i*size_elem, 8));
+        _MOV(_REG_64(_NR(RCX)), _IMM_64(size_elem));
+        _REP_MOVSB;
+    }
+    return ;
+}
+
+static void emit_var_decl_zero(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+
+    KTL_TypeEntry *type_var = KTL_TypeGetEntry(cont->type_map, node->data.var_decl.entry->var.type);
+    KTL_BackendVarInfo *var = KTL_BackendFindVar(&cont->table, node->data.var_decl.entry);
+    int                size = get_size(cont->type_map, node->data.var_decl.entry->var.type);
+
+    if (type_var->kind == KTL_TYPE_PTR ||
+        type_var->kind == KTL_TYPE_BASE) {
+
+        _XOR(_REG_64(_NR(RAX)), _REG_64(_NR(RAX)));
+        _MOV(_MEM_IDX(_NR(RBP), var->loc.stack.offset, size), _REG(_NR(RAX), size));
+        return ;
+    }
+
+    _LEA(_REG_64(_NR(RDI)), _MEM_IDX(_NR(RBP), var->loc.stack.offset, 8));
+    _XOR(_REG(_NR(RAX), 1), _REG(_NR(RAX), 1));
+    _MOV(_REG_64(_NR(RCX)), _IMM_64(size));
+    _REP_STOSB;
+
+    return ;
+}
+
+static void emit_load_address(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+
+    switch (node->kind) {
+
+    case KTL_AST_VARIABLE: {
+        KTL_BackendVarInfo *var = KTL_BackendFindVar(&cont->table,
+                                  node->data.var.info.res.entry);
+
+        if (var->storage == KTL_BACKEND_STORAGE_STATIC) {
+            _LEA(_REG_64(_NR(RAX)), _MEM_RIP_VAR(var->loc.stat.label, 8));
+        }
+        else {
+            _LEA(_REG_64(_NR(RAX)), _MEM_IDX(_NR(RBP), var->loc.stack.offset, 8));
+        }
+        return ;
+    }
+
+    case KTL_AST_FIELD_ACCESS: {
+        KTL_AstNode   *base      = node->move.unary.next;
+        KTL_TypeEntry *base_type = get_type(cont, base);
+
+        if (node->data.field.is_ptr) {
+            emit_expr(cont, base);
+
+            KTL_TypeEntry *struct_type = KTL_TypeGetEntry(cont->type_map,
+                                                          base_type->dt.ptr.prev_type);
+            int offset = get_offset_field(struct_type, node->data.field.name);
+            if (offset != 0) {
+                _ADD(_REG_64(_NR(RAX)), _IMM_64(offset));
+            }
+        }
+        else {
+            emit_load_address(cont, base);
+
+            int offset = get_offset_field(base_type, node->data.field.name);
+            if (offset != 0) {
+                _ADD(_REG_64(_NR(RAX)), _IMM_64(offset));
+            }
+        }
+        return ;
+    }
+
+    case KTL_AST_INDEX_ACCESS: {
+        KTL_AstNode   *base      = node->move.binary.left;
+        KTL_AstNode   *index     = node->move.binary.right;
+        KTL_TypeEntry *base_type = get_type(cont, base);
+
+        KTL_TypeID elem_id;
+        if (base_type->kind == KTL_TYPE_ARRAY) {
+            elem_id = base_type->dt.arr.base_type;
+        }
+        else if (base_type->kind == KTL_TYPE_PTR) {
+            elem_id = base_type->dt.ptr.prev_type;
+        }
+        else {
+            assert(false && "indexing non-array non-pointer");
+            return ;
+        }
+        int elem_size = get_size(cont->type_map, elem_id);
+
+        if (base_type->kind == KTL_TYPE_PTR) {
+            emit_expr(cont, base);
+        }
+        else {
+            emit_load_address(cont, base);
+        }
+        emit_push(cont, KTL_REG_RAX);
+
+        emit_expr(cont, index);
+        if (elem_size != 1) {
+            _IMUL(_REG_64(_NR(RAX)), _IMM_64(elem_size));
+        }
+
+        emit_pop(cont, KTL_REG_RDI);
+        _ADD(_REG_64(_NR(RAX)), _REG_64(_NR(RDI)));
+
+        return ;
+    }
+
+    case KTL_AST_UNARY_OPER: {
+        if (node->data.oper.op == KTL_OPER_UNGET_PTR) {
+            emit_expr(cont, node->move.unary.next);
+            return ;
+        }
+        assert(false && "non-lvalue unary in lvalue context");
+        return ;
+    }
+
+    default:
+        assert(false && "not a valid lvalue");
+        return ;
+    }
+}
+
+static void emit_cond_block(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+
+    KTL_AstNode *branch = node->move.n.children[0];
+    int else_label      = cont->label_counter++;
+    int end_cond        = else_label;
+    char buf[32]        = "";
+
+    if (node->move.n.amount != 1) {
+        end_cond = cont->label_counter++;
+    }
+
+    sprintf(buf, ".L%d", end_cond);
+    KTL_StrID end_label = _TEXT(buf);
+
+    emit_expr(cont, branch->move.binary.left); /* condition */
+
+    _TEST(_REG_64(_NR(RAX)), _REG_64(_NR(RAX)));
+
+    sprintf(buf, ".L%d", else_label);
+    _JZ(_LBL(_TEXT(buf)));
+    emit_block(cont, branch->move.binary.right);
+
+    _JMP(_LBL(end_label));
+
+    sprintf(buf, ".L%d", else_label);
+    _LABEL(_TEXT(buf));  /* else label */
+
+    bool has_else = false;
+    for (int i = 1; i < node->move.n.amount; i++) {
+        branch = node->move.n.children[i];
+        if (branch->kind == KTL_AST_ELSE_BRANCH) {
+            has_else = true;
+            break;
+        };
+
+        else_label = cont->label_counter++;
+
+        emit_expr(cont, branch->move.binary.left);
+        _TEST(_REG_64(_NR(RAX)), _REG_64(_NR(RAX)));
+
+        sprintf(buf, ".L%d", else_label);
+        _JZ(_LBL(_TEXT(buf)));
+
+        emit_block(cont, branch->move.binary.right);
+        _JMP(_LBL(end_label));
+
+        sprintf(buf, ".L%d", else_label);
+        _LABEL(_TEXT(buf));
+    }
+    if (has_else) {
+        emit_block(cont, branch->move.unary.next);
+    }
+    _LABEL(end_label);
+
+    return ;
+}
+
+static void emit_for_block(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+
+    int last_break    = cont->loop_label_break;
+    int last_continue = cont->loop_label_continue;
+
+    int cur_break    = cont->label_counter++;
+    int cur_continue = cont->label_counter++;
+
+    cont->loop_label_break    = cur_break;
+    cont->loop_label_continue = cur_continue;
+
+    char buf[32] = "";
+    sprintf(buf, ".L%d", cur_continue);
+    KTL_StrID L_cont = _TEXT(buf);
+
+    sprintf(buf, ".L%d", cur_break);
+    KTL_StrID L_brk  = _TEXT(buf);
+
+    if (node->move.n.children[0]) {
+        if (node->move.n.children[0]->kind == KTL_AST_ASSIGN) {
+            emit_assign(cont, node->move.n.children[0]);
+        } else {
+            emit_var_decl(cont, node->move.n.children[0]);
+        }
+    }
+
+    _LABEL(L_cont);
+    if (node->move.n.children[1]) {
+        emit_expr(cont, node->move.n.children[1]);
+    }
+    _TEST(_REG_64(_NR(RAX)), _REG_64(_NR(RAX)));
+    _JZ(_LBL(L_brk));
+
+    emit_block(cont, node->move.n.children[3]);
+
+    if (node->move.n.children[2]) {
+        emit_assign(cont, node->move.n.children[2]);
+    }
+    _JMP(_LBL(L_cont));
+    _LABEL(L_brk);
+
+    cont->loop_label_break    = last_break;
+    cont->loop_label_continue = last_continue;
+
+    return ;
+}
+
+static void emit_while_block(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+
+    int last_break    = cont->loop_label_break;
+    int last_continue = cont->loop_label_continue;
+
+    int cur_break    = cont->label_counter++;
+    int cur_continue = cont->label_counter++;
+
+    cont->loop_label_break    = cur_break;
+    cont->loop_label_continue = cur_continue;
+
+    char buf[32] = "";
+    sprintf(buf, ".L%d", cur_continue);
+    KTL_StrID L_cont = _TEXT(buf);
+
+    sprintf(buf, ".L%d", cur_break);
+    KTL_StrID L_brk  = _TEXT(buf);
+
+    _LABEL(L_cont);
+    emit_expr(cont, node->move.binary.left);
+
+    _TEST(_REG_64(_NR(RAX)), _REG_64(_NR(RAX)));
+    _JZ(_LBL(L_brk));
+
+    emit_block(cont, node->move.binary.right);
+
+    _JMP(_LBL(L_cont));
+    _LABEL(L_brk);
+
+    cont->loop_label_break    = last_break;
+    cont->loop_label_continue = last_continue;
+
+    return ;
+}
+
+static void emit_continue(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+
+    char buf[32] = "";
+    sprintf(buf, ".L%d", cont->loop_label_continue);
+    _JMP(_LBL(_TEXT(buf)));
+
+    return ;
+}
+
+static void emit_break(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+
+    char buf[32] = "";
+    sprintf(buf, ".L%d", cont->loop_label_break);
+    _JMP(_LBL(_TEXT(buf)));
+
+    return ;
+}
+
+static void emit_exit(KTL_BackendContext *cont) {
+    assert(cont);
+
+    _MOV(_REG_64(_NR(RAX)), _IMM_64(60));
+    _XOR(_REG_64(_NR(RDI)), _REG_64(_NR(RDI)));
+    _SYSCALL;
+
+    return ;
+}
+
+static void emit_return(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+
+    if (node->move.unary.next != NULL) emit_expr(cont, node->move.unary.next);
+
+    _MOV(_REG_64(_NR(RSP)), _REG_64(_NR(RBP)));
+    _POP(_REG_64(_NR(RBP)));
+    _RET;
+
+    return ;
+}
+
+static void emit_assign(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+    assert(node->kind == KTL_AST_ASSIGN);
+
+    KTL_AstNode *l_val = node->move.binary.left;
+    KTL_AstNode *r_val = node->move.binary.right;
+
+    KTL_TypeEntry *type = get_type(cont, l_val);
+    int size            = get_assign_size(cont, type);
+
+    if (type->kind == KTL_TYPE_BLOCK || type->kind == KTL_TYPE_ARRAY) {
+        emit_assign_struct(cont, l_val, r_val, type);
+        return ;
+    }
+
+    emit_load_address(cont, l_val);
+    emit_push(cont, KTL_REG_RAX);
+
+    emit_expr(cont, r_val);
+    emit_pop(cont, KTL_REG_RDI);
+
+    /* mov [rdi], rax(size) */
+    _MOV(_MEM_IDX(_NR(RDI), 0, size), _REG(_NR(RAX), size));
+
+    return ;
+}
+
+static void emit_assign_struct(KTL_BackendContext *cont,
+                               KTL_AstNode *l_val, KTL_AstNode *r_val,
+                               KTL_TypeEntry *type) {
+    assert(cont);
+    assert(l_val);
+    assert(r_val);
+    assert(type);
+
+    int size = -1;
+    if (type->kind == KTL_TYPE_BLOCK) {
+        size = type->dt.block.size;
+    } else {
+        int elem = get_size(cont->type_map, type->dt.arr.base_type);
+        size = type->dt.arr.elem_count * elem;
+    }
+
+    emit_load_address(cont, l_val);
+    emit_push(cont, KTL_REG_RAX);                          /* save dst */
+
+    emit_load_address(cont, r_val);
+    _MOV(_REG_64(_NR(RSI)), _REG_64(_NR(RAX)));            /* mov rsi, rax */
+
+    emit_pop(cont, KTL_REG_RDI);                           /* restore dst */
+
+    _MOV(_REG_64(_NR(RCX)), _IMM_64(size));                /* mov rcx, size */
+    _REP_MOVSB;
+
+    return ;
+}
+
+static void emit_func_call(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+    assert(node->kind == KTL_AST_FUNCTION_CALL);
+
+    int n_par       = node->move.n.amount;
+    int n_reg_par   = n_par >= KTL_PARAM_REGS_COUNT ? KTL_PARAM_REGS_COUNT : n_par;
+    int n_stack_par = n_par - n_reg_par;
+
+    for (int i = 0; i < n_par; i++) {
+        emit_expr(cont, node->move.n.children[n_par - 1 - i]);
+        emit_push(cont, KTL_REG_RAX);
+    }
+
+    for (int i = 0; i < n_reg_par; i++) {
+        emit_pop(cont, KTL_PARAM_REGS[i]);
+    }
+
+    bool need_align = (cont->stack_depth % 16) != 0;
+    if (need_align) {
+        _SUB(_REG_64(_NR(RSP)), _IMM_64(8));
+        cont->stack_depth += 8;
+    }
+
+    KTL_BackendFuncInfo *func = KTL_BackendFindFunc(&cont->table,
+                                    node->data.func_call.info.res.entry);
+    _CALL(_SYM_FUNC(func->label));
+
+    int cleanup = (need_align ? 8 : 0) + n_stack_par * 8;
+    if (cleanup > 0) {
+        _ADD(_REG_64(_NR(RSP)), _IMM_64(cleanup));
+        cont->stack_depth -= cleanup;
+    }
+
+    return ;
+}
+
+static int get_assign_size(KTL_BackendContext *cont, KTL_TypeEntry *type) {
+    switch (type->kind) {
+        case KTL_TYPE_BASE:  return type->dt.base.size;
+        case KTL_TYPE_PTR:   return KTL_SYSTEM_PTR_SIZE;
+        case KTL_TYPE_BLOCK: return type->dt.block.size;
+        case KTL_TYPE_ARRAY: {
+            int elem = get_size(cont->type_map, type->dt.arr.base_type);
+            return type->dt.arr.elem_count * elem;
+        }
+        default:
+            assert(0 && "Bad Size");
+            return -1;
+    }
+}
+
+static void emit_expr(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+
+    switch (node->kind) {
+    case KTL_AST_FUNCTION_CALL:
+        emit_func_call(cont, node);
+        return ;
+
+    case KTL_AST_VARIABLE:
+    case KTL_AST_FIELD_ACCESS:
+    case KTL_AST_INDEX_ACCESS: {
+        emit_load_address(cont, node);
+
+        KTL_TypeEntry *type = get_type(cont, node);
+        if (type->kind == KTL_TYPE_BLOCK || type->kind == KTL_TYPE_ARRAY) return ;
+
+        KTL_TypeID type_id = KTL_BAD_TYPE_ID;
+        switch (node->kind) {
+            case KTL_AST_VARIABLE:     type_id = node->data.var.info.res.entry->var.type; break;
+            case KTL_AST_FIELD_ACCESS: type_id = node->data.field.type;        break;
+            case KTL_AST_INDEX_ACCESS: type_id = node->data.index.type_value;  break;
+            default:
+                assert(0 && "Bad Expr");
+                return ;
+        }
+
+        int size = get_size(cont->type_map, type_id);
+        _MOV(_REG(_NR(RAX), size), _MEM_IDX(_NR(RAX), 0, size));
+        return ;
+    }
+
+    case KTL_AST_BINARY_OPER:
+    case KTL_AST_UNARY_OPER:
+        emit_oper(cont, node);
+        return ;
+
+    case KTL_AST_VALUE_INT:
+        _MOV(_REG_64(_NR(RAX)), _IMM_64(node->data.int_val.value));
+        return ;
+
+    case KTL_AST_VALUE_STR: {
+        KTL_StrID label = get_string_name(cont->str_map, cont->symbol_prefix,
+                                          node->data.str_val.value);
+        _LEA(_REG_64(_NR(RAX)), _MEM_RIP_VAR(label, 8));
+        return ;
+    }
+
+    case KTL_AST_CAST: {
+        emit_expr(cont, node->move.unary.next);
+        KTL_AstNode *src = node->move.unary.next;
+
+        KTL_TypeID src_id = KTL_BAD_TYPE_ID;
+        switch (src->kind) {
+            case KTL_AST_VARIABLE:     src_id = src->data.var.info.res.entry->var.type; break;
+            case KTL_AST_FIELD_ACCESS: src_id = src->data.field.type;       break;
+            case KTL_AST_INDEX_ACCESS: src_id = src->data.index.type_value; break;
+            case KTL_AST_VALUE_INT:    src_id = src->data.int_val.type_res; break;
+            case KTL_AST_BINARY_OPER:
+            case KTL_AST_UNARY_OPER:   src_id = src->data.oper.type_res;    break;
+            case KTL_AST_CAST:         src_id = src->data.cast.target;      break;
+            default:                   src_id = node->data.cast.target;     break;
+        }
+        emit_cast(cont, src_id, node->data.cast.target);
+        return ;
+    }
+
+    default:
+        return ;
+    }
+}
+
+static void emit_cast(KTL_BackendContext *cont,
+                      KTL_TypeID src_id, KTL_TypeID dst_id) {
+    assert(cont);
+    if (src_id == dst_id) return ;
+
+    KTL_TypeEntry *src = KTL_TypeGetEntry(cont->type_map, src_id);
+    KTL_TypeEntry *dst = KTL_TypeGetEntry(cont->type_map, dst_id);
+
+    if (src->kind != KTL_TYPE_BASE || dst->kind != KTL_TYPE_BASE) return ;
+
+    int src_size = src->dt.base.size;
+    int dst_size = dst->dt.base.size;
+
+    if (dst_size == 1 && strcmp(dst->dt.base.name, "bool") == 0) {
+        _TEST(_REG_64(_NR(RAX)), _REG_64(_NR(RAX)));
+        _SET(NE, _REG(_NR(RAX), 1));
+        _MOVZX(_REG_64(_NR(RAX)), _REG(_NR(RAX), 1));
+        return ;
+    }
+
+    if (dst_size <= src_size) return ;
+
+    if      (src_size == 1 && dst_size >= 4) _MOVSX(_REG_64(_NR(RAX)), _REG(_NR(RAX), 1));
+    else if (src_size == 1 && dst_size == 2) _MOVSX(_REG(_NR(RAX), 2), _REG(_NR(RAX), 1));
+    else if (src_size == 2 && dst_size >= 4) _MOVSX(_REG_64(_NR(RAX)), _REG(_NR(RAX), 2));
+    else if (src_size == 4 && dst_size == 8) _CDQE;
+
+    return ;
+}
+
+
+static void emit_oper(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    assert(node);
+
+    KTL_Oper op  = node->data.oper.op;
+    char buf[32] = "";
+
+    switch (op) {
+    case KTL_OPER_ADD:
+    case KTL_OPER_SUB:
+    case KTL_OPER_MUL:
+    case KTL_OPER_DIV:
+    case KTL_OPER_MOD:
+        emit_expr(cont, node->move.binary.left);
+        emit_push(cont, KTL_REG_RAX);
+        emit_expr(cont, node->move.binary.right);
+        emit_pop(cont, KTL_REG_RDI);
+
+        if (op == KTL_OPER_ADD) {
+            _ADD(_REG_64(_NR(RAX)), _REG_64(_NR(RDI)));
+        }
+        else if (op == KTL_OPER_SUB) {
+            _SUB(_REG_64(_NR(RDI)), _REG_64(_NR(RAX)));
+            _MOV(_REG_64(_NR(RAX)), _REG_64(_NR(RDI)));
+        }
+        else if (op == KTL_OPER_MUL) {
+            _IMUL(_REG_64(_NR(RAX)), _REG_64(_NR(RDI)));
+        }
+        else {
+            _CQO;
+            _IDIV1(_REG_64(_NR(RDI)));
+            if (op == KTL_OPER_MOD) {
+                _MOV(_REG_64(_NR(RAX)), _REG_64(_NR(RDX)));
+            }
+        }
+        return ;
+
+    case KTL_OPER_NEG:
+        emit_expr(cont, node->move.unary.next);
+        _NEG(_REG_64(_NR(RAX)));
+        return ;
+
+    case KTL_OPER_AND:
+    case KTL_OPER_OR: {
+        int label_end = cont->label_counter++;
+        sprintf(buf, ".L%d", label_end); KTL_StrID L_end = _TEXT(buf);
+
+        emit_expr(cont, node->move.binary.left);
+        _TEST(_REG_64(_NR(RAX)), _REG_64(_NR(RAX)));
+        if (op == KTL_OPER_AND) {
+            _JZ(_LBL(L_end));
+        } else {
+            _JNZ(_LBL(L_end));
+        }
+
+        emit_expr(cont, node->move.binary.right);
+        _LABEL(L_end);
+        return ;
+    }
+
+    case KTL_OPER_COMP_BE:
+    case KTL_OPER_COMP_LE:
+    case KTL_OPER_COMP_L:
+    case KTL_OPER_COMP_B:
+    case KTL_OPER_COMP_E:
+    case KTL_OPER_COMP_NE: {
+        emit_expr(cont, node->move.binary.left);
+        emit_push(cont, KTL_REG_RAX);
+        emit_expr(cont, node->move.binary.right);
+        emit_pop(cont, KTL_REG_RDI);
+
+        _CMP(_REG_64(_NR(RDI)), _REG_64(_NR(RAX)));
+
+        switch (op) {
+            case KTL_OPER_COMP_BE: _SET(GE, _REG(_NR(RAX), 1)); break;
+            case KTL_OPER_COMP_B:  _SET(G,  _REG(_NR(RAX), 1)); break;
+            case KTL_OPER_COMP_LE: _SET(LE, _REG(_NR(RAX), 1)); break;
+            case KTL_OPER_COMP_L:  _SET(L,  _REG(_NR(RAX), 1)); break;
+            case KTL_OPER_COMP_E:  _SET(E,  _REG(_NR(RAX), 1)); break;
+            case KTL_OPER_COMP_NE: _SET(NE, _REG(_NR(RAX), 1)); break;
+            default:
+                assert(0 && "Bad Operation");
+                return ;
+        }
+        _MOVZX(_REG_64(_NR(RAX)), _REG(_NR(RAX), 1));
+        return ;
+    }
+
+    case KTL_OPER_GET_PTR:
+        emit_load_address(cont, node->move.unary.next);
+        return ;
+
+    case KTL_OPER_UNGET_PTR:
+        emit_expr(cont, node->move.unary.next);
+        return ;
+
+    default:
+        return ;
+    }
+}
+
+
+static void emit_push(KTL_BackendContext *cont, KTL_RegID reg) {
+    _PUSH(_REG_64(reg));
+    cont->stack_depth += 8;
+}
+
+static void emit_pop(KTL_BackendContext *cont, KTL_RegID reg) {
+    _POP(_REG_64(reg));
+    cont->stack_depth -= 8;
+}
+
+static void emit_block(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    if (node == NULL || node->kind != KTL_AST_BLOCK)  return ;
+
+    debug_out("BLOCK\n");
+
+    for (int i = 0; i < node->move.n.amount; i++) {
+        emit_body(cont, node->move.n.children[i]);
+    }
+    return ;
+}
+
+static void emit_body(KTL_BackendContext *cont, KTL_AstNode *node) {
+    assert(cont);
+    if (node == NULL)  return ;
+
+    switch (node->kind) {
+    case KTL_AST_VARIABLE_DECL:
+        debug_out("VARIABLE DECL\n");
+        emit_var_decl(cont, node);
+        return ;
+
+    case KTL_AST_ASSIGN:
+        debug_out("ASSIGN\n");
+        emit_assign(cont, node);
+        return ;
+
+    case KTL_AST_COND_BLOCK:
+        debug_out("COND BLOCK\n");
+        emit_cond_block(cont, node);
+        return ;
+
+    case KTL_AST_WHILE_BLOCK:
+        debug_out("WHILE BLOCK\n");
+        emit_while_block(cont, node);
+        return ;
+
+    case KTL_AST_FOR_BLOCK:
+        debug_out("FOR BLOCK\n");
+        emit_for_block(cont, node);
+        return ;
+
+    case KTL_AST_RETURN:
+        debug_out("RETURN\n");
+        emit_return(cont, node);
+        return ;
+
+    case KTL_AST_BREAK:
+        debug_out("BREAK\n");
+        emit_break(cont, node);
+        return ;
+
+    case KTL_AST_CONTINUE:
+        debug_out("CONTINUE\n");
+        emit_continue(cont, node);
+        return ;
+
+    case KTL_AST_FUNCTION_CALL:
+        debug_out("FUNC CALL\n");
+        emit_func_call(cont, node);
+        return ;
+
+    default:
+        return ;
+    }
+}
+
+
+
+

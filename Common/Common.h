@@ -14,7 +14,7 @@ enum KTL_Error {
     KTL_LOGICAL_ERR   = -3,
 };
 
-#define DEBUG
+// #define DEBUG
 
 #define ExitF(__text__,__val__) \
  do { printf("ERROR[%s:%d]: %s\n", __FILE__, __LINE__, __text__); \

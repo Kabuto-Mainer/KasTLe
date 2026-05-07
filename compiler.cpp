@@ -3,7 +3,7 @@
 #include "DumpAst.h"
 #include "Analysis.h"
 #include "Backend.h"
-
+#include "BackIR.h"
 
 constexpr char *SOURCE = "DataTests/3.txt";
 constexpr char *DEST   = "Bin/1.asm";
@@ -62,13 +62,27 @@ int main() {
     KTL_AnalysisProcess(&an_cont);
 
     KTL_BackendContext back_cont = {};
-    FILE *output = fopen(DEST, "wb");
+    KTL_BackIR_Buffer  text      = {};
+    KTL_BackIR_Buffer  data      = {};
+    KTL_BackIR_Buffer  rodata    = {};
 
-    KTL_BackendInit(&back_cont, &type_map, &str_map, an_cont.global_scope, output);
+    KTL_BackIR_Init(&text);
+    KTL_BackIR_Init(&data);
+    KTL_BackIR_Init(&rodata);
+
+    KTL_BackendInit(&back_cont, &type_map, &str_map, an_cont.global_scope, &text, &data, &rodata);
     KTL_BackendRun(&back_cont, an_cont.root);
+
+    FILE *output = fopen(DEST, "wb");
+    KTL_Backend_GenerateNasm(&text, &data, &rodata, output);
+    fclose(output);
+
     KTL_BackendUninit(&back_cont);
 
-    fclose(output);
+    KTL_BackIR_Uninit(&text);
+    KTL_BackIR_Uninit(&data);
+    KTL_BackIR_Uninit(&rodata);
+
 
     // KTL_DiagFlush(&diag, NAME_FILE);
 

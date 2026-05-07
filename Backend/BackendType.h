@@ -8,32 +8,11 @@
 #include "TypeMapType.h"
 #include "SymMapType.h"
 #include "BackMapType.h"
+#include "BackIRType.h"
 
-enum KTL_RegId {
-    KTL_REG_RAX = 0,
-    KTL_REG_RCX = 1,
-    KTL_REG_RDX = 2,
-    KTL_REG_RBX = 3,
-    KTL_REG_RSP = 4,
-    KTL_REG_RBP = 5,
-    KTL_REG_RSI = 6,
-    KTL_REG_RDI = 7,
-    KTL_REG_R8  = 8,
-    KTL_REG_R9  = 9,
-    KTL_REG_R10 = 10,
-    KTL_REG_R11 = 11,
-    KTL_REG_R12 = 12,
-    KTL_REG_R13 = 13,
-    KTL_REG_R14 = 14,
-    KTL_REG_R15 = 15,
-
-    KTL_REG_COUNT = 16,
-    KTL_REG_INVALID = -1,
-};
-
-extern const KTL_RegId KTL_PARAM_REGS[6];
+extern const KTL_RegID KTL_PARAM_REGS[6];
 constexpr int KTL_PARAM_REGS_COUNT = 6;
-constexpr int KTL_SYSTEM_PTR_SIZE = 8;
+constexpr int KTL_SYSTEM_PTR_SIZE  = 8;
 
 
 struct KTL_BackendContext {
@@ -43,15 +22,13 @@ struct KTL_BackendContext {
 
     KTL_BackendTable table;
 
-    union {
-        FILE *file;
-        struct {
-            KTL_CharBuffer *text;
-            KTL_CharBuffer *data;
-            KTL_CharBuffer *rodata;
-        } bin;
-    };
+    struct {
+        KTL_BackIR_Buffer *text;
+        KTL_BackIR_Buffer *data;
+        KTL_BackIR_Buffer *rodata;
+    } output;
 
+    KTL_BackIR_Buffer *cur_buf;
 
     KTL_BackendFuncInfo *current_func;
 
