@@ -29,7 +29,7 @@
 #define _ADD(_dst_,_src_)            ir_txt(cont, KTL_ASM_ADD, _dst_, _src_)
 #define _SUB(_dst_,_src_)            ir_txt(cont, KTL_ASM_SUB, _dst_, _src_)
 #define _IMUL(_dst_,_src_)           ir_txt(cont, KTL_ASM_IMUL, _dst_, _src_)
-#define _IDIV1(_src_)                ir_txt(cont, KTL_ASM_IDIV, _src_)  /* 1-op */
+#define _IDIV1(_src_)                ir_txt(cont, KTL_ASM_IDIV1, _src_)  /* 1-op */
 
 #define _CMP(_dst_,_src_)            ir_txt(cont, KTL_ASM_CMP, _dst_, _src_)
 #define _TEST(_dst_,_src_)           ir_txt(cont, KTL_ASM_TEST, _dst_, _src_)

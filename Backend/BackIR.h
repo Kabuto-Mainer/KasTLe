@@ -39,8 +39,8 @@ KTL_Error KTL_BackIR_AddSymbolData(KTL_BackIR_Buffer    *buf,
 
 /* This function can't be static, but you mustn't call it
    Only for system */
-KTL_Error add_item(KTL_BackIR_Buffer *buf,
-                   KTL_BackIR_Item   *item);
+KTL_Error add_item    (KTL_BackIR_Buffer *buf,
+                       KTL_BackIR_Item   *item);
 int get_amount_operand(KTL_AsmInstr instr);
 
 #endif /* BACK_IR_H */

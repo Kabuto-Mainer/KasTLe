@@ -22,7 +22,6 @@ enum KTL_AsmInstr {
     KTL_ASM_ADD,
     KTL_ASM_SUB,
     KTL_ASM_IMUL,
-    KTL_ASM_IDIV,
     KTL_ASM_IDIV1,
 
     KTL_ASM_XOR,

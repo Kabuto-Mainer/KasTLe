@@ -18,7 +18,9 @@ struct KTL_LabelDecl_Map {
 struct KTL_LabelFix_Entry {
     KTL_BackIR_SymbolKind kind;
     KTL_StrID             target;
-    int32_t               offset;
+    int32_t               index;        /* in KTL_BackIR_Buffer */
+    int32_t               inner_offset; /* in KTL_BackIR_Item (byte_15) */
+    int32_t               ads_offset;   /* from start of text */
     int32_t               size;
 };
 

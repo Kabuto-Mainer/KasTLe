@@ -34,10 +34,8 @@ struct KTL_GenRex {
 
 struct KTL_GenPos {
     KTL_BackIR_Buffer *buf;
-    union {
-        size_t offset;
-        size_t pos;
-    };
+    size_t offset;
+    size_t pos;
 };
 
 enum class KTL_GenPosKind {
@@ -61,8 +59,13 @@ struct KTL_GenContext {
         KTL_GenPosKind kind;
     } out;
 
-    KTL_LabelFix_Map *fix_map;
+    KTL_LabelFix_Map  *func_fix_map;
+    KTL_LabelDecl_Map *func_decl_map;
 
+    KTL_LabelFix_Map  *file_inside_fix_map;
+    KTL_LabelDecl_Map *file_inside_decl_map;
+
+    KTL_LabelFix_Map  *file_outside_fix_map;
 };
 
 #endif /* GEN_TYPE_H */

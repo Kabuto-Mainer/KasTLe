@@ -88,7 +88,9 @@ void KTL_LabelDecl_Add(KTL_LabelDecl_Map *map,
 
 void KTL_LabelFix_AddLocal(KTL_LabelFix_Map *map,
                            KTL_StrID         target,
-                           int32_t           offset,
+                           int32_t           index,
+                           int32_t           inner_offset,
+                           int32_t           ads_offset,
                            int32_t           size) {
     assert(map);
     assert(StrIDCheck(target));
@@ -97,7 +99,9 @@ void KTL_LabelFix_AddLocal(KTL_LabelFix_Map *map,
 
     KTL_LabelFix_Entry e = {};
     e.kind   = (KTL_BackIR_SymbolKind) -1;
-    e.offset = offset;
+    e.index  = index;
+    e.inner_offset       = inner_offset;
+    e.ads_offset         = ads_offset;
     e.target = target;
     e.size   = size;
 
@@ -108,7 +112,9 @@ void KTL_LabelFix_AddLocal(KTL_LabelFix_Map *map,
 void KTL_LabelFix_AddGlobal(KTL_LabelFix_Map *map,
                             KTL_BackIR_SymbolKind kind,
                             KTL_StrID         target,
-                            int32_t           offset,
+                            int32_t           index,
+                            int32_t           inner_offset,
+                            int32_t           ads_offset,
                             int32_t           size) {
     assert(map);
     assert(StrIDCheck(target));
@@ -116,13 +122,25 @@ void KTL_LabelFix_AddGlobal(KTL_LabelFix_Map *map,
     grow_fix(map);
 
     KTL_LabelFix_Entry e = {};
-    e.kind   = kind;
-    e.offset = offset;
-    e.target = target;
-    e.size   = size;
+    e.kind               = kind;
+    e.index              = index;
+    e.inner_offset       = inner_offset;
+    e.ads_offset         = ads_offset;
+    e.target             = target;
+    e.size               = size;
 
     map->data[map->size++] = e;
     return ;
+}
+
+KTL_LabelDecl_Entry *KTL_LabelDecl_Find(KTL_LabelDecl_Map *map, KTL_StrID name) {
+    assert(map);
+    assert(StrIDCheck(name));
+
+    for (int i = 0; i < map->size; i++) {
+        if (map->data[i].name == name)  return map->data + i;
+    }
+    return NULL;
 }
 
 
@@ -152,4 +170,3 @@ static void grow_fix(KTL_LabelFix_Map *map) {
     return ;
 }
 
-2
