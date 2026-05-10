@@ -172,6 +172,10 @@ static bool resolving_name(KTL_AnalysisContext *cont,
             }
             set_func_with_entry(node, entry);
 
+            if (entry->func.is_external == true) {
+                node->kind = KTL_AST_FUNCTION_STD_CALL;
+            }
+
             return process_resolving_children(cont, node);
         }
 
@@ -282,6 +286,7 @@ static bool analyze_line(KTL_AnalysisContext *cont,
     debug_out("====== IS CORRECT: %d\n", (int) is_correct);
 
     switch (get_k(node)) {
+        case KTL_AST_FUNCTION_STD_CALL:
         case KTL_AST_FUNCTION_CALL:
             // debug_out("FUNC CALL [%s]\n", node->data.func_call.info.res.entry->str_id);
             is_correct = analyze_func_call_param(cont, node);
@@ -483,7 +488,7 @@ static KTL_TypeID analyze_type_expr(KTL_AnalysisContext *cont,
     assert(cont);
     if (node == NULL)  return KTL_BAD_TYPE_ID;
 
-    // debug_out("EXPR: ");
+    debug_out("EXPR: ");
 
     switch (get_k(node)) {
 
@@ -493,9 +498,9 @@ static KTL_TypeID analyze_type_expr(KTL_AnalysisContext *cont,
     }
 
     case KTL_AST_VALUE_STR: {
-        // debug_out("STR LITERAL\n");
         KTL_TypeID type = KTL_TypeAddPointer(cont->type_map, KTL_CHAR_TYPE_ID);
         node->data.str_val.type_res = type;
+        debug_out("\n\nSTR LITERAL\nTYPE[%d]\n", type);
         return type;
     }
 
@@ -507,6 +512,7 @@ static KTL_TypeID analyze_type_expr(KTL_AnalysisContext *cont,
         return entry->var.type;
     }
 
+    case KTL_AST_FUNCTION_STD_CALL:
     case KTL_AST_FUNCTION_CALL: {
         // debug_out("FUNCTION CALL\n");
         analyze_func_call_param(cont, node);
@@ -562,9 +568,9 @@ static KTL_TypeID analyze_type_expr(KTL_AnalysisContext *cont,
     }
 
     case KTL_AST_INDEX_ACCESS: {
-        // debug_out("INDEX ACCESS\n");
+        debug_out("INDEX ACCESS\n");
         KTL_TypeID base_type = analyze_type_expr(cont, node->move.binary.left);
-        // debug_out("BASE TYPE IN ACCESS INDEX = %d\n", base_type);
+        debug_out("BASE TYPE IN ACCESS INDEX = %d\n", base_type);
         if (base_type == KTL_BAD_TYPE_ID)  return KTL_BAD_TYPE_ID;
 
         KTL_TypeEntry *base_entry = KTL_TypeGetEntry(cont->type_map, base_type);
@@ -582,10 +588,11 @@ static KTL_TypeID analyze_type_expr(KTL_AnalysisContext *cont,
             return KTL_BAD_TYPE_ID;
         }
 
+
         KTL_TypeID idx_type = analyze_type_expr(cont, node->move.binary.right);
         if (idx_type == KTL_BAD_TYPE_ID)  return KTL_BAD_TYPE_ID;
 
-        // debug_out("INDEX TYPE = %d\n", idx_type);
+        debug_out("INDEX TYPE = %d\nELEM+TYPE = %d\n", idx_type, elem_type);
 
         if (cmp_type_kind(cont, idx_type, KTL_TYPE_BASE) == false) {
             KTL_DiagEmit(cont->diag, get_pos(node),
@@ -621,7 +628,8 @@ static bool analyze_func_call_param(KTL_AnalysisContext *cont,
     assert(cont);
     assert(node);
 
-    if (get_k(node) != KTL_AST_FUNCTION_CALL)   return false;
+    if (get_k(node) != KTL_AST_FUNCTION_CALL &&
+        get_k(node) != KTL_AST_FUNCTION_STD_CALL)   return false;
 
     bool             is_correct = true;
     KTL_SymbolEntry *func       = node->data.func_call.info.res.entry;

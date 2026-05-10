@@ -38,6 +38,7 @@ struct KTL_BackendContext {
     int stack_depth;
 
     int frame_offset;
+    int main_frame_size;
 
     const char *symbol_prefix;  /* for MacOS users */
 };

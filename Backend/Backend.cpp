@@ -9,7 +9,7 @@
 #include "ASTCommon.h"
 #include "BackMap.h"
 #include "BackIR.h"
-
+#include "BackIR_DSL.h"
 
 // =======================================================================
 // CONSTANTS
@@ -49,35 +49,6 @@ KTL_StrID get_func_name        (KTL_StrMap         *str_map,  const char  *prefi
 KTL_StrID get_string_name      (KTL_StrMap         *str_map,  const char  *prefix, KTL_StrID name);
 KTL_StrID get_name             (KTL_StrMap         *str_map,  const char  *prefix_1,
                                 const char         *prefix_2, KTL_StrID    name);
-
-
-static KTL_BackIR_InstrOperand op_reg    (KTL_RegID reg, int size);
-static KTL_BackIR_InstrOperand op_imm    (int64_t value, int size);
-static KTL_BackIR_InstrOperand op_mem    (KTL_RegID base, KTL_RegID idx,
-                                          int scale, int offset, int size);
-static KTL_BackIR_InstrOperand op_mem_rip(KTL_StrID sym,
-                                          KTL_BackIR_SymbolKind kind, int size);
-static KTL_BackIR_InstrOperand op_sym    (KTL_StrID sym,
-                                          KTL_BackIR_SymbolKind kind, int size);
-static KTL_BackIR_InstrOperand op_label  (KTL_StrID name);
-
-static void ir_txt           (KTL_BackendContext *cont, KTL_AsmInstr instr);
-static void ir_txt           (KTL_BackendContext *cont, KTL_AsmInstr instr,
-                              KTL_BackIR_InstrOperand op);
-static void ir_txt           (KTL_BackendContext *cont, KTL_AsmInstr instr,
-                              KTL_BackIR_InstrOperand dst, KTL_BackIR_InstrOperand src);
-static void ir_label         (KTL_BackendContext *cont, KTL_StrID name, bool is_global);
-static void ir_comment       (KTL_BackendContext *cont, KTL_StrID text);
-static void ir_align         (KTL_BackendContext *cont, int align);
-static void ir_data_zero     (KTL_BackendContext *cont, int count);
-static void ir_data_int      (KTL_BackendContext *cont, int64_t value, int size);
-static void ir_data_bytes    (KTL_BackendContext *cont, KTL_StrID bytes, int len);
-static void ir_data_symbol   (KTL_BackendContext *cont, KTL_StrID sym,
-                              KTL_BackIR_SymbolKind kind, int64_t addend, int size);
-static void ir_section_text  (KTL_BackendContext *cont);
-static void ir_section_data  (KTL_BackendContext *cont);
-static void ir_section_rodata(KTL_BackendContext *cont);
-
 
 static void emit_header    (KTL_BackendContext *cont, KTL_AstNode *root);
 static void emit_globals   (KTL_BackendContext *cont, KTL_AstNode *root);
@@ -124,7 +95,7 @@ KTL_StrID get_global_name(KTL_StrMap *str_map, const char *prefix, KTL_StrID nam
 KTL_StrID get_func_name  (KTL_StrMap *str_map, const char *prefix, KTL_StrID name);
 KTL_StrID get_string_name(KTL_StrMap *str_map, const char *prefix, KTL_StrID name);
 KTL_StrID get_name       (KTL_StrMap *str_map, const char *prefix_1,
-                          const char *prefix_2, KTL_StrID name);
+                          const char *prefix_2, const KTL_StrID name);
 
 
 // =======================================================================
@@ -175,7 +146,7 @@ KTL_Error KTL_BackendRun(KTL_BackendContext *cont, KTL_AstNode *root) {
     assert(root);
 
     layout_global(cont, root);
-    layout_all_functions(cont, root);
+        layout_all_functions(cont, root);
 
     emit_header(cont, root);
     // emit_globals(cont, root);
@@ -221,7 +192,10 @@ static void layout_all_functions(KTL_BackendContext *cont, KTL_AstNode *root) {
                 layout_func(cont, node);
             }
             else if (node->kind == KTL_AST_MAIN) {
+                cont->frame_offset = -1 * KTL_SYSTEM_PTR_SIZE;
                 layout_body(cont, node->move.unary.next);
+                cont->main_frame_size = align_up(-1 * cont->frame_offset, 2 * KTL_SYSTEM_PTR_SIZE);
+                cont->main_frame_size += KTL_SYSTEM_PTR_SIZE;
             }
     }
     return ;
@@ -407,6 +381,10 @@ KTL_StrID get_func_name(KTL_StrMap *str_map, const char *prefix, KTL_StrID name)
     return get_name(str_map, prefix, KTL_FUNC_PREFIX, name);
 }
 
+KTL_StrID get_func_plt(KTL_StrMap *str_map, const char *prefix, KTL_StrID name) {
+    return get_name(str_map, "", "", name);
+}
+
 KTL_StrID get_string_name(KTL_StrMap *str_map, const char *prefix, KTL_StrID name) {
     assert(str_map);
     assert(name);
@@ -425,7 +403,9 @@ KTL_StrID get_string_name(KTL_StrMap *str_map, const char *prefix, KTL_StrID nam
     return KTL_StrMapFind(str_map, buffer);
 }
 
-KTL_StrID get_name(KTL_StrMap *str_map, const char *prefix_1, const char *prefix_2, KTL_StrID name) {
+KTL_StrID get_name(KTL_StrMap *str_map, const char *prefix_1,
+                                        const char *prefix_2,
+                                        const KTL_StrID name) {
     assert(str_map);
     assert(name);
     if (prefix_1 == NULL) prefix_1 = "";
@@ -450,191 +430,6 @@ KTL_StrID get_name(KTL_StrMap *str_map, const char *prefix_1, const char *prefix
 // =======================================================================
 // EMIT CONVERT HELPERS
 // =======================================================================
-
-/* Operands */
-#define _REG_64(_reg_)               op_reg(_reg_, 8)
-#define _REG(_reg_,_size_)           op_reg(_reg_,_size_)
-#define _IMM_64(_imm_)               op_imm(_imm_, 8)
-#define _MEM_IDX(_base_,_off_,_size_)op_mem(_base_, KTL_REG_INVALID, 0, _off_, _size_)
-#define _MEM_RIP_VAR(_name_, _size_) op_mem_rip(_name_, KTL_BACK_IR_SYM_LOCAL_VAR, _size_)
-#define _LBL(_name_)                 op_label(_name_)
-#define _NR(_name_)                  KTL_REG_##_name_
-
-/* Instraction */
-#define _MOV(_dst_,_src_)            ir_txt(cont, KTL_ASM_MOV, _dst_, _src_)
-#define _MOVSX(_dst_,_src_)          ir_txt(cont, KTL_ASM_MOVSX, _dst_, _src_)
-#define _MOVZX(_dst_,_src_)          ir_txt(cont, KTL_ASM_MOVZX, _dst_, _src_)
-#define _LEA(_dst_,_src_)            ir_txt(cont, KTL_ASM_LEA, _dst_,_src_)
-
-#define _PUSH(_src_)                 ir_txt(cont, KTL_ASM_PUSH,_src_)
-#define _POP(_src_)                  ir_txt(cont, KTL_ASM_POP, _src_)
-
-#define _ADD(_dst_,_src_)            ir_txt(cont, KTL_ASM_ADD, _dst_, _src_)
-#define _SUB(_dst_,_src_)            ir_txt(cont, KTL_ASM_SUB, _dst_, _src_)
-#define _IMUL(_dst_,_src_)           ir_txt(cont, KTL_ASM_IMUL, _dst_, _src_)
-#define _IDIV(_dst_,_src_)           ir_txt(cont, KTL_ASM_IDIV, _dst_, _src_)
-#define _IDIV1(_src_)                ir_txt(cont, KTL_ASM_IDIV, _src_)  /* 1-op */
-
-#define _CMP(_dst_,_src_)            ir_txt(cont, KTL_ASM_CMP, _dst_, _src_)
-#define _TEST(_dst_,_src_)           ir_txt(cont, KTL_ASM_TEST, _dst_, _src_)
-#define _AND(_dst_,_src_)            ir_txt(cont, KTL_ASM_AND, _dst_, _src_)
-#define _XOR(_dst_,_src_)            ir_txt(cont, KTL_ASM_XOR, _dst_, _src_)
-#define _NEG(_src_)                  ir_txt(cont, KTL_ASM_NEG, _src_)
-
-#define _JMP(_label_)                ir_txt(cont, KTL_ASM_JMP, _label_)
-#define _JZ(_label_)                 ir_txt(cont, KTL_ASM_JZ, _label_)
-#define _JNZ(_label_)                ir_txt(cont, KTL_ASM_JNZ, _label_)
-
-#define _REP_MOVSB                   ir_txt(cont, KTL_ASM_REP_MOVSB)
-#define _REP_STOSB                   ir_txt(cont, KTL_ASM_REP_STOSB)
-
-#define _SYSCALL                     ir_txt(cont, KTL_ASM_SYSCALL)
-#define _CALL(_op_)                  ir_txt(cont, KTL_ASM_CALL, _op_)
-#define _RET                         ir_txt(cont, KTL_ASM_RET)
-
-#define _CDQE                        ir_txt(cont, KTL_ASM_CDQE)
-#define _CQO                         ir_txt(cont, KTL_ASM_CQO)
-
-#define _SET(_cc_,_dst_)             ir_txt(cont, KTL_ASM_SET##_cc_, _dst_)
-
-/* Data & Rodata Init */
-#define _INT(_val_,_size_)           ir_data_int(cont, _val_, _size_)
-#define _ZERO(_size_)                ir_data_zero(cont, _size_)
-#define _BYTE(_name_)                ir_data_bytes(cont, _name_, strlen(_name_) + 1)
-#define _LBYTE(_name_,_len_)         ir_data_bytes(cont, _name_, _len_)
-#define _SYM_FUNC(_sym_)             op_sym(_sym_, KTL_BACK_IR_SYM_LOCAL_FUNC, 0)
-
-/* Support */
-#define _COMMENT(_text_)             ir_comment(cont, _text_)
-#define _TEXT(_text_)                KTL_StrMapFind(cont->str_map, _text_)
-#define _LABEL(_name_)               ir_label(cont, _name_, false)
-#define _GLABEL(_name_)              ir_label(cont, _name_, true)
-#define _SWITCH_DATA                 ir_section_data(cont)
-#define _SWITCH_RODATA               ir_section_rodata(cont)
-#define _SWITCH_TEXT                 ir_section_text(cont)
-#define _ALIGN(_size_)               ir_align(cont, _size_)
-
-static KTL_BackIR_InstrOperand op_reg(KTL_RegID reg, int size) {
-    return (KTL_BackIR_InstrOperand){.kind     = KTL_BACK_IR_OP_REG,
-                                     .reg.reg  = reg,
-                                     .reg.size = (uint8_t) size};
-}
-
-static KTL_BackIR_InstrOperand op_imm(int64_t value, int size) {
-    return (KTL_BackIR_InstrOperand){.kind     = KTL_BACK_IR_OP_IMM,
-                                     .imm.imm  = value,
-                                     .imm.size = (uint8_t) size};
-}
-
-static KTL_BackIR_InstrOperand op_mem(KTL_RegID base, KTL_RegID idx,
-                                      int scale, int offset, int size) {
-    return (KTL_BackIR_InstrOperand){.kind       = KTL_BACK_IR_OP_MEM,
-                                     .mem.base   = base,
-                                     .mem.idx    = idx,
-                                     .mem.offset = offset,
-                                     .mem.scale  = (uint8_t) scale,
-                                     .mem.size   = size};
-}
-
-static KTL_BackIR_InstrOperand op_mem_rip(KTL_StrID sym,
-                                          KTL_BackIR_SymbolKind kind, int size) {
-    return (KTL_BackIR_InstrOperand){.kind         = KTL_BACK_IR_OP_MEM_RIP,
-                                     .mem_rip.kind = kind,
-                                     .mem_rip.size = (uint8_t) size,
-                                     .mem_rip.sym  = sym};
-}
-
-static KTL_BackIR_InstrOperand op_sym(KTL_StrID sym,
-                                      KTL_BackIR_SymbolKind kind, int size) {
-    return (KTL_BackIR_InstrOperand){.kind     = KTL_BACK_IR_OP_SYMBOL,
-                                     .sym.sym  = sym,
-                                     .sym.kind = kind,
-                                     .sym.size = size};
-}
-
-static KTL_BackIR_InstrOperand op_label(KTL_StrID name) {
-    return (KTL_BackIR_InstrOperand){.kind       = KTL_BACK_IR_OP_LABEL,
-                                     .label.name = name};
-}
-
-static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr) {
-    assert(cont);
-    KTL_BackIR_AddInstr(cont->cur_buf, instr);
-}
-
-static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr,
-                   KTL_BackIR_InstrOperand op) {
-    assert(cont);
-    KTL_BackIR_AddInstr(cont->cur_buf, instr, &op);
-}
-
-static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr,
-                   KTL_BackIR_InstrOperand dst, KTL_BackIR_InstrOperand src) {
-    assert(cont);
-    KTL_BackIR_AddInstr(cont->cur_buf, instr, &dst, &src);
-}
-
-static void ir_label(KTL_BackendContext *cont, KTL_StrID name, bool is_global) {
-    assert(cont);
-    assert(StrIDCheck(name));
-
-    KTL_BackIR_Item item      = {};
-    item.kind                 = KTL_BACK_IR_ITEM_LABEL;
-    item.label_decl.name      = name;
-    item.label_decl.is_global = is_global;
-
-    add_item(cont->cur_buf, &item);
-}
-
-static void ir_comment(KTL_BackendContext *cont, KTL_StrID text) {
-    assert(cont);
-    assert(StrIDCheck(text));
-
-    KTL_BackIR_AddComment(cont->cur_buf, text);
-}
-
-static void ir_align(KTL_BackendContext *cont, int align) {
-    assert(cont);
-    KTL_BackIR_AddAlign(cont->cur_buf, align);
-}
-
-static void ir_data_zero(KTL_BackendContext *cont, int count) {
-    assert(cont);
-    KTL_BackIR_AddZeroData(cont->cur_buf, count);
-}
-
-static void ir_data_int(KTL_BackendContext *cont, int64_t value, int size) {
-    assert(cont);
-    KTL_BackIR_AddIntData(cont->cur_buf, value, size);
-}
-
-static void ir_data_bytes(KTL_BackendContext *cont, KTL_StrID bytes, int len) {
-    assert(cont);
-    KTL_BackIR_AddByteData(cont->cur_buf, bytes, len);
-}
-
-static void ir_data_symbol(KTL_BackendContext *cont, KTL_StrID sym,
-                           KTL_BackIR_SymbolKind kind, int64_t addend, int size) {
-    assert(cont);
-    KTL_BackIR_AddSymbolData(cont->cur_buf, sym, kind, addend, size);
-}
-
-static void ir_section_text(KTL_BackendContext *cont) {
-    assert(cont);
-    cont->cur_buf = cont->output.text;
-}
-
-static void ir_section_data(KTL_BackendContext *cont) {
-    assert(cont);
-    cont->cur_buf = cont->output.data;
-}
-
-static void ir_section_rodata(KTL_BackendContext *cont) {
-    assert(cont);
-    cont->cur_buf = cont->output.rodata;
-}
-
-
 
 
 // =======================================================================
@@ -681,6 +476,9 @@ static void emit_text(KTL_BackendContext *cont, KTL_AstNode *root) {
         _GLABEL(_TEXT("_start"));
         _PUSH(_REG_64(_NR(RBP)));
         _MOV(_REG_64(_NR(RBP)), _REG_64(_NR(RSP)));
+        if (cont->main_frame_size > 0) {
+            _SUB(_REG_64(_NR(RSP)), _IMM_64(cont->main_frame_size));
+        }
         emit_function(cont, node);
         emit_exit(cont);
         break;
@@ -1310,7 +1108,8 @@ static void emit_assign_struct(KTL_BackendContext *cont,
 static void emit_func_call(KTL_BackendContext *cont, KTL_AstNode *node) {
     assert(cont);
     assert(node);
-    assert(node->kind == KTL_AST_FUNCTION_CALL);
+    assert(node->kind == KTL_AST_FUNCTION_CALL ||
+           node->kind == KTL_AST_FUNCTION_STD_CALL);
 
     int n_par       = node->move.n.amount;
     int n_reg_par   = n_par >= KTL_PARAM_REGS_COUNT ? KTL_PARAM_REGS_COUNT : n_par;
@@ -1331,9 +1130,14 @@ static void emit_func_call(KTL_BackendContext *cont, KTL_AstNode *node) {
         cont->stack_depth += 8;
     }
 
-    KTL_BackendFuncInfo *func = KTL_BackendFindFunc(&cont->table,
-                                    node->data.func_call.info.res.entry);
-    _CALL(_SYM_FUNC(func->label));
+    if (node->kind == KTL_AST_FUNCTION_STD_CALL) {
+        _CALL_PLT(_SYM_FUNC_GOT(node->data.func_call.info.res.entry->str_id));
+    }
+    else {
+        KTL_BackendFuncInfo *func = KTL_BackendFindFunc(&cont->table,
+                                        node->data.func_call.info.res.entry);
+        _CALL(_SYM_FUNC(func->label));
+    }
 
     int cleanup = (need_align ? 8 : 0) + n_stack_par * 8;
     if (cleanup > 0) {
@@ -1364,6 +1168,7 @@ static void emit_expr(KTL_BackendContext *cont, KTL_AstNode *node) {
     assert(node);
 
     switch (node->kind) {
+    case KTL_AST_FUNCTION_STD_CALL:
     case KTL_AST_FUNCTION_CALL:
         emit_func_call(cont, node);
         return ;
@@ -1374,7 +1179,7 @@ static void emit_expr(KTL_BackendContext *cont, KTL_AstNode *node) {
         emit_load_address(cont, node);
 
         KTL_TypeEntry *type = get_type(cont, node);
-        if (type->kind == KTL_TYPE_BLOCK || type->kind == KTL_TYPE_ARRAY) return ;
+        // if (type->kind == KTL_TYPE_BLOCK || type->kind == KTL_TYPE_ARRAY) return ;
 
         KTL_TypeID type_id = KTL_BAD_TYPE_ID;
         switch (node->kind) {
@@ -1387,6 +1192,7 @@ static void emit_expr(KTL_BackendContext *cont, KTL_AstNode *node) {
         }
 
         int size = get_size(cont->type_map, type_id);
+        debug_out("SIZE IN EXPR: %d\n", size);
         _MOV(_REG(_NR(RAX), size), _MEM_IDX(_NR(RAX), 0, size));
         return ;
     }
@@ -1632,6 +1438,7 @@ static void emit_body(KTL_BackendContext *cont, KTL_AstNode *node) {
         return ;
 
     case KTL_AST_FUNCTION_CALL:
+    case KTL_AST_FUNCTION_STD_CALL:
         debug_out("FUNC CALL\n");
         emit_func_call(cont, node);
         return ;

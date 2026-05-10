@@ -16,6 +16,7 @@ KTL_AstChildren KTL_AstGetTypeChildren(KTL_AstNode *node) {
 
         case KTL_AST_FUNCTION_DECL:
         case KTL_AST_FUNCTION_CALL:
+        case KTL_AST_FUNCTION_STD_CALL:
         case KTL_AST_ARRAY_INIT:
 
         case KTL_AST_BLOCK:

@@ -86,7 +86,7 @@ build:
 
 build_prog:
 	nasm -f elf64 -o Bin/1.o Bin/1.asm
-	ld Bin/1.o -o Bin/1.elf
+	gcc -nostartfiles -no-pie Bin/1.o -o Bin/1.elf
 	chmod +x Bin/1.elf
 
 # ===================================================================
@@ -113,7 +113,7 @@ run_prog:
 comp:
 	./Bin/KasTle.elf
 	nasm -f elf64 -o Bin/1.o Bin/1.asm
-	ld Bin/1.o -o Bin/1.elf
+	gcc -nostartfiles -no-pie Bin/1.o -o Bin/1.elf
 	chmod +x Bin/1.elf
 	./Bin/1.elf
 

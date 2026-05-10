@@ -55,6 +55,7 @@ static KTL_AstNode *ktl_parse_cmp_step   (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_expr       (KTL_ParseContext *cont);
 
 static KTL_AstNode *ktl_parse_var_decl   (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_array      (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_assign     (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_exit       (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_continue   (KTL_ParseContext *cont);
@@ -72,8 +73,10 @@ static KTL_AstNode *ktl_parse_condition  (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_typedef    (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_block_decl (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_func_decl  (KTL_ParseContext *cont);
+static bool         ktl_parse_use        (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_top_decl   (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_main       (KTL_ParseContext *cont);
+
 
 
 /**
@@ -783,27 +786,6 @@ static KTL_AstNode *ktl_parse_expr(KTL_ParseContext *cont) {
     }
     return node;
 }
-
-
-static KTL_AstNode *ktl_parse_line       (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_var_decl   (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_assign     (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_array      (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_condition  (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_while      (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_for        (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_return     (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_break      (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_continue   (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_exit       (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_body       (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_loop_common(KTL_ParseContext *cont, bool is_loop);
-static KTL_AstNode *ktl_parse_typedef    (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_block_decl (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_func_decl  (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_main       (KTL_ParseContext *cont);
-static KTL_AstNode *ktl_parse_top_decl   (KTL_ParseContext *cont);
-
 
 static KTL_AstNode *ktl_parse_break(KTL_ParseContext *cont) {
     assert(cont);
@@ -1767,6 +1749,93 @@ static KTL_AstNode *ktl_parse_func_decl(KTL_ParseContext *cont) {
     return node;
 }
 
+static bool ktl_parse_use(KTL_ParseContext *cont) {
+    assert(cont);
+
+    if (equal(cont, KTL_KEY_USE) == false)    return false;
+
+    KTL_SourcePos pos = get_t_pos(cont);
+    advance(cont);
+
+    int mod = ktl_parse_type_mod(cont);
+
+    KTL_TypeID ret_type = ktl_parse_type(cont);
+    if (TypeIDCheck(ret_type) == false)     return false;
+
+    KTL_SourcePos name_pos = get_t_pos(cont);
+    KTL_StrID     name     = ktl_parse_name(cont);
+    if (StrIDCheck(name) == false) {
+        KTL_DiagEmit(cont->diag, name_pos,
+                     KTL_DIAG_PARSE_EXPECTED_NAME,
+                     KTL_DIAG_SEV_ERROR);
+        return false;
+    }
+
+    KTL_SymbolEntry *func = KTL_SymbolInsertFunc(cont->global_map,
+                                                  name, ret_type);
+    if (func == NULL) {
+        KTL_DiagEmit(cont->diag, name_pos,
+                     KTL_DIAG_SEM_REDECLARATION,
+                     KTL_DIAG_SEV_ERROR, name);
+    }
+    func->func.is_ret_const = mod & KTL_VAR_CONST;
+    func->func.is_external  = true;
+
+    /* "(" */
+    if (equal(cont, KTL_PARSE_PAREN_LEFT) == false) {
+        KTL_DiagEmit(cont->diag, get_t_pos(cont),
+                     KTL_DIAG_PARSE_EXPECTED_TOKEN,
+                     KTL_DIAG_SEV_ERROR, KTL_PARSE_PAREN_LEFT);
+
+        return false;
+    }
+    advance(cont);
+
+    KTL_SymbolEntry *params[64];   /* TODO: dynamic, if needed */
+    int param_count = 0;
+
+    while (equal(cont, KTL_PARSE_PAREN_RIGHT) == false) {
+        if (param_count >= 64) {
+            KTL_DiagEmit(cont->diag, get_t_pos(cont),
+                         KTL_DIAG_PARSE_UNEXPECTED_TOKEN,
+                         KTL_DIAG_SEV_ERROR);
+            return false;
+        }
+
+        KTL_SymbolEntry *par = ktl_parse_param(cont);
+        if (par == NULL) {
+            return false;
+        }
+        params[param_count++] = par;
+
+        if (equal(cont, KTL_PARSE_ARG_SEP) == false)    break;
+        advance(cont);
+    }
+
+    if (equal(cont, KTL_PARSE_PAREN_RIGHT) == false) {
+        KTL_DiagEmit(cont->diag, get_t_pos(cont),
+                     KTL_DIAG_PARSE_EXPECTED_TOKEN,
+                     KTL_DIAG_SEV_ERROR, KTL_PARSE_PAREN_RIGHT);
+        return false;
+    }
+    advance(cont);
+
+    if (func != NULL) {
+        KTL_SymbolFuncSetParams(func, params, param_count);
+    }
+
+    if (equal(cont, KTL_PARSE_END_LINE) == false) {
+        KTL_DiagEmit(cont->diag, get_t_pos(cont),
+                     KTL_DIAG_PARSE_EXPECTED_TOKEN,
+                     KTL_DIAG_SEV_ERROR, KTL_PARSE_PAREN_RIGHT);
+        return false;
+    }
+    advance(cont);
+
+    return true;
+}
+
+
 static KTL_AstNode *ktl_parse_main(KTL_ParseContext *cont) {
     assert(cont);
 
@@ -1853,6 +1922,7 @@ static KTL_Error ktl_register_standard_types(KTL_ParseContext *cont) {
     return KTL_OK;
 }
 
+
 static KTL_AstNode *ktl_parse_file(KTL_ParseContext *cont) {
     assert(cont);
 
@@ -1868,8 +1938,14 @@ static KTL_AstNode *ktl_parse_file(KTL_ParseContext *cont) {
     while (equal(cont, KTL_TOKEN_EOF) == false) {
         int pos_before = cont->cur_token;
 
+        if (equal(cont, KTL_KEY_USE)) {
+            debug_out("USE");
+            ktl_parse_use(cont);
+            continue;
+        }
+
         KTL_AstNode *node = NULL;
-        if (equal(cont, KTL_KEY_MAIN))      node = ktl_parse_main(cont);
+        if      (equal(cont, KTL_KEY_MAIN)) node = ktl_parse_main(cont);
         else                                node = ktl_parse_top_decl(cont);
 
         if (node == NULL) {

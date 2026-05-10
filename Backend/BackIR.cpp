@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 #include "BackIR.h"
 #include "Common.h"
@@ -10,9 +11,6 @@ static constexpr int KTL_BUFFER_GROW_MOD   = 2;
 // =====================================================================
 // HELPER FUNCTION'S DECLARATION
 // =====================================================================
-
-static int       get_amount_operand(KTL_AsmInstr instr);
-
 
 // =====================================================================
 // API
@@ -175,6 +173,21 @@ KTL_Error KTL_BackIR_AddByteData(KTL_BackIR_Buffer *buf,
     return add_item(buf, &item);
 }
 
+KTL_Error KTL_BackIR_AddByte15(KTL_BackIR_Buffer *buf,
+                               const uint8_t     *byte,
+                               const uint8_t      len) {
+    assert(buf);
+    assert(byte);
+
+    KTL_BackIR_Item item  = {};
+    item.kind             = KTL_BACK_IR_ITEM_BYTE_15;
+    item.byte_15.len      = len;
+
+    memcpy(item.byte_15.byte, byte, len);
+
+    return add_item(buf, &item);
+}
+
 KTL_Error KTL_BackIR_AddSymbolData(KTL_BackIR_Buffer *buf,
                                    KTL_StrID          sym,
                                    KTL_BackIR_SymbolKind kind,
@@ -218,7 +231,7 @@ KTL_Error add_item(KTL_BackIR_Buffer *buf,
     return KTL_OK;
 }
 
-static int get_amount_operand(KTL_AsmInstr instr) {
+int get_amount_operand(KTL_AsmInstr instr) {
     switch (instr) {
 
     case KTL_ASM_MOV:
@@ -249,6 +262,7 @@ static int get_amount_operand(KTL_AsmInstr instr) {
     case KTL_ASM_JZ:
     case KTL_ASM_JNZ:
     case KTL_ASM_CALL:
+    case KTL_ASM_CALL_PLT:
         return 1;
 
     case KTL_ASM_REP_STOSB:

@@ -1,7 +1,12 @@
-#ifndef STANDARD_TYPE_H
-#define STANDARD_TYPE_H
+#ifndef STANDARD_FUNC_H
+#define STANDARD_FUNCs_H
 
 #include "TypeMapType.h"
+#include "StrMapType.h"
+#include "SymMapType.h"
+
+
+
 
 const KTL_TypeStandard KTL_STANDARD_TYPES[] = {
     {"bool", 1,  1},
@@ -23,4 +28,4 @@ const KTL_TypeAlias KTL_STANDARD_ALIAS[] = {
 };
 constexpr int KTL_CHAR_TYPE_ID = KTL_I8_TYPE_ID;
 
-#endif /* STANDARD_TYPE_H */
+#endif /* STANDARD_FUNC_H */

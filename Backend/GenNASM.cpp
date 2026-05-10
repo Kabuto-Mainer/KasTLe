@@ -48,7 +48,7 @@ static const char *KTL_INSTR_NAMES[] = {
     [KTL_ASM_ADD]       = "add",
     [KTL_ASM_SUB]       = "sub",
     [KTL_ASM_IMUL]      = "imul",
-    [KTL_ASM_IDIV]      = "idiv",
+    [KTL_ASM_IDIV1]     = "idiv",
     [KTL_ASM_XOR]       = "xor",
     [KTL_ASM_AND]       = "and",
     [KTL_ASM_NEG]       = "neg",
@@ -65,6 +65,7 @@ static const char *KTL_INSTR_NAMES[] = {
     [KTL_ASM_JNZ]       = "jnz",
     [KTL_ASM_LEA]       = "lea",
     [KTL_ASM_CALL]      = "call",
+    [KTL_ASM_CALL_PLT]  = "call",
     [KTL_ASM_REP_STOSB] = "rep stosb",
     [KTL_ASM_REP_MOVSB] = "rep movsb",
     [KTL_ASM_RET]       = "ret",
@@ -153,7 +154,7 @@ static void print_operand(FILE *f, const KTL_BackIR_InstrOperand *op) {
 
     case KTL_BACK_IR_OP_SYMBOL:
         if (op->sym.kind == KTL_BACK_IR_SYM_GOT_FUNC) {
-            fprintf(f, "%s wrt ..plt", op->sym.sym);
+            fprintf(f, "%s WRT ..plt", op->sym.sym);
         } else {
             fprintf(f, "%s", op->sym.sym);
         }
@@ -170,7 +171,7 @@ static void print_operand(FILE *f, const KTL_BackIR_InstrOperand *op) {
 
     case KTL_BACK_IR_OP_MEM_RIP:
         if (op->mem_rip.kind == KTL_BACK_IR_SYM_GOT_VAR) {
-            fprintf(f, "%s [rel %s wrt ..got]",
+            fprintf(f, "%s [rel %s WRT ..got]",
                     size_prefix(op->mem_rip.size), op->mem_rip.sym);
         } else {
             fprintf(f, "%s [rel %s]",
@@ -333,6 +334,10 @@ KTL_Error KTL_Backend_GenerateNasm(KTL_BackIR_Buffer *text,
     fputc('\n', stream);
 
     fputs("section .text\n", stream);
+    fputs("    extern printf\n"
+          "    extern scanf\n"
+          "    extern calloc\n"
+          "    extern free\n", stream);
     print_buffer(stream, text);
 
     return KTL_OK;

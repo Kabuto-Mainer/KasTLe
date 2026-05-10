@@ -44,6 +44,7 @@ enum KTL_AsmInstr {
     KTL_ASM_JNZ,
 
     KTL_ASM_CALL,
+    KTL_ASM_CALL_PLT,
     KTL_ASM_LEA,
     KTL_ASM_SYSCALL,
 
@@ -154,6 +155,7 @@ enum KTL_BackIR_ItemKind {
     KTL_BACK_IR_ITEM_COMMENT,
     KTL_BACK_IR_ITEM_DIRECTIVE,
     KTL_BACK_IR_ITEM_DATA,
+    KTL_BACK_IR_ITEM_BYTE_15
 };
 
 /* Backend IR item */
@@ -202,6 +204,11 @@ struct KTL_BackIR_Item {
                 } symbol;
             };
         } data;
+
+        struct {
+            uint8_t byte[15];
+            uint8_t len;
+        } byte_15;
     };
 };
 

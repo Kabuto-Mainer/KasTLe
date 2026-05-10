@@ -160,6 +160,7 @@ static bool ktl_get_expr_type(KTL_AstNode *node, KTL_TypeID *out) {
             }
             return true;
         case KTL_AST_FUNCTION_CALL:
+        case KTL_AST_FUNCTION_STD_CALL:
             if (!node->data.func_call.is_raw &&
                 node->data.func_call.info.res.entry != NULL) {
                 *out = node->data.func_call.info.res.entry->func.ret_type;
@@ -381,9 +382,6 @@ static void ktl_dump_footer(KTL_DumpAstContext *cont) {
 "</body></html>\n");
 }
 
-// =======================================================================
-// PRE-WALK: симсбол-реестр + статистика
-// =======================================================================
 static int ktl_sym_index(KTL_DumpAstContext *cont, KTL_SymbolEntry *e) {
     assert(cont);
     if (e == NULL)  return -1;
@@ -434,7 +432,6 @@ static void ktl_pre_walk(KTL_DumpAstContext *cont, KTL_AstNode *node) {
 
     cont->stats.total++;
 
-    /* Регистрация локальных скоупов. */
     switch (node->kind) {
         case KTL_AST_BLOCK:
             ktl_register_map(cont, node->data.block.map);
@@ -449,7 +446,6 @@ static void ktl_pre_walk(KTL_DumpAstContext *cont, KTL_AstNode *node) {
             break;
     }
 
-    /* Подсчёт raw vs resolved. */
     switch (node->kind) {
         case KTL_AST_VARIABLE:
             if (node->data.var.is_raw)              cont->stats.raw_vars++;
@@ -463,7 +459,6 @@ static void ktl_pre_walk(KTL_DumpAstContext *cont, KTL_AstNode *node) {
             break;
     }
 
-    /* Подсчёт типизированных выражений. */
     KTL_TypeID t;
     if (ktl_get_expr_type(node, &t)) {
         cont->stats.exprs_total++;
@@ -471,7 +466,6 @@ static void ktl_pre_walk(KTL_DumpAstContext *cont, KTL_AstNode *node) {
         else                    cont->stats.bad_types++;
     }
 
-    /* Рекурсия. */
     switch (KTL_AstGetTypeChildren(node)) {
         case KTL_AST_N_CHILDREN:
             for (int i = 0; i < node->move.n.amount; i++) {
@@ -567,9 +561,6 @@ static void ktl_dump_pipeline(KTL_DumpAstContext *cont) {
     fprintf(cont->stream, "</div>\n</details>\n");
 }
 
-// =======================================================================
-// GLOBAL SYM TABLE / TYPE TABLE
-// =======================================================================
 static void ktl_dump_global_syms(KTL_DumpAstContext *cont) {
     assert(cont);
 
@@ -852,7 +843,6 @@ static void ktl_dump_children(KTL_DumpAstContext *cont,
 static void ktl_dump_extra_attrs(KTL_DumpAstContext *cont, KTL_AstNode *node) {
     assert(cont); assert(node);
 
-    /* data-sym-id для подсветки */
     KTL_SymbolEntry *e = NULL;
     switch (node->kind) {
         case KTL_AST_VARIABLE:
@@ -870,7 +860,6 @@ static void ktl_dump_extra_attrs(KTL_DumpAstContext *cont, KTL_AstNode *node) {
         fprintf(cont->stream, " data-sym-id=\"%d\"", idx);
     }
 
-    /* data-typed: ok / bad / raw — для будущих фильтров и подсветки */
     KTL_DumpStage stage = (KTL_DumpStage) cont->stage;
     KTL_TypeID    t;
 
@@ -886,7 +875,7 @@ static void ktl_dump_extra_attrs(KTL_DumpAstContext *cont, KTL_AstNode *node) {
 }
 
 // =======================================================================
-// TYPE ANNOTATION (после summary, перед позицией)
+// TYPE ANNOTATION
 // =======================================================================
 static void ktl_dump_type_annot(KTL_DumpAstContext *cont, KTL_AstNode *node) {
     assert(cont); assert(node);
@@ -904,11 +893,9 @@ static void ktl_dump_type_annot(KTL_DumpAstContext *cont, KTL_AstNode *node) {
         ktl_type_print(cont->stream, cont->type_map, t);
         fprintf(cont->stream, "</span></span>");
     } else if (stage == KTL_STAGE_ANALYZED) {
-        /* После анализа ожидаем валидный тип — отсутствие = ошибка. */
         fprintf(cont->stream,
                 "<span class=\"annot bad\">: &#9888; bad type</span>");
     }
-    /* На стадиях Parse/Resolved отсутствие типа — норма, ничего не печатаем. */
 }
 
 // =======================================================================
@@ -945,6 +932,7 @@ static void ktl_dump_summary(KTL_DumpAstContext *cont, KTL_AstNode *node) {
             break;
         }
 
+        case KTL_AST_FUNCTION_STD_CALL:
         case KTL_AST_FUNCTION_CALL: {
             const char *name;
             if (node->data.func_call.is_raw) {
@@ -1119,6 +1107,7 @@ static const char *ktl_kind_name(KTL_AstNodeKind kind) {
         case KTL_AST_CONTINUE:       return "CONTINUE";
         case KTL_AST_EXIT:           return "EXIT";
         case KTL_AST_CAST:           return "CAST";
+        case KTL_AST_FUNCTION_STD_CALL:  return "STD_FUNCTION_CALL";
         default:                     return "?";
     }
 }

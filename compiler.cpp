@@ -61,6 +61,16 @@ int main() {
 
     KTL_AnalysisProcess(&an_cont);
 
+    if (diag.error_count > 0) {
+        KTL_DiagFlush(&diag, SOURCE);
+        KTL_StrMapDestroy (&str_map);
+        KTL_DiagDestroy   (&diag);
+        KTL_TokenUninit   (&token_cont);
+        KTL_TypeMapDestroy(&type_map);
+        KTL_ParseUninit   (&parse_cont);
+        return 0;
+    }
+
     KTL_BackendContext back_cont = {};
     KTL_BackIR_Buffer  text      = {};
     KTL_BackIR_Buffer  data      = {};

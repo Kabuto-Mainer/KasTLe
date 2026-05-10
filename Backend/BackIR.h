@@ -28,6 +28,9 @@ KTL_Error KTL_BackIR_AddIntData   (KTL_BackIR_Buffer *buf,
 KTL_Error KTL_BackIR_AddByteData  (KTL_BackIR_Buffer *buf,
                                    KTL_StrID          bytes,
                                    int                len);
+KTL_Error KTL_BackIR_AddByte15    (KTL_BackIR_Buffer *buf,
+                                   const uint8_t     *byte,
+                                   const uint8_t      len);
 KTL_Error KTL_BackIR_AddSymbolData(KTL_BackIR_Buffer    *buf,
                                    KTL_StrID             sym,
                                    KTL_BackIR_SymbolKind kind,
@@ -38,5 +41,6 @@ KTL_Error KTL_BackIR_AddSymbolData(KTL_BackIR_Buffer    *buf,
    Only for system */
 KTL_Error add_item(KTL_BackIR_Buffer *buf,
                    KTL_BackIR_Item   *item);
+int get_amount_operand(KTL_AsmInstr instr);
 
 #endif /* BACK_IR_H */
