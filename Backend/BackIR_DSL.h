@@ -57,7 +57,7 @@
 /* Data & Rodata Init */
 #define _INT(_val_,_size_)           ir_data_int(cont, _val_, _size_)
 #define _ZERO(_size_)                ir_data_zero(cont, _size_)
-#define _BYTE(_name_)                ir_data_bytes(cont, _name_, strlen(_name_) + 1)
+#define _BYTE(_name_)                ir_data_bytes(cont, _name_, (int) strlen(_name_) + 1)
 #define _LBYTE(_name_,_len_)         ir_data_bytes(cont, _name_, _len_)
 #define _SYM_FUNC(_sym_)             op_sym(_sym_, KTL_BACK_IR_SYM_LOCAL_FUNC, 0)
 #define _SYM_FUNC_GOT(_sym_)         op_sym(_sym_, KTL_BACK_IR_SYM_GOT_FUNC, 0)
@@ -99,8 +99,9 @@ static void ir_align         (KTL_BackendContext *cont, int align);
 static void ir_data_zero     (KTL_BackendContext *cont, int count);
 static void ir_data_int      (KTL_BackendContext *cont, int64_t value, int size);
 static void ir_data_bytes    (KTL_BackendContext *cont, KTL_StrID bytes, int len);
+/*
 static void ir_data_symbol   (KTL_BackendContext *cont, KTL_StrID sym,
-                              KTL_BackIR_SymbolKind kind, int64_t addend, int size);
+                              KTL_BackIR_SymbolKind kind, int64_t addend, int size);*/
 static void ir_section_text  (KTL_BackendContext *cont);
 static void ir_section_data  (KTL_BackendContext *cont);
 static void ir_section_rodata(KTL_BackendContext *cont);
@@ -206,13 +207,13 @@ static void ir_data_bytes(KTL_BackendContext *cont, KTL_StrID bytes, int len) {
     assert(cont);
     KTL_BackIR_AddByteData(cont->cur_buf, bytes, len);
 }
-
+/*
 static void ir_data_symbol(KTL_BackendContext *cont, KTL_StrID sym,
                            KTL_BackIR_SymbolKind kind, int64_t addend, int size) {
     assert(cont);
     KTL_BackIR_AddSymbolData(cont->cur_buf, sym, kind, addend, (uint8_t) size);
 }
-
+*/
 static void ir_section_text(KTL_BackendContext *cont) {
     assert(cont);
     cont->cur_buf = cont->output.text;

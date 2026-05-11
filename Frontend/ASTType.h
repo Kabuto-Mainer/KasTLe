@@ -38,6 +38,7 @@ enum KTL_AstNodeKind {
 
     KTL_AST_TYPEDEF,
     KTL_AST_STRUCT_DECL,
+    KTL_AST_USE,
 
     KTL_AST_ASSIGN,
     KTL_AST_RETURN,
@@ -144,6 +145,9 @@ struct KTL_AstNode {
             KTL_TypeID type_value;
         } index;
 
+        struct {
+            KTL_SymbolMap *map;
+        } use;
     } data;
 
     /* Связи с потомками:

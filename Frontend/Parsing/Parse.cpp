@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
 #include "Token.h"
@@ -7,9 +8,10 @@
 #include "ParseConfig.h"
 #include "TypeMap.h"
 #include "Common.h"
-#include "StandardType.h"
+#include "StdType.h"
 #include "ASTCommon.h"
 #include "Parse.h"
+#include "StdFunc.h"
 
 constexpr int KTL_PARSE_NCHILDREN_INIT = 4;
 
@@ -73,11 +75,12 @@ static KTL_AstNode *ktl_parse_condition  (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_typedef    (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_block_decl (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_func_decl  (KTL_ParseContext *cont);
-static bool         ktl_parse_use        (KTL_ParseContext *cont);
+static KTL_AstNode *ktl_parse_use        (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_top_decl   (KTL_ParseContext *cont);
 static KTL_AstNode *ktl_parse_main       (KTL_ParseContext *cont);
 
-
+static KTL_TypeID get_std_func_type      (KTL_TypeMap          *map,
+                                          KTL_StandardFunc_Type type);
 
 /**
  * Parse Name
@@ -1678,8 +1681,8 @@ static KTL_AstNode *ktl_parse_func_decl(KTL_ParseContext *cont) {
     KTL_SymbolMap *prev_scope  = cont->current_scope;
     cont->current_scope        = param_scope;
 
-    KTL_SymbolEntry *params[64];   /* TODO: dynamic, if needed */
-    int param_count = 0;
+    KTL_SymbolEntry *params[64] = {};   /* TODO: dynamic, if needed */
+    int param_count             = 0;
 
     while (equal(cont, KTL_PARSE_PAREN_RIGHT) == false) {
         if (param_count >= 64) {
@@ -1749,89 +1752,69 @@ static KTL_AstNode *ktl_parse_func_decl(KTL_ParseContext *cont) {
     return node;
 }
 
-static bool ktl_parse_use(KTL_ParseContext *cont) {
+static KTL_AstNode *ktl_parse_use(KTL_ParseContext *cont) {
     assert(cont);
 
-    if (equal(cont, KTL_KEY_USE) == false)    return false;
-
+    if (equal(cont, KTL_KEY_USE) == false)    return NULL;
     advance(cont);
 
-    int mod = ktl_parse_type_mod(cont);
-
-    KTL_TypeID ret_type = ktl_parse_type(cont);
-    if (TypeIDCheck(ret_type) == false)     return false;
-
-    KTL_SourcePos name_pos = get_t_pos(cont);
-    KTL_StrID     name     = ktl_parse_name(cont);
+    KTL_StrID name = ktl_parse_name(cont);
     if (StrIDCheck(name) == false) {
-        KTL_DiagEmit(cont->diag, name_pos,
+        KTL_DiagEmit(cont->diag, get_t_pos(cont),
                      KTL_DIAG_PARSE_EXPECTED_NAME,
                      KTL_DIAG_SEV_ERROR);
-        return false;
+        return NULL;
     }
 
-    KTL_SymbolEntry *func = KTL_SymbolInsertFunc(cont->global_map,
-                                                  name, ret_type);
-    if (func == NULL) {
-        KTL_DiagEmit(cont->diag, name_pos,
-                     KTL_DIAG_SEM_REDECLARATION,
-                     KTL_DIAG_SEV_ERROR, name);
-    }
-    func->func.is_ret_const = mod & KTL_VAR_CONST;
-    func->func.is_external  = true;
-
-    /* "(" */
-    if (equal(cont, KTL_PARSE_PAREN_LEFT) == false) {
-        KTL_DiagEmit(cont->diag, get_t_pos(cont),
-                     KTL_DIAG_PARSE_EXPECTED_TOKEN,
-                     KTL_DIAG_SEV_ERROR, KTL_PARSE_PAREN_LEFT);
-
-        return false;
-    }
-    advance(cont);
-
-    KTL_SymbolEntry *params[64];   /* TODO: dynamic, if needed */
-    int param_count = 0;
-
-    while (equal(cont, KTL_PARSE_PAREN_RIGHT) == false) {
-        if (param_count >= 64) {
-            KTL_DiagEmit(cont->diag, get_t_pos(cont),
-                         KTL_DIAG_PARSE_UNEXPECTED_TOKEN,
-                         KTL_DIAG_SEV_ERROR);
-            return false;
+    int     idx = 0;
+    bool find = false;
+    for ( ; (size_t) idx < sizeof(KTL_STANDARD_FUNC_INFO) / sizeof(KTL_STANDARD_FUNC_INFO[0]); idx++) {
+        if (strcmp(name, KTL_STANDARD_FUNC_INFO[idx].f_name) == 0) {
+            find = true;
+            break;
         }
-
-        KTL_SymbolEntry *par = ktl_parse_param(cont);
-        if (par == NULL) {
-            return false;
-        }
-        params[param_count++] = par;
-
-        if (equal(cont, KTL_PARSE_ARG_SEP) == false)    break;
-        advance(cont);
     }
 
-    if (equal(cont, KTL_PARSE_PAREN_RIGHT) == false) {
+    if (find == false) {
         KTL_DiagEmit(cont->diag, get_t_pos(cont),
-                     KTL_DIAG_PARSE_EXPECTED_TOKEN,
-                     KTL_DIAG_SEV_ERROR, KTL_PARSE_PAREN_RIGHT);
-        return false;
-    }
-    advance(cont);
-
-    if (func != NULL) {
-        KTL_SymbolFuncSetParams(func, params, param_count);
+                     KTL_DIAG_PARSE_UNKNOWN_STD_FUNC,
+                     KTL_DIAG_SEV_ERROR);
+        return NULL;
     }
 
-    if (equal(cont, KTL_PARSE_END_LINE) == false) {
-        KTL_DiagEmit(cont->diag, get_t_pos(cont),
-                     KTL_DIAG_PARSE_EXPECTED_TOKEN,
-                     KTL_DIAG_SEV_ERROR, KTL_PARSE_PAREN_RIGHT);
-        return false;
-    }
-    advance(cont);
+    KTL_AstNode *node = ktl_alloc_node();
+    if (node == NULL)   return NULL;
 
-    return true;
+    node->kind         = KTL_AST_USE;
+    node->pos          = get_t_pos(cont);
+    node->data.use.map = KTL_SymbolMapInit(NULL);
+
+    name                  = KTL_StrMapFind(cont->str_map, KTL_STANDARD_FUNC_INFO[idx].b_name);
+    KTL_SymbolEntry *func = KTL_SymbolInsertFunc(cont->global_map, name,
+                            get_std_func_type(cont->type_map, KTL_STANDARD_FUNC_INFO[idx].r_type));
+
+    func->func.is_external = true;
+    KTL_SymbolEntry *params[KTL_STANDARD_MAX_PARAM] = {};   /* TODO: dynamic, if needed */
+
+    for (int i = 0; i < KTL_STANDARD_FUNC_INFO[idx].amount_param; i++) {
+        params[i] = KTL_SymbolInsertVar(node->data.use.map, KTL_StrMapFind(cont->str_map, KTL_STANDARD_NAME_PARAM[i]),
+                    get_std_func_type(cont->type_map, KTL_STANDARD_FUNC_INFO[idx].p_types[i]), KTL_VAR_MUTABLE | KTL_VAR_STACK);
+    }
+
+    KTL_SymbolFuncSetParams(func, params, idx);
+    func->func.has_optional = KTL_STANDARD_FUNC_INFO[idx].has_optional_param;
+
+    return node;
+}
+
+static KTL_TypeID get_std_func_type(KTL_TypeMap *map, KTL_StandardFunc_Type type) {
+    assert(map);
+
+    KTL_TypeID base = type.base_type;
+    for (int i = 0; i < type.ptr_lvl; i++) {
+        base = KTL_TypeAddPointer(map, base);
+    }
+    return base;
 }
 
 
@@ -1937,14 +1920,9 @@ static KTL_AstNode *ktl_parse_file(KTL_ParseContext *cont) {
     while (equal(cont, KTL_TOKEN_EOF) == false) {
         int pos_before = cont->cur_token;
 
-        if (equal(cont, KTL_KEY_USE)) {
-            debug_out("USE");
-            ktl_parse_use(cont);
-            continue;
-        }
-
         KTL_AstNode *node = NULL;
         if      (equal(cont, KTL_KEY_MAIN)) node = ktl_parse_main(cont);
+        else if (equal(cont, KTL_KEY_USE))  node = ktl_parse_use(cont);
         else                                node = ktl_parse_top_decl(cont);
 
         if (node == NULL) {

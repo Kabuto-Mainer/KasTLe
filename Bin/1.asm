@@ -7,8 +7,12 @@ section .data
 
 section .rodata
 ; Constant Strings
-__string__0x7ba9231e0210:
-    db "FACT: %s", 0x0A, 0x00
+__string__0x7b6edcbe0090:
+    db "X = %d", 0x0A, 0x00
+__string__0x7b6edcbe00d0:
+    db "Fact X = %d", 0x0A, 0x00
+__string__0x7b6edcbe00f0:
+    db "Poltorashka", 0x0A, 0x00
 
 section .text
     extern printf
@@ -23,6 +27,14 @@ _start:
     mov  rax, 10
     mov  dword [rbp-16], eax
     lea  rax, qword [rbp-16]
+    mov  eax, dword [rax]
+    push rax
+    lea  rax, qword [rel __string__0x7b6edcbe0090]
+    push rax
+    pop  rdi
+    pop  rsi
+    call printf WRT ..plt
+    lea  rax, qword [rbp-16]
     push rax
     lea  rax, qword [rbp-16]
     mov  eax, dword [rax]
@@ -33,19 +45,17 @@ _start:
     add  rsp, 8
     pop  rdi
     mov  dword [rdi], eax
-    mov  rax, 0
-    push rax
-    mov  rax, 0
-    push rax
     lea  rax, qword [rbp-16]
     mov  eax, dword [rax]
     push rax
-    lea  rax, qword [rel __string__0x7ba9231e0210]
+    lea  rax, qword [rel __string__0x7b6edcbe00d0]
     push rax
     pop  rdi
     pop  rsi
-    pop  rdx
-    pop  rcx
+    call printf WRT ..plt
+    lea  rax, qword [rel __string__0x7b6edcbe00f0]
+    push rax
+    pop  rdi
     call printf WRT ..plt
     mov  rax, 60
     xor  rdi, rdi

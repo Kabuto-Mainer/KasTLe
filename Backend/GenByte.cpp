@@ -18,7 +18,7 @@
 XXX REX_BASE   = 0b0100'0000;
 XXX REX_W_MASK = 0b0000'1000;
 XXX REX_R_MASK = 0b0000'0100;
-XXX REX_X_MASK = 0b0000'0010;
+// XXX REX_X_MASK = 0b0000'0010;
 XXX REX_B_MASK = 0b0000'0001;
 
 XXX SIZE_PREFIX_16 = 0x66;
@@ -65,6 +65,7 @@ XXX DIGIT_IDIV     = 7;
 XXX OP_MOV_RM_IMM_8    = 0xC6;  /* /0 */
 XXX OP_MOV_RM_IMM_WIDE = 0xC7;  /* /0 */
 
+#undef XXX
 #define XXX static const KTL_Gen_AluDesc
 
 XXX DESC_MOV  = {0x88, 0x89, 0x8A, 0x8B, 0, true,  true,  false};
@@ -89,15 +90,18 @@ static bool            fits_int8       (int64_t v);
 static bool            fits_int32      (int64_t v);
 static KTL_BackIR_Item read_item       (KTL_GenPos *pos);
 static void            advance         (KTL_GenPos *pos);
-static size_t          out_offset      (const KTL_GenPos *pos);
+/*
+static size_t          out_offset      (const KTL_GenPos *pos);*/
 static void            out_write       (KTL_GenPos *pos, const uint8_t *bytes, int len);
 
 static void    rex_init           (KTL_GenRex *rex);
 static void    rex_set_w          (KTL_GenRex *rex);
 static void    rex_set_r_if_needed(KTL_GenRex *rex, KTL_RegID reg);
 static void    rex_set_b_if_needed(KTL_GenRex *rex, KTL_RegID reg);
-static void    rex_set_x_if_needed(KTL_GenRex *rex, KTL_RegID reg);
-static void    rex_set_needed     (KTL_GenRex *rex);
+/*
+static void    rex_set_x_if_needed(KTL_GenRex *rex, KTL_RegID reg); */
+/*
+static void    rex_set_needed     (KTL_GenRex *rex); */
 static bool    rex_is_present     (const KTL_GenRex *rex);
 static uint8_t rex_get_byte       (const KTL_GenRex *rex);
 static void    rex_emit           (const KTL_GenRex *rex, uint8_t *byte, int *len);
@@ -214,19 +218,19 @@ static void advance(KTL_GenPos *pos) {
     return ;
 }
 
-static size_t out_offset(const KTL_GenPos *pos) {
-    assert(pos);
-
-    return pos->offset;
-}
+// static size_t out_offset(const KTL_GenPos *pos) {
+//     assert(pos);
+//
+//     return pos->offset;
+// }
 
 static void out_write(KTL_GenPos *pos, const uint8_t *bytes, int len) {
     assert(pos);
     assert(bytes);
     assert(len > 0);
 
-    KTL_BackIR_AddByte15(pos->buf, bytes, len);
-    pos->offset += len;
+    KTL_BackIR_AddByte15(pos->buf, bytes, (uint8_t)len);
+    pos->offset += (size_t) len;
     pos->pos    += 1;
 
     return ;
@@ -270,21 +274,21 @@ static void rex_set_b_if_needed(KTL_GenRex *rex, KTL_RegID reg) {
     return ;
 }
 
-static void rex_set_x_if_needed(KTL_GenRex *rex, KTL_RegID reg) {
-    assert(rex);
-
-    if (is_reg_extended(reg))  rex->byte |= REX_X_MASK;
-
-    return ;
-}
-
-static void rex_set_needed(KTL_GenRex *rex) {
-    assert(rex);
-
-    rex->needed = true;
-
-    return ;
-}
+// static void rex_set_x_if_needed(KTL_GenRex *rex, KTL_RegID reg) {
+//     assert(rex);
+//
+//     if (is_reg_extended(reg))  rex->byte |= REX_X_MASK;
+//
+//     return ;
+// }
+//
+// static void rex_set_needed(KTL_GenRex *rex) {
+//     assert(rex);
+//
+//     rex->needed = true;
+//
+//     return ;
+// }
 
 static bool rex_is_present(const KTL_GenRex *rex) {
     assert(rex);
@@ -413,11 +417,11 @@ static void encode_modrm_sup(KTL_GenContext *cont,
 
         if (rm->mem_rip.kind == KTL_BACK_IR_SYM_LOCAL_VAR) {
             KTL_LabelFix_AddGlobal(cont->file_inside_fix_map, rm->mem_rip.kind, rm->mem_rip.sym,
-                        cont->out.text.pos, *len, (int) cont->out.text.offset, rm->mem_rip.size);
+                        (int) cont->out.text.pos, *len, (int) cont->out.text.offset, rm->mem_rip.size);
         }
         else if (rm->mem_rip.kind == KTL_BACK_IR_SYM_GOT_VAR) {
-            KTL_LabelFix_AddGlobal(cont->file_outside_fix_map, KTL_BACK_IR_SYM_GOT_VAR,
-                rm->mem_rip.sym, cont->out.text.pos, *len, (int) cont->out.text.offset, rm->mem_rip.size);
+            KTL_LabelFix_AddGlobal(cont->data_reloc_map, KTL_BACK_IR_SYM_GOT_VAR,
+                rm->mem_rip.sym, (int) cont->out.text.pos, *len, (int) cont->out.text.offset, rm->mem_rip.size);
         }
 
         emit_imm_lend(byte, len, 0, 4);
@@ -662,17 +666,17 @@ static void emit_branch_rel32(KTL_GenContext *cont,
     emit_imm_lend(byte, &len, 0, 4); /* buffer for address in future */
 
     if (op.kind == KTL_BACK_IR_OP_LABEL) {
-        KTL_LabelFix_AddLocal(cont->func_fix_map, label_id, cont->out.text.pos,
-                            patch_local_pos, cont->out.text.offset, 4);
+        KTL_LabelFix_AddLocal(cont->func_fix_map, label_id, (int) cont->out.text.pos,
+                            patch_local_pos, (int) cont->out.text.offset, 4);
     }
     else {  // symbol
         if (op.sym.kind == KTL_BACK_IR_SYM_LOCAL_FUNC) {
             KTL_LabelFix_AddGlobal(cont->file_inside_fix_map, KTL_BACK_IR_SYM_LOCAL_FUNC,
-                                label_id, cont->out.text.pos, patch_local_pos, cont->out.text.offset, 4);
+                                label_id, (int) cont->out.text.pos, patch_local_pos, (int) cont->out.text.offset, 4);
         }
         else {
             KTL_LabelFix_AddGlobal(cont->file_outside_fix_map, KTL_BACK_IR_SYM_GOT_FUNC,
-                            label_id, cont->out.text.pos, patch_local_pos, cont->out.text.offset, 4);
+                            label_id, (int) cont->out.text.pos, patch_local_pos, (int) cont->out.text.offset, 4);
         }
     }
 
@@ -726,11 +730,11 @@ static void emit_lea(KTL_GenContext  *cont,
 
         if (src.mem_rip.kind == KTL_BACK_IR_SYM_LOCAL_VAR) {
             KTL_LabelFix_AddGlobal(cont->file_inside_fix_map, src.mem_rip.kind, src.mem_rip.sym,
-                        cont->out.text.pos, disp_pos, (int) cont->out.text.offset, src.mem_rip.size);
+                        (int) cont->out.text.pos, disp_pos, (int) cont->out.text.offset, src.mem_rip.size);
         }
         else if (src.mem_rip.kind == KTL_BACK_IR_SYM_GOT_VAR) {
-            KTL_LabelFix_AddGlobal(cont->file_outside_fix_map, KTL_BACK_IR_SYM_GOT_VAR,
-                src.mem_rip.sym, cont->out.text.pos, disp_pos, (int) cont->out.text.offset, src.mem_rip.size);
+            KTL_LabelFix_AddGlobal(cont->data_reloc_map, KTL_BACK_IR_SYM_GOT_VAR,
+                src.mem_rip.sym, (int) cont->out.text.pos, disp_pos, (int) cont->out.text.offset, src.mem_rip.size);
         }
         else {
             assert(0 && "unsupported rip-relative symbol kind");
@@ -744,11 +748,11 @@ static void emit_lea(KTL_GenContext  *cont,
     rex_emit(&rex, byte, &len);
     byte[len++] = OP_LEA;
 
-    int modrm_local_start = len;
+    // int modrm_local_start = len;
     memcpy(byte + len, modrm_buf, (size_t)modrm_len);
     len += modrm_len;
 
-    size_t out_before = out_offset(&cont->out.text);
+    // size_t out_before = out_offset(&cont->out.text);
     out_write(&cont->out.text, byte, len);
 
     // TODO: Add in future
@@ -1229,7 +1233,7 @@ static void emit_data(KTL_GenContext *cont) {
             case KTL_BACK_IR_DATA_SYMBOL:
                 KTL_BackIR_AddZeroData(cont->out.data.buf, item.data.symbol.size);
                 KTL_LabelFix_AddGlobal(cont->data_reloc_map, item.data.symbol.sym_kind,
-                        item.data.symbol.sym, cont->out.data.pos, 0, cur_offset, item.data.symbol.size);
+                        item.data.symbol.sym, (int) cont->out.data.pos, 0, cur_offset, item.data.symbol.size);
 
                 cur_offset += item.data.symbol.size;
                 break;
@@ -1345,7 +1349,7 @@ static void flatter(KTL_GenFlat *flat, KTL_BackIR_Buffer *buf) {
 
     int size    = get_size(buf);
     // printf("SIZE: %d\n", size);
-    flat->bytes = (uint8_t *)calloc(size, sizeof(uint8_t));
+    flat->bytes = (uint8_t *)calloc((size_t) size, sizeof(uint8_t));
     if (flat->bytes == NULL)    ExitF("NULL calloc", );
 
     int pos = 0;
@@ -1363,7 +1367,7 @@ static void flatter(KTL_GenFlat *flat, KTL_BackIR_Buffer *buf) {
             switch (item->data.kind) {
 
             case KTL_BACK_IR_DATA_BYTES:
-                memcpy(flat->bytes + pos, item->data.bytes.bytes, item->data.bytes.len);
+                memcpy(flat->bytes + pos, item->data.bytes.bytes, (size_t) item->data.bytes.len);
                 pos += item->data.bytes.len;
                 break;
 
@@ -1378,7 +1382,7 @@ static void flatter(KTL_GenFlat *flat, KTL_BackIR_Buffer *buf) {
                 break;
 
             case KTL_BACK_IR_DATA_ZERO:
-                memset(flat->bytes + pos, 0, item->data.zero.count);
+                memset(flat->bytes + pos, 0, (size_t) item->data.zero.count);
                 size += item->data.zero.count;
                 break;
             default:
@@ -1463,6 +1467,7 @@ void KTL_GenByte(KTL_BackIR_Buffer *text,
 }
 
 void KTL_GenProcess(KTL_GenContext *cont) {
+
     assert(cont);
 
     // if (cont->func_decl_map != NULL)    KTL_LabelDecl_Uninit(cont->func_decl_map);
@@ -1474,7 +1479,7 @@ void KTL_GenProcess(KTL_GenContext *cont) {
     emit_rodata(cont);
     emit_data(cont);
 
-    while (cont->in.text.pos < cont->in.text.buf->size) {
+    while (cont->in.text.pos < (size_t) cont->in.text.buf->size) {
         KTL_BackIR_Item item = read_item(&cont->in.text);
 
         // printf("[%d]\n", cont->in.text.pos);
@@ -1482,10 +1487,10 @@ void KTL_GenProcess(KTL_GenContext *cont) {
             if (item.label_decl.is_global) {
                 fix_labels_inside_func(cont);
 
-                KTL_LabelDecl_Add(cont->file_inside_decl_map, item.label_decl.name, cont->out.text.offset);
+                KTL_LabelDecl_Add(cont->file_inside_decl_map, item.label_decl.name, (int) cont->out.text.offset);
             }
             else {
-                KTL_LabelDecl_Add(cont->func_decl_map, item.label_decl.name, cont->out.text.offset);
+                KTL_LabelDecl_Add(cont->func_decl_map, item.label_decl.name, (int) cont->out.text.offset);
             }
 
             advance(&cont->in.text);

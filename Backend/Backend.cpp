@@ -15,9 +15,9 @@
 // CONSTANTS
 // =======================================================================
 
-constexpr static int KTL_BACKEND_VARS_INIT  = 16;
-constexpr static int KTL_BACKEND_FUNCS_INIT = 8;
-constexpr static int KTL_BACKEND_GROW_MOD   = 2;
+// constexpr static int KTL_BACKEND_VARS_INIT  = 16;
+// constexpr static int KTL_BACKEND_FUNCS_INIT = 8;
+// constexpr static int KTL_BACKEND_GROW_MOD   = 2;
 
 constexpr const char *KTL_GLOBAL_PREFIX = "__global__";
 constexpr const char *KTL_FUNC_PREFIX   = "__func__";
@@ -51,7 +51,8 @@ KTL_StrID get_name             (KTL_StrMap         *str_map,  const char  *prefi
                                 const char         *prefix_2, KTL_StrID    name);
 
 static void emit_header    (KTL_BackendContext *cont, KTL_AstNode *root);
-static void emit_globals   (KTL_BackendContext *cont, KTL_AstNode *root);
+/*
+static void emit_globals   (KTL_BackendContext *cont, KTL_AstNode *root);*/
 static void emit_text      (KTL_BackendContext *cont, KTL_AstNode *root);
 static void emit_function  (KTL_BackendContext *cont, KTL_AstNode *node);
 static void emit_global_var(KTL_BackendContext *cont, KTL_AstNode *node);
@@ -396,7 +397,7 @@ KTL_StrID get_string_name(KTL_StrMap *str_map, const char *prefix, KTL_StrID nam
     int len_pref_2 = (int) strlen(KTL_STRING_PREFIX);
     int len_ended  = len_pref_1 + len_pref_2 + 19 + 1;
 
-    char buffer[len_ended];  /* can't be initted */
+    char buffer[len_ended];  /* can't be initted and emit warning, but it is too userful in my situation */
     strcpy(buffer, prefix);
     strcpy(buffer + len_pref_1, KTL_STRING_PREFIX);
     sprintf(buffer + len_pref_1 + len_pref_2, "%p", name);
@@ -418,7 +419,7 @@ KTL_StrID get_name(KTL_StrMap *str_map, const char *prefix_1,
     int len_pref_2 = (int) strlen(prefix_2);
     int len_ended  = len_pref_1 + len_pref_2 + len_name + 1;
 
-    char buffer[len_ended];  /* can't be initted */
+    char buffer[len_ended];  /* can't be initted and emit warning, but it is too userful in my situation */
     strcpy(buffer, prefix_1);
     strcpy(buffer + len_pref_1, prefix_2);
     strcpy(buffer + len_pref_1 + len_pref_2, name);
@@ -452,7 +453,7 @@ static void emit_header(KTL_BackendContext *cont, KTL_AstNode *root) {
     }
     return ;
 }
-
+/*
 static void emit_globals(KTL_BackendContext *cont, KTL_AstNode *root) {
     assert(cont);
     assert(root);
@@ -463,6 +464,7 @@ static void emit_globals(KTL_BackendContext *cont, KTL_AstNode *root) {
 
     return ;
 }
+*/
 
 static void emit_text(KTL_BackendContext *cont, KTL_AstNode *root) {
     assert(cont);
@@ -1180,7 +1182,7 @@ static void emit_expr(KTL_BackendContext *cont, KTL_AstNode *node) {
     case KTL_AST_INDEX_ACCESS: {
         emit_load_address(cont, node);
 
-        KTL_TypeEntry *type = get_type(cont, node);
+        // KTL_TypeEntry *type = get_type(cont, node);
         // if (type->kind == KTL_TYPE_BLOCK || type->kind == KTL_TYPE_ARRAY) return ;
 
         KTL_TypeID type_id = KTL_BAD_TYPE_ID;

@@ -84,4 +84,58 @@ struct KTL_GenContext {
     } out_flat;
 };
 
+
+struct KTL_ElfImport {
+    KTL_StrID             name;
+    KTL_BackIR_SymbolKind kind;
+    uint32_t              dynstr_offset;
+    uint32_t              dynsym_offset;
+    uint32_t              plt_idx;
+    uint32_t              got_idx;
+};
+
+struct KTL_ElfPart {
+    uint64_t file_off;
+    uint64_t size;
+
+    uint64_t vaddr;
+
+    uint64_t align;
+
+    KTL_GenFlat data;
+};
+
+
+struct KTL_ElfContext {
+    KTL_GenContext *gen_cont;
+    FILE           *stream;
+
+    struct {
+        KTL_ElfImport  *imps;
+        int             size;
+        int             func_amount;
+        int             var_amount;
+    } import;
+
+    KTL_ElfPart dynstr;
+    KTL_ElfPart dynsym;
+    KTL_ElfPart hash;
+    KTL_ElfPart rela_plt;
+    KTL_ElfPart plt;
+    KTL_ElfPart got_plt;
+    KTL_ElfPart dynamic;
+    KTL_ElfPart interp;
+
+    KTL_ElfPart text;
+    KTL_ElfPart data;
+    KTL_ElfPart rodata;
+
+
+
+    uint64_t virt_adr;
+    uint32_t phdr_amount;
+};
+
+
+
 #endif /* GEN_TYPE_H */

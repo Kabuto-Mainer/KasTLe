@@ -2,7 +2,8 @@
 #include <assert.h>
 
 #include "Common.h"
-#include "LabelMapType.h"
+#include "LabelMap.h"
+
 
 
 constexpr int KTL_START_LABEL_DECL_SIZE = 10;
@@ -149,7 +150,7 @@ static void grow_decl(KTL_LabelDecl_Map *map) {
 
     if (map->size == map->capacity) {
         KTL_LabelDecl_Entry *buffer = (KTL_LabelDecl_Entry *)realloc(map->data,
-                        map->capacity * sizeof(KTL_LabelDecl_Entry) * KTL_LABEL_DECL_GROW_MOD);
+                        (size_t) map->capacity * sizeof(KTL_LabelDecl_Entry) * KTL_LABEL_DECL_GROW_MOD);
         if (buffer == NULL) ExitF("NULL Realloc", );
         map->data     = buffer;
         map->capacity = KTL_LABEL_DECL_GROW_MOD;
@@ -162,7 +163,7 @@ static void grow_fix(KTL_LabelFix_Map *map) {
 
     if (map->size == map->capacity) {
         KTL_LabelFix_Entry *buffer = (KTL_LabelFix_Entry *)realloc(map->data,
-                        map->capacity * sizeof(KTL_LabelFix_Entry) * KTL_LABEL_FIX_GROW_MOD);
+                        (size_t) map->capacity * sizeof(KTL_LabelFix_Entry) * KTL_LABEL_FIX_GROW_MOD);
         if (buffer == NULL) ExitF("NULL Realloc", );
         map->data     = buffer;
         map->capacity = KTL_LABEL_FIX_GROW_MOD;

@@ -2,7 +2,7 @@
 #include "Common.h"
 #include "ASTCommon.h"
 #include "Analysis.h"
-#include "StandardType.h"
+#include "StdType.h"
 
 // constexpr int MAX_TYPE_LEN = 256;
 
@@ -263,6 +263,7 @@ static bool analyze_file(KTL_AnalysisContext *cont,
 
             case KTL_AST_TYPEDEF:
             case KTL_AST_STRUCT_DECL:
+            case KTL_AST_USE:
                 // debug_out("TYPEDEF | STRUCT DECL\n");
                 break;
 
@@ -634,7 +635,9 @@ static bool analyze_func_call_param(KTL_AnalysisContext *cont,
     bool             is_correct = true;
     KTL_SymbolEntry *func       = node->data.func_call.info.res.entry;
 
-    if (node->move.n.amount != func->func.amount) {
+    if (node->move.n.amount < func->func.amount ||
+        (node->move.n.amount > func->func.amount &&
+         func->func.has_optional == false)) {
         KTL_DiagEmit(cont->diag, get_pos(node),
                      KTL_DIAG_SEM_BAD_ARG_COUNT,
                      KTL_DIAG_SEV_ERROR, node->move.n.amount, func->func.amount);
@@ -648,6 +651,15 @@ static bool analyze_func_call_param(KTL_AnalysisContext *cont,
             continue;
         }
 
+        KTL_TypeEntry *type_e = KTL_TypeGetEntry(cont->type_map, type_arg);
+        if (type_e->kind == KTL_TYPE_ARRAY ||
+            type_e->kind == KTL_TYPE_BLOCK) {
+            KTL_DiagEmit(cont->diag, get_pos(node),
+                        KTL_DIAG_SEM_UNSUPPORTED_FUNCTION_ARG,
+                        KTL_DIAG_SEV_ERROR, node->move.n.amount, func->func.amount);
+        }
+
+        if (i >= func->func.amount)     continue;
         KTL_TypeID needed_type = func->func.params[i]->var.type;
         if (needed_type == KTL_BAD_TYPE_ID) {
             is_correct = false;

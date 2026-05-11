@@ -242,6 +242,7 @@ static const char * ktl_err_str(KTL_DiagError err) {
         case KTL_DIAG_PARSE_EXPECTED_TOKEN:       return "expected token";
         case KTL_DIAG_PARSE_EXPECTED_NAME:        return "expected name";
         case KTL_DIAG_PARSE_EXPECTED_TYPE:        return "expected type";
+        case KTL_DIAG_PARSE_UNKNOWN_STD_FUNC:     return "unknown standard function";
         case KTL_DIAG_PARSE_EXPECTED_EXPR:        return "expected expression";
         case KTL_DIAG_PARSE_EXPECTED_NUMBER:      return "expected number";
         case KTL_DIAG_PARSE_UNEXPECTED_EOF:       return "unexpected end of file";
@@ -257,6 +258,7 @@ static const char * ktl_err_str(KTL_DiagError err) {
         case KTL_DIAG_SEM_REDECLARATION:          return "redeclaration";
         case KTL_DIAG_SEM_TYPE_MISMATCH:          return "type mismatch";
         case KTL_DIAG_SEM_NOT_A_FUNCTION:         return "not a function";
+        case KTL_DIAG_SEM_UNSUPPORTED_FUNCTION_ARG:return "unsupported argument type (only base or ptr)";
         case KTL_DIAG_SEM_NOT_A_VARIABLE:         return "not a variable";
         case KTL_DIAG_SEM_BAD_ARG_COUNT:          return "wrong number of arguments";
         case KTL_DIAG_SEM_ADDR_PARAM:             return "can't get address of func param";

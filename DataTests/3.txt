@@ -1,19 +1,18 @@
-use i32 printf(const char* format, i32 a1, i32 a2, i32 a3);
-use i32* calloc(i64 n, i64 size);
-use void free(i64* adr);
-
-
+use print
 
 main {
-    var i32 x = 10;
+    var i32 x = cast <i32> 10;
+
+    printf("X = %d\n", x);
     x = fact(x);
-    printf("FACT: %s\n", x, 0, 0);
+    printf("Fact X = %d\n", x);
+    printf("Poltorashka\n");
     exit;
 }
 
 func i32 fact(i32 a) {
     if (a == 1) {
-        return 1;
+        return cast <i32> 1;
     }
-    return fact(a - 1);
+    return fact( a - cast <i32> 1);
 }

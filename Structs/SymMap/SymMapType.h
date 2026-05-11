@@ -39,6 +39,7 @@ struct KTL_SymbolEntry {
             KTL_TypeID        ret_type;
             bool              is_ret_const;
             bool              is_external;
+            bool              has_optional;
         } func;
     };
 };

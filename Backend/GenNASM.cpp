@@ -6,7 +6,7 @@
 #include "BackIR.h"
 #include "BackIRType.h"
 #include "Common.h"
-
+#include "Gen.h"
 
 // =====================================================================
 // TABLES
@@ -115,73 +115,73 @@ static const char *data_prefix(int size) {
 // OPERAND
 // =====================================================================
 
-static void print_mem(FILE *f, KTL_RegID base, KTL_RegID idx,
+static void print_mem(FILE *file, KTL_RegID base, KTL_RegID idx,
                       int scale, int offset, int size) {
-    assert(f);
-    fprintf(f, "%s [", size_prefix(size));
+    assert(file);
+    fprintf(file, "%s [", size_prefix(size));
 
     bool has_base = (base != KTL_REG_INVALID);
     bool has_idx  = (idx  != KTL_REG_INVALID);
 
     if (has_base) {
-        fprintf(f, "%s", reg_name(base, 8));
+        fprintf(file, "%s", reg_name(base, 8));
     }
     if (has_idx) {
-        fprintf(f, "%s%s*%d", has_base ? "+" : "", reg_name(idx, 8), scale);
+        fprintf(file, "%s%s*%d", has_base ? "+" : "", reg_name(idx, 8), scale);
     }
     if (offset != 0 || (!has_base && !has_idx)) {
         if (has_base || has_idx) {
-            fprintf(f, "%+d", offset);
+            fprintf(file, "%+d", offset);
         } else {
-            fprintf(f, "%d", offset);
+            fprintf(file, "%d", offset);
         }
     }
-    fputc(']', f);
+    fputc(']', file);
 }
 
-static void print_operand(FILE *f, const KTL_BackIR_InstrOperand *op) {
-    assert(f);
+static void print_operand(FILE *file, const KTL_BackIR_InstrOperand *op) {
+    assert(file);
     assert(op);
 
     switch (op->kind) {
     case KTL_BACK_IR_OP_REG:
-        fprintf(f, "%s", reg_name(op->reg.reg, op->reg.size));
-        return;
+        fprintf(file, "%s", reg_name(op->reg.reg, op->reg.size));
+        return ;
 
     case KTL_BACK_IR_OP_IMM:
-        fprintf(f, "%lld", (long long) op->imm.imm);
-        return;
+        fprintf(file, "%lld", (long long) op->imm.imm);
+        return ;
 
     case KTL_BACK_IR_OP_SYMBOL:
         if (op->sym.kind == KTL_BACK_IR_SYM_GOT_FUNC) {
-            fprintf(f, "%s WRT ..plt", op->sym.sym);
+            fprintf(file, "%s WRT ..plt", op->sym.sym);
         } else {
-            fprintf(f, "%s", op->sym.sym);
+            fprintf(file, "%s", op->sym.sym);
         }
-        return;
+        return ;
 
     case KTL_BACK_IR_OP_LABEL:
-        fprintf(f, "%s", op->label.name);
-        return;
+        fprintf(file, "%s", op->label.name);
+        return ;
 
     case KTL_BACK_IR_OP_MEM:
-        print_mem(f, op->mem.base, op->mem.idx, op->mem.scale,
+        print_mem(file, op->mem.base, op->mem.idx, op->mem.scale,
                      op->mem.offset, op->mem.size);
-        return;
+        return ;
 
     case KTL_BACK_IR_OP_MEM_RIP:
         if (op->mem_rip.kind == KTL_BACK_IR_SYM_GOT_VAR) {
-            fprintf(f, "%s [rel %s WRT ..got]",
+            fprintf(file, "%s [rel %s WRT ..got]",
                     size_prefix(op->mem_rip.size), op->mem_rip.sym);
         } else {
-            fprintf(f, "%s [rel %s]",
+            fprintf(file, "%s [rel %s]",
                     size_prefix(op->mem_rip.size), op->mem_rip.sym);
         }
-        return;
+        return ;
 
     default:
         assert(false && "unknown operand kind");
-        return;
+        return ;
     }
 }
 
@@ -190,44 +190,59 @@ static void print_operand(FILE *f, const KTL_BackIR_InstrOperand *op) {
 // ITEMS
 // =====================================================================
 
-static void print_instr(FILE *f, const KTL_BackIR_Item *item) {
+static void print_instr(FILE *file, const KTL_BackIR_Item *item) {
+    assert(file);
+    assert(item);
+
     if (item->instr.amount_args == 0) {
-        fprintf(f, "    %s\n", KTL_INSTR_NAMES[item->instr.cmd]);
+        fprintf(file, "    %s\n", KTL_INSTR_NAMES[item->instr.cmd]);
         return;
     }
 
-    fprintf(f, "    %-4s ", KTL_INSTR_NAMES[item->instr.cmd]);
+    fprintf(file, "    %-4s ", KTL_INSTR_NAMES[item->instr.cmd]);
 
     if (item->instr.amount_args == 1) {
-        print_operand(f, &item->instr.one);
+        print_operand(file, &item->instr.one);
     } else {
-        print_operand(f, &item->instr.two.dst);
-        fputs(", ", f);
-        print_operand(f, &item->instr.two.src);
+        print_operand(file, &item->instr.two.dst);
+        fputs(", ", file);
+        print_operand(file, &item->instr.two.src);
     }
-    fputc('\n', f);
+    fputc('\n', file);
+
+    return ;
 }
 
-static void print_label(FILE *f, const KTL_BackIR_Item *item) {
+static void print_label(FILE *file, const KTL_BackIR_Item *item) {
+    assert(file);
+    assert(item);
+
     if (item->label_decl.is_global) {
-        fprintf(f, "global %s\n", item->label_decl.name);
+        fprintf(file, "global %s\n", item->label_decl.name);
     }
-    fprintf(f, "%s:\n", item->label_decl.name);
+    fprintf(file, "%s:\n", item->label_decl.name);
+
+    return ;
 }
 
-static void print_directive(FILE *f, const KTL_BackIR_Item *item) {
+static void print_directive(FILE *file, const KTL_BackIR_Item *item) {
+    assert(file);
+    assert(item);
+
     switch (item->direct.kind) {
     case KTL_BACK_IR_DIR_ALIGN:
-        fprintf(f, "align %d\n", item->direct.align.size);
-        return;
+        fprintf(file, "align %d\n", item->direct.align.size);
+        return ;
     default:
         assert(false && "unknown directive");
-        return;
+        return ;
     }
 }
 
-static void print_bytes(FILE *f, const char *bytes, int len) {
-    fputs("    db ", f);
+static void print_bytes(FILE *file, const char *bytes, int len) {
+    assert(file);
+    assert(bytes);
+    fputs("    db ", file);
 
     bool in_quotes = false;
     bool first     = true;
@@ -238,76 +253,88 @@ static void print_bytes(FILE *f, const char *bytes, int len) {
 
         if (printable) {
             if (!in_quotes) {
-                fprintf(f, "%s\"", first ? "" : ", ");
+                fprintf(file, "%s\"", first ? "" : ", ");
                 in_quotes = true;
             }
-            fputc((char) c, f);
+            fputc((char) c, file);
         } else {
             if (in_quotes) {
-                fputc('"', f);
+                fputc('"', file);
                 in_quotes = false;
             }
-            fprintf(f, "%s0x%02X", first ? "" : ", ", c);
+            fprintf(file, "%s0x%02X", first ? "" : ", ", c);
         }
         first = false;
     }
-    if (in_quotes) fputc('"', f);
-    fputc('\n', f);
+    if (in_quotes) fputc('"', file);
+    fputc('\n', file);
+
+    return ;
 }
 
-static void print_data(FILE *f, const KTL_BackIR_Item *item) {
+static void print_data(FILE *file, const KTL_BackIR_Item *item) {
+    assert(file);
+    assert(item);
+
     switch (item->data.kind) {
     case KTL_BACK_IR_DATA_ZERO:
-        fprintf(f, "    times %d db 0\n", item->data.zero.count);
-        return;
+        fprintf(file, "    times %d db 0\n", item->data.zero.count);
+        return ;
 
     case KTL_BACK_IR_DATA_INT:
-        fprintf(f, "    %s %lld\n",
+        fprintf(file, "    %s %lld\n",
                 data_prefix(item->data.int_val.size),
                 (long long) item->data.int_val.value);
-        return;
+        return ;
 
     case KTL_BACK_IR_DATA_BYTES:
-        print_bytes(f, item->data.bytes.bytes, item->data.bytes.len);
-        return;
+        print_bytes(file, item->data.bytes.bytes, item->data.bytes.len);
+        return ;
 
     case KTL_BACK_IR_DATA_SYMBOL:
         if (item->data.symbol.addend != 0) {
-            fprintf(f, "    %s %s %+lld\n",
+            fprintf(file, "    %s %s %+lld\n",
                     data_prefix(item->data.symbol.size),
                     item->data.symbol.sym,
                     (long long) item->data.symbol.addend);
         } else {
-            fprintf(f, "    %s %s\n",
+            fprintf(file, "    %s %s\n",
                     data_prefix(item->data.symbol.size),
                     item->data.symbol.sym);
         }
-        return;
+        return ;
 
     default:
         assert(false && "unknown data kind");
-        return;
+        return ;
     }
 }
 
-static void print_item(FILE *f, const KTL_BackIR_Item *item) {
+static void print_item(FILE *file, const KTL_BackIR_Item *item) {
+    assert(file);
+    assert(item);
+
     switch (item->kind) {
-    case KTL_BACK_IR_ITEM_INSTR:     print_instr(f, item);         return;
-    case KTL_BACK_IR_ITEM_LABEL:     print_label(f, item);         return;
-    case KTL_BACK_IR_ITEM_COMMENT:   fputs(item->comment.text, f); return;
-    case KTL_BACK_IR_ITEM_DIRECTIVE: print_directive(f, item);     return;
-    case KTL_BACK_IR_ITEM_DATA:      print_data(f, item);          return;
+    case KTL_BACK_IR_ITEM_INSTR:     print_instr(file, item);         return;
+    case KTL_BACK_IR_ITEM_LABEL:     print_label(file, item);         return;
+    case KTL_BACK_IR_ITEM_COMMENT:   fputs(item->comment.text, file); return;
+    case KTL_BACK_IR_ITEM_DIRECTIVE: print_directive(file, item);     return;
+    case KTL_BACK_IR_ITEM_DATA:      print_data(file, item);          return;
     default:
         assert(false && "unknown item kind");
-        return;
+        return ;
     }
 }
 
-static void print_buffer(FILE *f, KTL_BackIR_Buffer *buf) {
+static void print_buffer(FILE *file, KTL_BackIR_Buffer *buf) {
+    assert(file);
+    assert(buf);
+
     if (buf == NULL) return;
     for (int i = 0; i < buf->size; i++) {
-        print_item(f, &buf->data[i]);
+        print_item(file, &buf->data[i]);
     }
+    return ;
 }
 
 

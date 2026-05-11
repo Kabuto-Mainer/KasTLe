@@ -47,6 +47,7 @@ KTL_AstChildren KTL_AstGetTypeChildren(KTL_AstNode *node) {
         case KTL_AST_VALUE_INT:
         case KTL_AST_VALUE_STR:
         case KTL_AST_TYPEDEF:
+        case KTL_AST_USE:
         case KTL_AST_STRUCT_DECL:
         case KTL_AST_BREAK:
         case KTL_AST_CONTINUE:
@@ -95,8 +96,11 @@ void ktl_destroy_node(KTL_AstNode *node) {
         KTL_SymbolMapUninit(node->data.func_decl.map);
     } else if (node->kind == KTL_AST_FOR_BLOCK) {
         KTL_SymbolMapUninit(node->data.for_block.map);
+    } else if (node->kind == KTL_AST_USE) {
+        KTL_SymbolMapUninit(node->data.use.map);
     }
     free(node);
+    return ;
 }
 
 int ktl_print_type(KTL_TypeMap *map, KTL_TypeID type, char *buffer) {

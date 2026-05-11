@@ -221,7 +221,7 @@ KTL_Error add_item(KTL_BackIR_Buffer *buf,
 
     if (buf->size == buf->capacity) {
         KTL_BackIR_Item *buffer = (KTL_BackIR_Item *)realloc(buf->data,
-                                    buf->capacity * sizeof(KTL_BackIR_Item) * KTL_BUFFER_GROW_MOD);
+                                    (size_t) buf->capacity * sizeof(KTL_BackIR_Item) * KTL_BUFFER_GROW_MOD);
         if (buffer == NULL)     ExitF("NULL Realloc", KTL_MEMORY_ERR);
 
         buf->data      = buffer;

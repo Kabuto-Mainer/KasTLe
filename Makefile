@@ -89,7 +89,7 @@ build:
 
 build_prog:
 	nasm -f elf64 -o Bin/1.o Bin/1.asm
-	gcc -nostartfiles -no-pie Bin/1.o -o Bin/1.elf
+	gcc -nostartfiles -no-pie -lSDL2 Bin/1.o -o Bin/1.elf
 	chmod +x Bin/1.elf
 
 # ===================================================================
