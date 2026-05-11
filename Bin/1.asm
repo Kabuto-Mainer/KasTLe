@@ -7,11 +7,13 @@ section .data
 
 section .rodata
 ; Constant Strings
-__string__0x7b6edcbe0090:
+__string__0x7b49c39e00b0:
+    db "%d", 0x00
+__string__0x7b49c39e00f0:
     db "X = %d", 0x0A, 0x00
-__string__0x7b6edcbe00d0:
+__string__0x7b49c39e0130:
     db "Fact X = %d", 0x0A, 0x00
-__string__0x7b6edcbe00f0:
+__string__0x7b49c39e0150:
     db "Poltorashka", 0x0A, 0x00
 
 section .text
@@ -27,9 +29,16 @@ _start:
     mov  rax, 10
     mov  dword [rbp-16], eax
     lea  rax, qword [rbp-16]
+    push rax
+    lea  rax, qword [rel __string__0x7b49c39e00b0]
+    push rax
+    pop  rdi
+    pop  rsi
+    call scanf WRT ..plt
+    lea  rax, qword [rbp-16]
     mov  eax, dword [rax]
     push rax
-    lea  rax, qword [rel __string__0x7b6edcbe0090]
+    lea  rax, qword [rel __string__0x7b49c39e00f0]
     push rax
     pop  rdi
     pop  rsi
@@ -48,12 +57,12 @@ _start:
     lea  rax, qword [rbp-16]
     mov  eax, dword [rax]
     push rax
-    lea  rax, qword [rel __string__0x7b6edcbe00d0]
+    lea  rax, qword [rel __string__0x7b49c39e0130]
     push rax
     pop  rdi
     pop  rsi
     call printf WRT ..plt
-    lea  rax, qword [rel __string__0x7b6edcbe00f0]
+    lea  rax, qword [rel __string__0x7b49c39e0150]
     push rax
     pop  rdi
     call printf WRT ..plt
@@ -86,13 +95,20 @@ __func__fact:
     lea  rax, qword [rbp-8]
     mov  eax, dword [rax]
     push rax
+    lea  rax, qword [rbp-8]
+    mov  eax, dword [rax]
+    push rax
     mov  rax, 1
     pop  rdi
     sub  rdi, rax
     mov  rax, rdi
     push rax
     pop  rdi
+    sub  rsp, 8
     call __func__fact
+    add  rsp, 8
+    pop  rdi
+    imul rax, rdi
     mov  rsp, rbp
     pop  rbp
     ret

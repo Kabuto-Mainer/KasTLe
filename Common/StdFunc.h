@@ -4,24 +4,6 @@
 #include "Token.h"
 #include "StdType.h"
 
-constexpr int KTL_STANDARD_MAX_PARAM = 6;
-
-struct KTL_StandardFunc_Type {
-    KTL_TypeID base_type;
-    int        ptr_lvl;
-};
-
-struct KTL_StandardFunc_Gen {
-    const char *f_name;
-    const char *b_name;
-
-    KTL_StandardFunc_Type r_type;
-    KTL_StandardFunc_Type p_types[KTL_STANDARD_MAX_PARAM];
-
-    int  amount_param;
-    bool has_optional_param;
-};
-
 #define _VOID     {KTL_VOID_TYPE_ID,  0}
 
 

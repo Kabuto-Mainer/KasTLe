@@ -14,7 +14,8 @@
 #include "StdFunc.h"
 
 constexpr int KTL_PARSE_NCHILDREN_INIT = 4;
-
+// extern const KTL_StandardFunc_Gen KTL_STANDARD_FUNC_INFO[];
+// extern int   KTL_AMOUNT_STD_FUNCTION;
 
 // =======================================================================
 // HELPER FUNCTIONS DECLARATIONS

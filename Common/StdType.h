@@ -29,4 +29,24 @@ const KTL_TypeStandardAlias KTL_STANDARD_ALIAS[] = {
 };
 constexpr int KTL_CHAR_TYPE_ID = KTL_I8_TYPE_ID;
 
+constexpr int KTL_STANDARD_MAX_PARAM = 6;
+
+struct KTL_StandardFunc_Type {
+    KTL_TypeID base_type;
+    int        ptr_lvl;
+};
+
+struct KTL_StandardFunc_Gen {
+    const char *f_name;
+    const char *b_name;
+
+    KTL_StandardFunc_Type r_type;
+    KTL_StandardFunc_Type p_types[KTL_STANDARD_MAX_PARAM];
+
+    int  amount_param;
+    bool has_optional_param;
+};
+
+
+
 #endif /* STD_TYPE_H */

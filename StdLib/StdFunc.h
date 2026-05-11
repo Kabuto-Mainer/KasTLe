@@ -4,24 +4,6 @@
 #include "Token.h"
 #include "StdType.h"
 
-constexpr int KTL_STANDARD_MAX_PARAM = 6;
-
-struct KTL_StandardFunc_Type {
-    KTL_TypeID base_type;
-    int        ptr_lvl;
-};
-
-struct KTL_StandardFunc_Gen {
-    const char *f_name;
-    const char *b_name;
-
-    KTL_StandardFunc_Type r_type;
-    KTL_StandardFunc_Type p_types[KTL_STANDARD_MAX_PARAM];
-
-    int  amount_param;
-    bool has_optional_param;
-};
-
 #define _VOID     {KTL_VOID_TYPE_ID,  0}
 
 
@@ -36,14 +18,16 @@ struct KTL_StandardFunc_Gen {
 #define _I64_ptr  {KTL_I64_TYPE_ID, 1}
 
 
-const KTL_StandardFunc_Gen KTL_STANDARD_FUNC_INFO[] = {
+static const KTL_StandardFunc_Gen KTL_STANDARD_FUNC_INFO[] = {
     { "print", "printf", _I32,     { _I8_ptr   }, 1, true  },
     { "scan",  "scanf",  _I32,     { _I8_ptr,  }, 1, true  },
     { "alloc", "calloc", _I64_ptr, { _I64,_I64 }, 2, false },
     { "free",  "free",   _VOID,    { _I64_ptr  }, 1, false }
 };
 
-const char *KTL_STANDARD_NAME_PARAM[KTL_STANDARD_MAX_PARAM] = {
+const int KTL_AMOUNT_STD_FUNCTION = sizeof(KTL_STANDARD_FUNC_INFO) / sizeof(KTL_STANDARD_FUNC_INFO[0]);
+
+static const char *KTL_STANDARD_NAME_PARAM[KTL_STANDARD_MAX_PARAM] = {
     "p1", "p2", "p3", "p4", "p5", "p6"
 };
 
