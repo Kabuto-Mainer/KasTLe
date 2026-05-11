@@ -111,45 +111,44 @@ static void ir_section_rodata(KTL_BackendContext *cont);
 
 static KTL_BackIR_InstrOperand op_reg(KTL_RegID reg, int size) {
     return (KTL_BackIR_InstrOperand){.kind     = KTL_BACK_IR_OP_REG,
-                                     .reg.reg  = reg,
-                                     .reg.size = (uint8_t) size};
+                                     .reg      = { .reg = reg, .size = (uint8_t)size } };
 }
 
 static KTL_BackIR_InstrOperand op_imm(int64_t value, int size) {
     return (KTL_BackIR_InstrOperand){.kind     = KTL_BACK_IR_OP_IMM,
-                                     .imm.imm  = value,
-                                     .imm.size = (uint8_t) size};
+                                     .imm      = { .imm = value, .size = (uint8_t)size } };
 }
 
 static KTL_BackIR_InstrOperand op_mem(KTL_RegID base, KTL_RegID idx,
                                       int scale, int offset, int size) {
     return (KTL_BackIR_InstrOperand){.kind       = KTL_BACK_IR_OP_MEM,
-                                     .mem.base   = base,
-                                     .mem.idx    = idx,
-                                     .mem.offset = offset,
-                                     .mem.scale  = (uint8_t) scale,
-                                     .mem.size   = size};
+                                     .mem        = { .base = base,
+                                                     .idx  = idx,
+                                                     .scale = (uint8_t)scale,
+                                                     .offset = offset,
+                                                     .size = size } };
 }
 
 static KTL_BackIR_InstrOperand op_mem_rip(KTL_StrID sym,
                                           KTL_BackIR_SymbolKind kind, int size) {
     return (KTL_BackIR_InstrOperand){.kind         = KTL_BACK_IR_OP_MEM_RIP,
-                                     .mem_rip.kind = kind,
-                                     .mem_rip.size = (uint8_t) size,
-                                     .mem_rip.sym  = sym};
+                                     .mem_rip      = { .sym  = sym,
+                                                       .kind = kind,
+                                                       .size = (uint8_t)size,
+                                                    } };
 }
 
 static KTL_BackIR_InstrOperand op_sym(KTL_StrID sym,
                                       KTL_BackIR_SymbolKind kind, int size) {
     return (KTL_BackIR_InstrOperand){.kind     = KTL_BACK_IR_OP_SYMBOL,
-                                     .sym.sym  = sym,
-                                     .sym.kind = kind,
-                                     .sym.size = size};
+                                     .sym      = { .sym  = sym,
+                                                   .kind = kind,
+                                                   .size = size } };
 }
 
 static KTL_BackIR_InstrOperand op_label(KTL_StrID name) {
     return (KTL_BackIR_InstrOperand){.kind       = KTL_BACK_IR_OP_LABEL,
-                                     .label.name = name};
+                                     .label      = { .name = name } };
 }
 
 static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr) {
@@ -200,7 +199,7 @@ static void ir_data_zero(KTL_BackendContext *cont, int count) {
 
 static void ir_data_int(KTL_BackendContext *cont, int64_t value, int size) {
     assert(cont);
-    KTL_BackIR_AddIntData(cont->cur_buf, value, size);
+    KTL_BackIR_AddIntData(cont->cur_buf, value, (uint8_t) size);
 }
 
 static void ir_data_bytes(KTL_BackendContext *cont, KTL_StrID bytes, int len) {
@@ -211,7 +210,7 @@ static void ir_data_bytes(KTL_BackendContext *cont, KTL_StrID bytes, int len) {
 static void ir_data_symbol(KTL_BackendContext *cont, KTL_StrID sym,
                            KTL_BackIR_SymbolKind kind, int64_t addend, int size) {
     assert(cont);
-    KTL_BackIR_AddSymbolData(cont->cur_buf, sym, kind, addend, size);
+    KTL_BackIR_AddSymbolData(cont->cur_buf, sym, kind, addend, (uint8_t) size);
 }
 
 static void ir_section_text(KTL_BackendContext *cont) {

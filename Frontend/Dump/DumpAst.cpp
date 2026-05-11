@@ -8,6 +8,7 @@
 #include "StrMap.h"
 #include "TypeMap.h"
 #include "SymMap.h"
+#include "DumpAst.h"
 
 // =======================================================================
 // CONSTANTS

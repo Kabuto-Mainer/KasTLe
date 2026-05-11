@@ -19,9 +19,9 @@ constexpr static int KTL_BACKEND_VARS_INIT  = 16;
 constexpr static int KTL_BACKEND_FUNCS_INIT = 8;
 constexpr static int KTL_BACKEND_GROW_MOD   = 2;
 
-constexpr char *KTL_GLOBAL_PREFIX = "__global__";
-constexpr char *KTL_FUNC_PREFIX   = "__func__";
-constexpr char *KTL_STRING_PREFIX = "__string__";
+constexpr const char *KTL_GLOBAL_PREFIX = "__global__";
+constexpr const char *KTL_FUNC_PREFIX   = "__func__";
+constexpr const char *KTL_STRING_PREFIX = "__string__";
 
 
 const KTL_RegID KTL_PARAM_REGS[6] = {
@@ -94,6 +94,7 @@ static void emit_pop            (KTL_BackendContext *cont, KTL_RegID    reg);
 KTL_StrID get_global_name(KTL_StrMap *str_map, const char *prefix, KTL_StrID name);
 KTL_StrID get_func_name  (KTL_StrMap *str_map, const char *prefix, KTL_StrID name);
 KTL_StrID get_string_name(KTL_StrMap *str_map, const char *prefix, KTL_StrID name);
+KTL_StrID get_func_plt   (KTL_StrMap *str_map, const char *prefix, KTL_StrID name);
 KTL_StrID get_name       (KTL_StrMap *str_map, const char *prefix_1,
                           const char *prefix_2, const KTL_StrID name);
 
@@ -382,6 +383,7 @@ KTL_StrID get_func_name(KTL_StrMap *str_map, const char *prefix, KTL_StrID name)
 }
 
 KTL_StrID get_func_plt(KTL_StrMap *str_map, const char *prefix, KTL_StrID name) {
+    (void) prefix;
     return get_name(str_map, "", "", name);
 }
 
@@ -390,8 +392,8 @@ KTL_StrID get_string_name(KTL_StrMap *str_map, const char *prefix, KTL_StrID nam
     assert(name);
     if (prefix == NULL) prefix = "";
 
-    int len_pref_1 = strlen(prefix);
-    int len_pref_2 = strlen(KTL_STRING_PREFIX);
+    int len_pref_1 = (int) strlen(prefix);
+    int len_pref_2 = (int) strlen(KTL_STRING_PREFIX);
     int len_ended  = len_pref_1 + len_pref_2 + 19 + 1;
 
     char buffer[len_ended];  /* can't be initted */
@@ -404,16 +406,16 @@ KTL_StrID get_string_name(KTL_StrMap *str_map, const char *prefix, KTL_StrID nam
 }
 
 KTL_StrID get_name(KTL_StrMap *str_map, const char *prefix_1,
-                                        const char *prefix_2,
-                                        const KTL_StrID name) {
+                   const char *prefix_2,
+                   const KTL_StrID name) {
     assert(str_map);
     assert(name);
     if (prefix_1 == NULL) prefix_1 = "";
     if (prefix_2 == NULL) prefix_2 = "";
 
-    int len_name   = strlen(name);
-    int len_pref_1 = strlen(prefix_1);
-    int len_pref_2 = strlen(prefix_2);
+    int len_name   = (int) strlen(name);
+    int len_pref_1 = (int) strlen(prefix_1);
+    int len_pref_2 = (int) strlen(prefix_2);
     int len_ended  = len_pref_1 + len_pref_2 + len_name + 1;
 
     char buffer[len_ended];  /* can't be initted */

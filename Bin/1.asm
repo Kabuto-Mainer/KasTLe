@@ -7,12 +7,8 @@ section .data
 
 section .rodata
 ; Constant Strings
-__string__0x7bd5405e0270:
-    db "[%d]NUMBER: %d", 0x0A, 0x00
-__string__0x7bd5405e02d0:
-    db "0123456789", 0x00
-__string__0x7be5405e0040:
-    db "FACTORIAL: %d = %d", 0x0A, 0x00
+__string__0x7ba9231e0210:
+    db "FACT: %s", 0x0A, 0x00
 
 section .text
     extern printf
@@ -23,154 +19,28 @@ global _start
 _start:
     push rbp
     mov  rbp, rsp
-    sub  rsp, 104
-    mov  rax, 5
-    push rax
-    pop  rdi
-    call __func__fact
+    sub  rsp, 24
+    mov  rax, 10
     mov  dword [rbp-16], eax
-    mov  rax, 1
-    mov  dword [rbp-56], eax
-    mov  rax, 2
-    mov  dword [rbp-52], eax
-    mov  rax, 3
-    mov  dword [rbp-48], eax
-    mov  rax, 4
-    mov  dword [rbp-44], eax
-    mov  rax, 5
-    mov  dword [rbp-40], eax
-    mov  rax, 6
-    mov  dword [rbp-36], eax
-    mov  rax, 7
-    mov  dword [rbp-32], eax
-    mov  rax, 8
-    mov  dword [rbp-28], eax
-    mov  rax, 9
-    mov  dword [rbp-24], eax
-    mov  rax, 10
-    mov  dword [rbp-20], eax
-    lea  rax, qword [rbp-56]
+    lea  rax, qword [rbp-16]
     push rax
-    mov  rax, 0
-    imul rax, 4
+    lea  rax, qword [rbp-16]
+    mov  eax, dword [rax]
+    push rax
     pop  rdi
-    add  rax, rdi
-    push rax
-    mov  rax, 10
+    sub  rsp, 8
+    call __func__fact
+    add  rsp, 8
     pop  rdi
     mov  dword [rdi], eax
     mov  rax, 0
-    mov  dword [rbp-80], eax
-.L1:
-    lea  rax, qword [rbp-80]
-    mov  eax, dword [rax]
     push rax
-    mov  rax, 10
-    pop  rdi
-    cmp  rdi, rax
-    setl al
-    movzx rax, al
-    test rax, rax
-    jz   .L0
-    mov  rax, 0
-    push rax
-    lea  rax, qword [rbp-56]
-    push rax
-    lea  rax, qword [rbp-80]
-    mov  eax, dword [rax]
-    imul rax, 4
-    pop  rdi
-    add  rax, rdi
-    mov  eax, dword [rax]
-    push rax
-    lea  rax, qword [rbp-80]
-    mov  eax, dword [rax]
-    push rax
-    lea  rax, qword [rel __string__0x7bd5405e0270]
-    push rax
-    pop  rdi
-    pop  rsi
-    pop  rdx
-    pop  rcx
-    call printf WRT ..plt
-    lea  rax, qword [rbp-80]
-    push rax
-    lea  rax, qword [rbp-80]
-    mov  eax, dword [rax]
-    push rax
-    mov  rax, 1
-    pop  rdi
-    add  rax, rdi
-    pop  rdi
-    mov  dword [rdi], eax
-    jmp  .L1
-.L0:
-    mov  rax, 1
-    push rax
-    mov  rax, 10
-    push rax
-    pop  rdi
-    pop  rsi
-    call calloc WRT ..plt
-    mov  qword [rbp-64], rax
-    lea  rax, qword [rel __string__0x7bd5405e02d0]
-    mov  qword [rbp-72], rax
-    mov  rax, 0
-    mov  dword [rbp-88], eax
-.L3:
-    lea  rax, qword [rbp-88]
-    mov  eax, dword [rax]
-    push rax
-    mov  rax, 10
-    pop  rdi
-    cmp  rdi, rax
-    setl al
-    movzx rax, al
-    test rax, rax
-    jz   .L2
-    lea  rax, qword [rbp-64]
-    mov  rax, qword [rax]
-    push rax
-    lea  rax, qword [rbp-88]
-    mov  eax, dword [rax]
-    pop  rdi
-    add  rax, rdi
-    push rax
-    lea  rax, qword [rbp-72]
-    mov  rax, qword [rax]
-    push rax
-    lea  rax, qword [rbp-88]
-    mov  eax, dword [rax]
-    pop  rdi
-    add  rax, rdi
-    mov  al, byte [rax]
-    pop  rdi
-    mov  byte [rdi], al
-    lea  rax, qword [rbp-88]
-    push rax
-    lea  rax, qword [rbp-88]
-    mov  eax, dword [rax]
-    push rax
-    mov  rax, 1
-    pop  rdi
-    add  rax, rdi
-    pop  rdi
-    mov  dword [rdi], eax
-    jmp  .L3
-.L2:
-    lea  rax, qword [rbp-64]
-    mov  rax, qword [rax]
-    push rax
-    pop  rdi
-    call free WRT ..plt
     mov  rax, 0
     push rax
     lea  rax, qword [rbp-16]
     mov  eax, dword [rax]
     push rax
-    mov  rax, 10
-    push rax
-    lea  rax, qword [rel __string__0x7be5405e0040]
+    lea  rax, qword [rel __string__0x7ba9231e0210]
     push rax
     pop  rdi
     pop  rsi
@@ -195,17 +65,14 @@ __func__fact:
     sete al
     movzx rax, al
     test rax, rax
-    jz   .L4
+    jz   .L0
     mov  rax, 1
     mov  rsp, rbp
     pop  rbp
     ret
-    jmp  .L4
-.L4:
-.L4:
-    lea  rax, qword [rbp-8]
-    mov  eax, dword [rax]
-    push rax
+    jmp  .L0
+.L0:
+.L0:
     lea  rax, qword [rbp-8]
     mov  eax, dword [rax]
     push rax
@@ -215,11 +82,7 @@ __func__fact:
     mov  rax, rdi
     push rax
     pop  rdi
-    sub  rsp, 8
     call __func__fact
-    add  rsp, 8
-    pop  rdi
-    imul rax, rdi
     mov  rsp, rbp
     pop  rbp
     ret

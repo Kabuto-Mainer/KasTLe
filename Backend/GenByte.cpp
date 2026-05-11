@@ -3,10 +3,12 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "LabelMap.h"
 #include "BackIR.h"
 #include "GenType.h"
+#include "GenByte.h"
 
 #define XXX static constexpr uint8_t
 
@@ -102,19 +104,22 @@ static void    rex_emit           (const KTL_GenRex *rex, uint8_t *byte, int *le
 
 static void emit_imm_lend         (uint8_t *byte,  int *len,
                                    int64_t  value, int size);
-static void encode_modrm_sup      (KTL_GenRex *rex,
+static void encode_modrm_sup      (KTL_GenContext *cont,
+                                   KTL_GenRex *rex,
                                    uint8_t     reg_field_3,
                                    const KTL_BackIR_InstrOperand *rm,
                                    uint8_t *byte,
                                    int     *len,
                                    int     *rm_disp_pos);
-static void encode_modrm_with_reg  (KTL_GenRex *rex,
+static void encode_modrm_with_reg  (KTL_GenContext *cont,
+                                    KTL_GenRex *rex,
                                     KTL_RegID   reg_in_field,
                                     const KTL_BackIR_InstrOperand *rm,
                                     uint8_t *byte,
                                     int     *len,
                                     int     *rm_disp_pos);
-static void encode_modrm_with_digit(KTL_GenRex *rex,
+static void encode_modrm_with_digit(KTL_GenContext *cont,
+                                    KTL_GenRex *rex,
                                     uint8_t     digit,
                                     const KTL_BackIR_InstrOperand *rm,
                                     uint8_t *byte,
@@ -124,8 +129,8 @@ static void encode_modrm_with_digit(KTL_GenRex *rex,
 static void emit_zero_op     (KTL_GenContext *cont, KTL_AsmInstr cmd);
 static void emit_stack_oper  (KTL_GenContext *cont, KTL_BackIR_Item *instr);
 static void emit_unary_digit (KTL_GenContext  *cont,
-                             KTL_BackIR_Item *instr,
-                             uint8_t          digit);
+                              KTL_BackIR_Item *instr,
+                              uint8_t          digit);
 static void emit_setcc       (KTL_GenContext  *cont,
                               KTL_BackIR_Item *instr,
                               KTL_Gen_CondCode cc);
@@ -138,7 +143,8 @@ static void emit_lea         (KTL_GenContext  *cont,
 static void emit_movzx_movsx (KTL_GenContext  *cont,
                               KTL_BackIR_Item *instr,
                               bool is_signed);
-static void emit_mov_imm     (KTL_GenRex *rex,
+static void emit_mov_imm     (KTL_GenContext *cont,
+                              KTL_GenRex *rex,
                               uint8_t *byte,    int *len,
                               const KTL_BackIR_InstrOperand *dst,
                               const KTL_BackIR_InstrOperand *src);
@@ -148,6 +154,15 @@ static void emit_alu_two_op  (KTL_GenContext        *cont,
 static void emit_imul        (KTL_GenContext  *cont,
                               KTL_BackIR_Item *instr);
 static void encode_one_instr (KTL_GenContext *cont);
+static void fix_labels_inside_func(KTL_GenContext *cont);
+static void fix_labels_inside_file(KTL_GenContext *cont);
+static void emit_data             (KTL_GenContext *cont);
+static void emit_rodata           (KTL_GenContext *cont);
+static int  align_up              (int offset, int align);
+
+static int  get_size              (KTL_BackIR_Buffer *buf);
+static void flatter               (KTL_GenFlat       *flat, KTL_BackIR_Buffer *buf);
+static void flatter               (KTL_GenContext    *cont);
 
 // =======================================================================
 // HELPERS
@@ -275,8 +290,6 @@ static bool rex_is_present(const KTL_GenRex *rex) {
     assert(rex);
 
     return rex->byte != 0 || rex->needed;
-
-    return ;
 }
 
 static uint8_t rex_get_byte(const KTL_GenRex *rex) {
@@ -398,8 +411,14 @@ static void encode_modrm_sup(KTL_GenContext *cont,
 
         if (rm_disp_pos)  *rm_disp_pos = *len;
 
-        KTL_LabelFix_AddGlobal(cont->file_inside_fix_map, KTL_BACK_IR_SYM_LOCAL_VAR,
-            rm->mem_rip.sym, cont->out.text.pos, *len, cont->out.text.offset, 4);
+        if (rm->mem_rip.kind == KTL_BACK_IR_SYM_LOCAL_VAR) {
+            KTL_LabelFix_AddGlobal(cont->file_inside_fix_map, rm->mem_rip.kind, rm->mem_rip.sym,
+                        cont->out.text.pos, *len, (int) cont->out.text.offset, rm->mem_rip.size);
+        }
+        else if (rm->mem_rip.kind == KTL_BACK_IR_SYM_GOT_VAR) {
+            KTL_LabelFix_AddGlobal(cont->file_outside_fix_map, KTL_BACK_IR_SYM_GOT_VAR,
+                rm->mem_rip.sym, cont->out.text.pos, *len, (int) cont->out.text.offset, rm->mem_rip.size);
+        }
 
         emit_imm_lend(byte, len, 0, 4);
         return ;
@@ -423,7 +442,7 @@ static void encode_modrm_with_reg(KTL_GenContext *cont,
     assert(rm);
     assert(len);
     assert(byte);
-    assert(rm_disp_pos);
+    // assert(rm_disp_pos); don't need
 
     rex_set_r_if_needed(rex, reg_in_field);
     encode_modrm_sup(cont, rex, reg_low3(reg_in_field), rm, byte, len, rm_disp_pos);
@@ -441,7 +460,7 @@ static void encode_modrm_with_digit(KTL_GenContext *cont,
     assert(rm);
     assert(len);
     assert(byte);
-    assert(rm_disp_pos);
+    // assert(rm_disp_pos); don't need
 
     assert((digit & ~0b0111) == 0);
     encode_modrm_sup(cont, rex, digit, rm, byte, len, rm_disp_pos);
@@ -642,18 +661,18 @@ static void emit_branch_rel32(KTL_GenContext *cont,
     int patch_local_pos = len;
     emit_imm_lend(byte, &len, 0, 4); /* buffer for address in future */
 
-    if (is_jmp) {
-        KTL_LabelFix_AddLocal(cont->func_fix_map, label_id, cont->out.text.pos, patch_local_pos,
-                                    cont->out.text.offset, 4);
+    if (op.kind == KTL_BACK_IR_OP_LABEL) {
+        KTL_LabelFix_AddLocal(cont->func_fix_map, label_id, cont->out.text.pos,
+                            patch_local_pos, cont->out.text.offset, 4);
     }
-    else {
+    else {  // symbol
         if (op.sym.kind == KTL_BACK_IR_SYM_LOCAL_FUNC) {
-            KTL_LabelFix_AddGlobal(cont->file_inside_fix_map, KTL_BACK_IR_SYM_GOT_FUNC,
-                                    label_id, cont->out.text.pos, patch_local_pos, cont->out.text.offset, 4);
+            KTL_LabelFix_AddGlobal(cont->file_inside_fix_map, KTL_BACK_IR_SYM_LOCAL_FUNC,
+                                label_id, cont->out.text.pos, patch_local_pos, cont->out.text.offset, 4);
         }
         else {
             KTL_LabelFix_AddGlobal(cont->file_outside_fix_map, KTL_BACK_IR_SYM_GOT_FUNC,
-                                    label_id, cont->out.text.pos, patch_local_pos, cont->out.text.offset, 4);
+                            label_id, cont->out.text.pos, patch_local_pos, cont->out.text.offset, 4);
         }
     }
 
@@ -692,10 +711,39 @@ static void emit_lea(KTL_GenContext  *cont,
     uint8_t modrm_buf[8] = {};
     int     modrm_len = 0;
     int     rip_pos   = -1;
-    encode_modrm_with_reg(&rex, dst.reg.reg, &src, modrm_buf, &modrm_len, &rip_pos);
+
+    if (src.kind == KTL_BACK_IR_OP_MEM_RIP) {
+        rex_set_r_if_needed(&rex, dst.reg.reg);
+        rex_emit(&rex, byte, &len);
+        byte[len++] = OP_LEA;
+
+        uint8_t modrm = (uint8_t)((0x0 << 6)
+                                 | (reg_low3(dst.reg.reg) << 3)
+                                 | 0b0101);
+        byte[len++] = modrm;
+        int disp_pos = len;
+        emit_imm_lend(byte, &len, 0, 4);
+
+        if (src.mem_rip.kind == KTL_BACK_IR_SYM_LOCAL_VAR) {
+            KTL_LabelFix_AddGlobal(cont->file_inside_fix_map, src.mem_rip.kind, src.mem_rip.sym,
+                        cont->out.text.pos, disp_pos, (int) cont->out.text.offset, src.mem_rip.size);
+        }
+        else if (src.mem_rip.kind == KTL_BACK_IR_SYM_GOT_VAR) {
+            KTL_LabelFix_AddGlobal(cont->file_outside_fix_map, KTL_BACK_IR_SYM_GOT_VAR,
+                src.mem_rip.sym, cont->out.text.pos, disp_pos, (int) cont->out.text.offset, src.mem_rip.size);
+        }
+        else {
+            assert(0 && "unsupported rip-relative symbol kind");
+        }
+
+        out_write(&cont->out.text, byte, len);
+        return ;
+    }
+    encode_modrm_with_reg(cont, &rex, dst.reg.reg, &src, modrm_buf, &modrm_len, &rip_pos);
 
     rex_emit(&rex, byte, &len);
     byte[len++] = OP_LEA;
+
     int modrm_local_start = len;
     memcpy(byte + len, modrm_buf, (size_t)modrm_len);
     len += modrm_len;
@@ -751,7 +799,7 @@ static void emit_movzx_movsx(KTL_GenContext  *cont,
     /* dst -> reg, src -> r/m. */
     uint8_t modrm_buf[8] = {};
     int     modrm_len = 0;
-    encode_modrm_with_reg(&rex, dst.reg.reg, &src, modrm_buf, &modrm_len, NULL);
+    encode_modrm_with_reg(cont, &rex, dst.reg.reg, &src, modrm_buf, &modrm_len, NULL);
 
     emit_size_prefix_if_16(byte, &len, dst_size);
     rex_emit(&rex, byte, &len);
@@ -775,7 +823,8 @@ static void emit_movzx_movsx(KTL_GenContext  *cont,
 // =======================================================================
 // MOV with IMM
 
-static void emit_mov_imm(KTL_GenRex *rex,
+static void emit_mov_imm(KTL_GenContext *cont,
+                         KTL_GenRex *rex,
                          uint8_t *byte,    int *len,
                          const KTL_BackIR_InstrOperand *dst,
                          const KTL_BackIR_InstrOperand *src) {
@@ -811,7 +860,7 @@ static void emit_mov_imm(KTL_GenRex *rex,
 
     uint8_t modrm_buf[8] = {};
     int     modrm_len = 0;
-    encode_modrm_with_digit(rex, 0, dst, modrm_buf, &modrm_len, NULL);
+    encode_modrm_with_digit(cont, rex, 0, dst, modrm_buf, &modrm_len, NULL);
 
     rex_emit(rex, byte, len);
     byte[(*len)++] = (size == 1) ? OP_MOV_RM_IMM_8 : OP_MOV_RM_IMM_WIDE;
@@ -848,9 +897,8 @@ static void emit_alu_two_op(KTL_GenContext        *cont,
     rex_init(&rex);
     if (size == 8)  rex_set_w(&rex);
 
-
     if (desc->is_mov && src.kind == KTL_BACK_IR_OP_IMM) {
-        emit_mov_imm(&rex, byte, &len, &dst, &src);
+        emit_mov_imm(cont, &rex, byte, &len, &dst, &src);
         out_write(&cont->out.text, byte, len);
         return ;
     }
@@ -875,7 +923,7 @@ static void emit_alu_two_op(KTL_GenContext        *cont,
 
         uint8_t modrm_buf[8] = {};
         int     modrm_len = 0;
-        encode_modrm_with_digit(&rex, desc->imm_digit, &dst,
+        encode_modrm_with_digit(cont, &rex, desc->imm_digit, &dst,
                                 modrm_buf, &modrm_len, NULL);
 
         emit_size_prefix_if_16(byte, &len, size);
@@ -889,7 +937,6 @@ static void emit_alu_two_op(KTL_GenContext        *cont,
 
         return;
     }
-
 
     bool dir_r_rm = (dst.kind == KTL_BACK_IR_OP_REG &&
                      (src.kind == KTL_BACK_IR_OP_MEM ||
@@ -916,7 +963,7 @@ static void emit_alu_two_op(KTL_GenContext        *cont,
 
     uint8_t modrm_buf[8] = {};
     int     modrm_len    = 0;
-    encode_modrm_with_reg(&rex, reg_in_field, &rm_op,
+    encode_modrm_with_reg(cont, &rex, reg_in_field, &rm_op,
                           modrm_buf, &modrm_len, NULL);
 
     emit_size_prefix_if_16(byte, &len, size);
@@ -962,7 +1009,7 @@ static void emit_imul(KTL_GenContext  *cont,
 
         uint8_t modrm_buf[8] = {};
         int     modrm_len = 0;
-        encode_modrm_with_reg(&rex, dst.reg.reg, &dst,
+        encode_modrm_with_reg(cont, &rex, dst.reg.reg, &dst,
                               modrm_buf, &modrm_len, NULL);
 
         emit_size_prefix_if_16(byte, &len, size);
@@ -979,7 +1026,7 @@ static void emit_imul(KTL_GenContext  *cont,
 
     uint8_t modrm_buf[8] = {};
     int     modrm_len    = 0;
-    encode_modrm_with_reg(&rex, dst.reg.reg, &src,
+    encode_modrm_with_reg(cont, &rex, dst.reg.reg, &src,
                           modrm_buf, &modrm_len, NULL);
 
     emit_size_prefix_if_16(byte, &len, size);
@@ -1044,6 +1091,7 @@ static void encode_one_instr(KTL_GenContext *cont) {
     case KTL_ASM_JMP:    emit_branch_rel32(cont, instr, true,  false, (KTL_Gen_CondCode) 0);    break;
     case KTL_ASM_JZ:     emit_branch_rel32(cont, instr, false, false, KTL_Gen_CondCode::CC_Z);  break;
     case KTL_ASM_JNZ:    emit_branch_rel32(cont, instr, false, false, KTL_Gen_CondCode::CC_NZ); break;
+    case KTL_ASM_CALL_PLT:
     case KTL_ASM_CALL:   emit_branch_rel32(cont, instr, false, true,  (KTL_Gen_CondCode) 0);    break;
 
     case KTL_ASM_LEA:
@@ -1115,10 +1163,11 @@ static void fix_labels_inside_file(KTL_GenContext *cont) {
     assert(cont->file_inside_fix_map);
     assert(cont->file_inside_decl_map);
 
-    for (int i = 0; i < cont->file_inside_fix_map; i++) {
-        KTL_LabelFix_Entry   *fix = cont->func_fix_map->data + i;
-        KTL_LabelDecl_Entry *decl = KTL_LabelDecl_Find(cont->func_decl_map, fix->target);
+    for (int i = 0; i < cont->file_inside_fix_map->size; i++) {
+        KTL_LabelFix_Entry   *fix = cont->file_inside_fix_map->data + i;
+        KTL_LabelDecl_Entry *decl = KTL_LabelDecl_Find(cont->file_inside_decl_map, fix->target);
 
+        printf("fix target: %s\n", fix->target);
         assert(decl && "don't find label in table");
         assert(cont->out.text.buf->size >= fix->index);
 
@@ -1127,6 +1176,10 @@ static void fix_labels_inside_file(KTL_GenContext *cont) {
         assert(item->byte_15.len >= fix->inner_offset);
 
         int32_t disp32 = decl->offset - fix->ads_offset - fix->inner_offset - 4;
+        // printf("disp: %d\n", disp32);
+        if (fix->kind == KTL_BACK_IR_SYM_LOCAL_VAR) {
+            disp32 = decl->offset;
+        }
 
         uint8_t byte[4] = {};
         int     len     = 0;
@@ -1136,20 +1189,295 @@ static void fix_labels_inside_file(KTL_GenContext *cont) {
     return ;
 }
 
+static void emit_data(KTL_GenContext *cont) {
+    assert(cont);
+
+    if (cont->file_inside_decl_map == NULL) {
+        KTL_LabelDecl_Init(cont->file_inside_decl_map);
+    }
+
+    int cur_offset = 0;
+    for (int i = 0; i < cont->in.data.buf->size; i++) {
+        KTL_BackIR_Item item = read_item(&cont->in.data);
+
+        if (item.kind == KTL_BACK_IR_ITEM_DIRECTIVE) {
+            int new_offset = align_up(cur_offset, item.direct.align.size);
+            KTL_BackIR_AddZeroData(cont->out.data.buf, new_offset - cur_offset);
+            cur_offset = new_offset;
+
+            cont->out.data.pos++;
+            continue;
+        }
+        else if (item.kind == KTL_BACK_IR_ITEM_DATA) {
+            switch (item.data.kind) {
+
+            case KTL_BACK_IR_DATA_BYTES:
+                KTL_BackIR_AddByteData(cont->out.data.buf, item.data.bytes.bytes, item.data.bytes.len);
+                cur_offset += item.data.bytes.len;
+                break;
+
+            case KTL_BACK_IR_DATA_INT:
+                KTL_BackIR_AddIntData(cont->out.data.buf, item.data.int_val.value, item.data.int_val.size);
+                cur_offset += item.data.int_val.size;
+                break;
+
+            case KTL_BACK_IR_DATA_ZERO:
+                KTL_BackIR_AddZeroData(cont->out.data.buf, item.data.zero.count);
+                cur_offset += item.data.zero.count;
+                break;
+
+            case KTL_BACK_IR_DATA_SYMBOL:
+                KTL_BackIR_AddZeroData(cont->out.data.buf, item.data.symbol.size);
+                KTL_LabelFix_AddGlobal(cont->data_reloc_map, item.data.symbol.sym_kind,
+                        item.data.symbol.sym, cont->out.data.pos, 0, cur_offset, item.data.symbol.size);
+
+                cur_offset += item.data.symbol.size;
+                break;
+
+            default:
+                assert(0 && "unknown kind of item_data");
+                break;
+            }
+            cont->out.data.pos++;
+            continue;
+        }
+        else if (item.kind == KTL_BACK_IR_ITEM_LABEL) {
+            KTL_LabelDecl_Add(cont->file_inside_decl_map, item.label_decl.name, cur_offset);
+            cont->out.data.pos++;
+            continue;
+        }
+        else {
+            assert(0 && "bad kind of item");
+        }
+    }
+    cont->sizes.data_size = cur_offset;
+    return ;
+}
+
+static void emit_rodata(KTL_GenContext *cont) {
+    assert(cont);
+
+    if (cont->file_inside_decl_map == NULL) {
+        KTL_LabelDecl_Init(cont->file_inside_decl_map);
+    }
+
+    int cur_offset = 0;
+    for (int i = 0; i < cont->in.rodata.buf->size; i++) {
+        KTL_BackIR_Item item = read_item(&cont->in.rodata);
+        cont->in.rodata.pos++;
+
+        if (item.kind == KTL_BACK_IR_ITEM_LABEL) {
+            KTL_LabelDecl_Add(cont->file_inside_decl_map, item.label_decl.name, cur_offset);
+            continue;
+        }
+        else if (item.kind == KTL_BACK_IR_ITEM_DATA) {
+            assert(item.data.kind == KTL_BACK_IR_DATA_BYTES);
+
+            KTL_BackIR_AddByteData(cont->out.rodata.buf, item.data.bytes.bytes, item.data.bytes.len);
+            cur_offset += item.data.bytes.len;
+            continue;
+        }
+        else if (item.kind == KTL_BACK_IR_ITEM_COMMENT) {
+            continue;
+        }
+        else {
+            assert(0 && "bad kind of item_data");
+        }
+    }
+    cont->sizes.rodata_size = cur_offset;
+    return ;
+}
+
+static int align_up(int offset, int align) {
+    assert(align > 0);
+
+    return ((offset + align - 1) / align) * align;
+}
+
+
+static int get_size(KTL_BackIR_Buffer *buf) {
+    assert(buf);
+
+    int size = 0;
+    for (int i = 0; i < buf->size; i++) {
+        KTL_BackIR_Item *item = buf->data + i;
+        switch (item->kind) {
+
+        case KTL_BACK_IR_ITEM_BYTE_15: {
+            size += item->byte_15.len;
+            break;
+        }
+        case KTL_BACK_IR_ITEM_DATA: {
+            switch (item->data.kind) {
+
+            case KTL_BACK_IR_DATA_BYTES:
+                size += item->data.bytes.len;
+                break;
+
+            case KTL_BACK_IR_DATA_INT:
+                size += item->data.int_val.size;
+                break;
+
+            case KTL_BACK_IR_DATA_SYMBOL:
+                size += item->data.symbol.size;
+                break;
+
+            case KTL_BACK_IR_DATA_ZERO:
+                size += item->data.zero.count;
+                break;
+            default:
+                assert(0 && "unknown kind ot item_data");
+                break;
+            }
+            break;
+        }
+
+        default:
+            break;
+        }
+    }
+    return size;
+}
+
+static void flatter(KTL_GenFlat *flat, KTL_BackIR_Buffer *buf) {
+    assert(buf);
+    assert(flat);
+
+    int size    = get_size(buf);
+    // printf("SIZE: %d\n", size);
+    flat->bytes = (uint8_t *)calloc(size, sizeof(uint8_t));
+    if (flat->bytes == NULL)    ExitF("NULL calloc", );
+
+    int pos = 0;
+
+    for (int i = 0; i < buf->size; i++) {
+        KTL_BackIR_Item *item = buf->data + i;
+        switch (item->kind) {
+
+        case KTL_BACK_IR_ITEM_BYTE_15: {
+            memcpy(flat->bytes + pos, item->byte_15.byte, item->byte_15.len);
+            pos += item->byte_15.len;
+            break;
+        }
+        case KTL_BACK_IR_ITEM_DATA: {
+            switch (item->data.kind) {
+
+            case KTL_BACK_IR_DATA_BYTES:
+                memcpy(flat->bytes + pos, item->data.bytes.bytes, item->data.bytes.len);
+                pos += item->data.bytes.len;
+                break;
+
+            case KTL_BACK_IR_DATA_INT:
+                emit_imm_lend(flat->bytes + pos, &pos, item->data.int_val.value, item->data.int_val.size);
+                pos += item->data.int_val.size;
+                break;
+
+            case KTL_BACK_IR_DATA_SYMBOL:
+                memset(flat->bytes + pos, 0, item->data.symbol.size);
+                pos += item->data.symbol.size;
+                break;
+
+            case KTL_BACK_IR_DATA_ZERO:
+                memset(flat->bytes + pos, 0, item->data.zero.count);
+                size += item->data.zero.count;
+                break;
+            default:
+                assert(0 && "unknown kind ot item_data");
+                break;
+            }
+            break;
+        }
+
+        default:
+            break;
+        }
+        continue;
+    }
+    flat->len = pos;
+
+}
+
+static void flatter(KTL_GenContext *cont) {
+    assert(cont);
+
+    flatter(&cont->out_flat.data,   cont->out.data.buf);
+    flatter(&cont->out_flat.rodata, cont->out.rodata.buf);
+    flatter(&cont->out_flat.text,   cont->out.text.buf);
+
+    return ;
+}
+
+
+
 // =======================================================================
 // API
+
+void KTL_GenByte(KTL_BackIR_Buffer *text,
+                 KTL_BackIR_Buffer *data,
+                 KTL_BackIR_Buffer *rodata) {
+    assert(text);
+    assert(data);
+    assert(rodata);
+
+    KTL_GenContext cont = {};
+    cont.in    = {{text, 0, 0}, {data, 0, 0}, {rodata, 0, 0}};
+    cont.sizes = {0,             0,            0};
+
+    KTL_BackIR_Buffer out_text   = {};
+    KTL_BackIR_Buffer out_data   = {};
+    KTL_BackIR_Buffer out_rodata = {};
+
+
+    KTL_BackIR_Init(&out_text);
+    KTL_BackIR_Init(&out_data);
+    KTL_BackIR_Init(&out_rodata);
+
+    cont.out = {{&out_text, 0, 0}, {&out_data, 0, 0},  {&out_rodata, 0, 0}};
+
+    KTL_LabelFix_Map func_fix_map         = {},
+                     file_inside_fix_map  = {},
+                     file_outsize_fix_map = {},
+                     data_reloc_map       = {};
+    KTL_LabelDecl_Map func_decl_map        = {},
+                      file_inside_decl_map = {};
+
+    KTL_LabelDecl_Init(&func_decl_map);
+    KTL_LabelDecl_Init(&file_inside_decl_map);
+
+    KTL_LabelFix_Init(&func_fix_map);
+    KTL_LabelFix_Init(&file_inside_fix_map);
+    KTL_LabelFix_Init(&file_outsize_fix_map);
+    KTL_LabelFix_Init(&data_reloc_map);
+
+    cont.func_decl_map        = &func_decl_map;
+    cont.func_fix_map         = &func_fix_map;
+    cont.file_inside_decl_map = &file_inside_decl_map;
+    cont.file_inside_fix_map  = &file_inside_fix_map;
+    cont.data_reloc_map       = &data_reloc_map;
+    cont.file_outside_fix_map = &file_outsize_fix_map;
+
+    KTL_GenProcess(&cont);
+    KTL_GenDumpFlat(&cont.out_flat.text);
+
+    return ;
+}
+
 void KTL_GenProcess(KTL_GenContext *cont) {
     assert(cont);
 
-    if (cont->func_decl_map != NULL)    KTL_LabelDecl_Uninit(cont->func_decl_map);
-    if (cont->func_fix_map != NULL)     KTL_LabelFix_Uninit(cont->func_fix_map);
+    // if (cont->func_decl_map != NULL)    KTL_LabelDecl_Uninit(cont->func_decl_map);
+    // if (cont->func_fix_map != NULL)     KTL_LabelFix_Uninit(cont->func_fix_map);
 
-    cont->func_decl_map = NULL;
-    cont->func_fix_map  = NULL;
+    KTL_LabelDecl_Init(cont->func_decl_map);
+    KTL_LabelFix_Init(cont->func_fix_map);
 
-    while (cont->in.text.offset < cont->in.text.buf->size) {
+    emit_rodata(cont);
+    emit_data(cont);
+
+    while (cont->in.text.pos < cont->in.text.buf->size) {
         KTL_BackIR_Item item = read_item(&cont->in.text);
 
+        // printf("[%d]\n", cont->in.text.pos);
         if (item.kind == KTL_BACK_IR_ITEM_LABEL) {
             if (item.label_decl.is_global) {
                 fix_labels_inside_func(cont);
@@ -1172,7 +1500,21 @@ void KTL_GenProcess(KTL_GenContext *cont) {
         advance(&cont->in.text);
     }
 
+    fix_labels_inside_func(cont);
     fix_labels_inside_file(cont);
 
+    flatter(cont);
+
+    return ;
+}
+
+
+void KTL_GenDumpFlat(KTL_GenFlat *flat) {
+    assert(flat);
+
+    for (int i = 0; i < flat->len; i++) {
+        printf("0x%02x, ", flat->bytes[i]);
+    }
+    printf("\n");
     return ;
 }

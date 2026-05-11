@@ -4,7 +4,7 @@
 #include "Analysis.h"
 #include "StandardType.h"
 
-constexpr int MAX_TYPE_LEN = 256;
+// constexpr int MAX_TYPE_LEN = 256;
 
 // =======================================================================
 // SUPPORT FUNCTION'S DECLARATION

@@ -9,8 +9,8 @@ KTL_Error KTL_TypeMapDestroy(KTL_TypeMap *map);
 KTL_TypeID KTL_TypeAddBase       (KTL_TypeMap *map, const KTL_StrID name,
                                   int size, int align);
 
-KTL_TypeID KTL_TypeAddDefine     (KTL_TypeMap *map, const KTL_TypeID base_id,
-                                                    const KTL_StrID  alias);
+KTL_TypeID KTL_TypeAddDefine(KTL_TypeMap *map, KTL_TypeID base_id,
+                             KTL_StrID name);
 
 KTL_TypeID KTL_TypeAddPointer    (KTL_TypeMap *map, const KTL_TypeID base_id);
 KTL_TypeID KTL_TypeAddArray      (KTL_TypeMap *map, const KTL_TypeID base_id,

@@ -14,7 +14,7 @@ enum KTL_Error {
     KTL_LOGICAL_ERR   = -3,
 };
 
-#define DEBUG
+// #define DEBUG
 
 #define ExitF(__text__,__val__) \
  do { printf("ERROR[%s:%d]: %s\n", __FILE__, __LINE__, __text__); \
@@ -41,12 +41,6 @@ constexpr KTL_Hash   ktl_gnu_hash              (const char *string) {
 
     return hash;
 }
-
-struct KTL_CharBuffer {
-    char *data;
-    int   pos;
-    int   capacity;
-};
 
 
 

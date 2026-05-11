@@ -9,4 +9,5 @@ void KTL_AstDumpRaw(KTL_AstNode   *root,
                     KTL_TypeMap   *type_map,
                     const char    *file);
 
+
 #endif /* DUMP_AST_H */

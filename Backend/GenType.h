@@ -38,6 +38,11 @@ struct KTL_GenPos {
     size_t pos;
 };
 
+struct KTL_GenFlat {
+    uint8_t *bytes;
+    int      len;
+};
+
 enum class KTL_GenPosKind {
     TEXT,
     DATA,
@@ -49,15 +54,19 @@ struct KTL_GenContext {
         KTL_GenPos text;
         KTL_GenPos data;
         KTL_GenPos rodata;
-        KTL_GenPosKind kind;
     } in;
 
     struct {
         KTL_GenPos text;
         KTL_GenPos data;
         KTL_GenPos rodata;
-        KTL_GenPosKind kind;
     } out;
+
+    struct {
+        int text_size;
+        int data_size;
+        int rodata_size;
+    } sizes;
 
     KTL_LabelFix_Map  *func_fix_map;
     KTL_LabelDecl_Map *func_decl_map;
@@ -66,6 +75,13 @@ struct KTL_GenContext {
     KTL_LabelDecl_Map *file_inside_decl_map;
 
     KTL_LabelFix_Map  *file_outside_fix_map;
+    KTL_LabelFix_Map  *data_reloc_map;
+
+    struct {
+        KTL_GenFlat text;
+        KTL_GenFlat data;
+        KTL_GenFlat rodata;
+    } out_flat;
 };
 
 #endif /* GEN_TYPE_H */

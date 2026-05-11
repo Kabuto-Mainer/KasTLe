@@ -4,9 +4,10 @@
 #include "Analysis.h"
 #include "Backend.h"
 #include "BackIR.h"
+#include "GenByte.h"
 
-constexpr char *SOURCE = "DataTests/3.txt";
-constexpr char *DEST   = "Bin/1.asm";
+constexpr const char *SOURCE = "DataTests/3.txt";
+constexpr const char *DEST   = "Bin/1.asm";
 
 
 int main() {
@@ -86,6 +87,8 @@ int main() {
     FILE *output = fopen(DEST, "wb");
     KTL_Backend_GenerateNasm(&text, &data, &rodata, output);
     fclose(output);
+
+    KTL_GenByte(&text, &data, &rodata);
 
     KTL_BackendUninit(&back_cont);
 

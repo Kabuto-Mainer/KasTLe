@@ -240,7 +240,6 @@ int get_amount_operand(KTL_AsmInstr instr) {
     case KTL_ASM_ADD:
     case KTL_ASM_SUB:
     case KTL_ASM_IMUL:
-    case KTL_ASM_IDIV:
     case KTL_ASM_XOR:
     case KTL_ASM_AND:
     case KTL_ASM_TEST:

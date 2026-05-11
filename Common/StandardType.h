@@ -18,7 +18,12 @@ constexpr int KTL_I32_TYPE_ID  = 2;
 constexpr int KTL_I8_TYPE_ID   = 3;
 constexpr int KTL_I64_TYPE_ID  = 4;
 
-const KTL_TypeAlias KTL_STANDARD_ALIAS[] = {
+struct KTL_TypeStandardAlias {
+    const char *name;
+    const int   target;
+};
+
+const KTL_TypeStandardAlias KTL_STANDARD_ALIAS[] = {
     {"char", KTL_I8_TYPE_ID},
 };
 constexpr int KTL_CHAR_TYPE_ID = KTL_I8_TYPE_ID;

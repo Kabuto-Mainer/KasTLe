@@ -1754,7 +1754,6 @@ static bool ktl_parse_use(KTL_ParseContext *cont) {
 
     if (equal(cont, KTL_KEY_USE) == false)    return false;
 
-    KTL_SourcePos pos = get_t_pos(cont);
     advance(cont);
 
     int mod = ktl_parse_type_mod(cont);

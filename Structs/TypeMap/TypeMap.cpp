@@ -4,6 +4,7 @@
 #include <assert.h>
 
 #include "TypeMap.h"
+#include "StrMap.h"
 #include "CallingConvention.h"
 
 constexpr static int KTL_TYPE_FIELD_GROW   = 2;
@@ -102,19 +103,19 @@ KTL_TypeID KTL_TypeAddBase(KTL_TypeMap *map, const KTL_StrID name,
     return map->size - 1;
 }
 
-KTL_TypeID KTL_TypeAddDefine(KTL_TypeMap *map, const KTL_TypeID base_id,
-                                               const KTL_StrID  alias) {
+KTL_TypeID KTL_TypeAddDefine(KTL_TypeMap *map, KTL_TypeID base_id,
+                             KTL_StrID name) {
     assert(map);
-    assert(StrIDCheck(alias));
+    assert(StrIDCheck(name));
     if (!TypeIDCheck(map, base_id))  return KTL_BAD_TYPE_ID;
 
-    if (ktl_find_in_main(map, alias) != NULL)                  return KTL_BAD_TYPE_ID;
-    if (TypeIDCheck(ktl_find_in_aliases(map, alias)))          return KTL_BAD_TYPE_ID;
+    if (ktl_find_in_main(map, name) != NULL)            return KTL_BAD_TYPE_ID;
+    if (TypeIDCheck(ktl_find_in_aliases(map, name)))   return KTL_BAD_TYPE_ID;
 
     if (ktl_check_alias_size(map) != KTL_OK)  return KTL_BAD_TYPE_ID;
 
     KTL_TypeAlias *al_entry = &map->aliases[map->alias_size++];
-    al_entry->name   = alias;
+    al_entry->name   = name;
     al_entry->target = base_id;
 
     return base_id;
