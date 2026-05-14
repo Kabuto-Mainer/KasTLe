@@ -7,9 +7,9 @@ const KTL_TypeStandard KTL_STANDARD_TYPES[] = {
     {"bool", 1,  1},
     {"void", 0,  1},
     {"i8",   1,  1},
+    {"i16",  2,  2},
     {"i32",  4,  4},
     {"i64",  8,  8},
-    {"i16",  2,  2},
 };
 
 constexpr int KTL_BOOL_TYPE_ID = 0;

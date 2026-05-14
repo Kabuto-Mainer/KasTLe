@@ -89,14 +89,13 @@ int main() {
     KTL_Backend_GenerateNasm(&text, &data, &rodata, output);
     fclose(output);
 
-    // KTL_GenByte(&text, &data, &rodata);
+    KTL_GenByte(&text, &data, &rodata);
 
     KTL_BackendUninit(&back_cont);
 
     KTL_BackIR_Uninit(&text);
     KTL_BackIR_Uninit(&data);
     KTL_BackIR_Uninit(&rodata);
-
 
     // KTL_DiagFlush(&diag, NAME_FILE);
 

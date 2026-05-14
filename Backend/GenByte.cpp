@@ -9,6 +9,7 @@
 #include "BackIR.h"
 #include "GenType.h"
 #include "GenByte.h"
+#include "Gen.h"
 
 #define XXX static constexpr uint8_t
 
@@ -39,6 +40,7 @@ XXX OP_CDQE       = 0x98;
 XXX OP_CQO        = 0x99;
 XXX OP_STOSB      = 0xAA;
 XXX OP_MOVSB      = 0xA4;
+XXX OP_DEBUG      = 0xCC;
 
 XXX OP_TWO_BYTE     = 0x0F;
 XXX OP_SYSCALL_2    = 0x05;
@@ -94,37 +96,37 @@ static void            advance         (KTL_GenPos *pos);
 static size_t          out_offset      (const KTL_GenPos *pos);*/
 static void            out_write       (KTL_GenPos *pos, const uint8_t *bytes, int len);
 
-static void    rex_init           (KTL_GenRex *rex);
-static void    rex_set_w          (KTL_GenRex *rex);
-static void    rex_set_r_if_needed(KTL_GenRex *rex, KTL_RegID reg);
-static void    rex_set_b_if_needed(KTL_GenRex *rex, KTL_RegID reg);
+static void    rex_init            (KTL_GenRex *rex);
+static void    rex_set_w           (KTL_GenRex *rex);
+static void    rex_set_r_if_needed (KTL_GenRex *rex, KTL_RegID reg);
+static void    rex_set_b_if_needed (KTL_GenRex *rex, KTL_RegID reg);
 /*
-static void    rex_set_x_if_needed(KTL_GenRex *rex, KTL_RegID reg); */
+static void    rex_set_x_if_needed (KTL_GenRex *rex, KTL_RegID reg); */
 /*
-static void    rex_set_needed     (KTL_GenRex *rex); */
-static bool    rex_is_present     (const KTL_GenRex *rex);
-static uint8_t rex_get_byte       (const KTL_GenRex *rex);
-static void    rex_emit           (const KTL_GenRex *rex, uint8_t *byte, int *len);
+static void    rex_set_needed      (KTL_GenRex *rex); */
+static bool    rex_is_present      (const KTL_GenRex *rex);
+static uint8_t rex_get_byte        (const KTL_GenRex *rex);
+static void    rex_emit            (const KTL_GenRex *rex, uint8_t *byte, int *len);
 
-static void emit_imm_lend         (uint8_t *byte,  int *len,
-                                   int64_t  value, int size);
-static void encode_modrm_sup      (KTL_GenContext *cont,
-                                   KTL_GenRex *rex,
-                                   uint8_t     reg_field_3,
-                                   const KTL_BackIR_InstrOperand *rm,
-                                   uint8_t *byte,
-                                   int     *len,
-                                   int     *rm_disp_pos);
+static void emit_imm_lend          (uint8_t *byte,  int *len,
+                                    int64_t  value, int size);
+static void encode_modrm_sup       (KTL_GenContext *cont,
+                                    KTL_GenRex     *rex,
+                                    uint8_t         reg_field_3,
+                                    const KTL_BackIR_InstrOperand *rm,
+                                    uint8_t *byte,
+                                    int     *len,
+                                    int     *rm_disp_pos);
 static void encode_modrm_with_reg  (KTL_GenContext *cont,
-                                    KTL_GenRex *rex,
-                                    KTL_RegID   reg_in_field,
+                                    KTL_GenRex     *rex,
+                                    KTL_RegID       reg_in_field,
                                     const KTL_BackIR_InstrOperand *rm,
                                     uint8_t *byte,
                                     int     *len,
                                     int     *rm_disp_pos);
 static void encode_modrm_with_digit(KTL_GenContext *cont,
-                                    KTL_GenRex *rex,
-                                    uint8_t     digit,
+                                    KTL_GenRex     *rex,
+                                    uint8_t         digit,
                                     const KTL_BackIR_InstrOperand *rm,
                                     uint8_t *byte,
                                     int     *len,
@@ -239,7 +241,6 @@ static void out_write(KTL_GenPos *pos, const uint8_t *bytes, int len) {
 
 // =======================================================================
 // REX
-
 
 static void rex_init(KTL_GenRex *rex) {
     assert(rex);
@@ -508,6 +509,10 @@ static void emit_zero_op(KTL_GenContext *cont, KTL_AsmInstr cmd) {
     case KTL_ASM_REP_MOVSB:
         byte[len++] = REP_PREFIX;
         byte[len++] = OP_MOVSB;
+        break;
+
+    case KTL_ASM_DEBUG:
+        byte[len++] = OP_DEBUG;
         break;
 
     default:
@@ -1070,6 +1075,7 @@ static void encode_one_instr(KTL_GenContext *cont) {
     case KTL_ASM_CQO:
     case KTL_ASM_REP_STOSB:
     case KTL_ASM_REP_MOVSB:
+    case KTL_ASM_DEBUG:
         emit_zero_op(cont, cmd);
         break;
 
@@ -1424,24 +1430,28 @@ void KTL_GenByte(KTL_BackIR_Buffer *text,
     assert(rodata);
 
     KTL_GenContext cont = {};
-    cont.in    = {{text, 0, 0}, {data, 0, 0}, {rodata, 0, 0}};
-    cont.sizes = {0,             0,            0};
+
+    cont.in.data   = {data,   0, 0};
+    cont.in.rodata = {rodata, 0, 0};
+    cont.in.text   = {text,   0, 0};
+    cont.sizes     = {0, 0, 0};
 
     KTL_BackIR_Buffer out_text   = {};
     KTL_BackIR_Buffer out_data   = {};
     KTL_BackIR_Buffer out_rodata = {};
 
-
     KTL_BackIR_Init(&out_text);
     KTL_BackIR_Init(&out_data);
     KTL_BackIR_Init(&out_rodata);
 
-    cont.out = {{&out_text, 0, 0}, {&out_data, 0, 0},  {&out_rodata, 0, 0}};
+    cont.out = { {.buf = &out_text,   0, 0},
+                 {.buf = &out_data,   0, 0},
+                 {.buf = &out_rodata, 0, 0} };
 
-    KTL_LabelFix_Map func_fix_map         = {},
-                     file_inside_fix_map  = {},
-                     file_outsize_fix_map = {},
-                     data_reloc_map       = {};
+    KTL_LabelFix_Map  func_fix_map         = {},
+                      file_inside_fix_map  = {},
+                      file_outside_fix_map = {},
+                      data_reloc_map       = {};
     KTL_LabelDecl_Map func_decl_map        = {},
                       file_inside_decl_map = {};
 
@@ -1450,7 +1460,7 @@ void KTL_GenByte(KTL_BackIR_Buffer *text,
 
     KTL_LabelFix_Init(&func_fix_map);
     KTL_LabelFix_Init(&file_inside_fix_map);
-    KTL_LabelFix_Init(&file_outsize_fix_map);
+    KTL_LabelFix_Init(&file_outside_fix_map);
     KTL_LabelFix_Init(&data_reloc_map);
 
     cont.func_decl_map        = &func_decl_map;
@@ -1458,10 +1468,11 @@ void KTL_GenByte(KTL_BackIR_Buffer *text,
     cont.file_inside_decl_map = &file_inside_decl_map;
     cont.file_inside_fix_map  = &file_inside_fix_map;
     cont.data_reloc_map       = &data_reloc_map;
-    cont.file_outside_fix_map = &file_outsize_fix_map;
+    cont.file_outside_fix_map = &file_outside_fix_map;
 
     KTL_GenProcess(&cont);
-    KTL_GenDumpFlat(&cont.out_flat.text);
+    KTL_ElfEmit(&cont);
+    KTL_GenUninit(&cont);
 
     return ;
 }
@@ -1469,12 +1480,6 @@ void KTL_GenByte(KTL_BackIR_Buffer *text,
 void KTL_GenProcess(KTL_GenContext *cont) {
 
     assert(cont);
-
-    // if (cont->func_decl_map != NULL)    KTL_LabelDecl_Uninit(cont->func_decl_map);
-    // if (cont->func_fix_map != NULL)     KTL_LabelFix_Uninit(cont->func_fix_map);
-
-    KTL_LabelDecl_Init(cont->func_decl_map);
-    KTL_LabelFix_Init(cont->func_fix_map);
 
     emit_rodata(cont);
     emit_data(cont);
@@ -1523,3 +1528,27 @@ void KTL_GenDumpFlat(KTL_GenFlat *flat) {
     printf("\n");
     return ;
 }
+
+void KTL_GenUninit(KTL_GenContext *cont) {
+    assert(cont);
+
+    KTL_LabelFix_Uninit(cont->data_reloc_map);
+    KTL_LabelFix_Uninit(cont->file_inside_fix_map);
+    KTL_LabelFix_Uninit(cont->file_outside_fix_map);
+    KTL_LabelFix_Uninit(cont->func_fix_map);
+
+    KTL_LabelDecl_Uninit(cont->file_inside_decl_map);
+    KTL_LabelDecl_Uninit(cont->func_decl_map);
+
+    free(cont->out.data.buf->data);
+    free(cont->out.text.buf->data);
+    free(cont->out.rodata.buf->data);
+
+    free(cont->out_flat.data.bytes);
+    free(cont->out_flat.text.bytes);
+    free(cont->out_flat.rodata.bytes);
+
+    return ;
+}
+
+

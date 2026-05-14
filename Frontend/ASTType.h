@@ -76,7 +76,7 @@ enum KTL_Oper {
 
 struct KTL_AstNode {
     KTL_AstNodeKind kind;
-    KTL_SourcePos pos;
+    KTL_SourcePos   pos;
 
     union {
         struct {
@@ -108,7 +108,7 @@ struct KTL_AstNode {
         struct {
             KTL_StrID  name;
             KTL_TypeID type;
-            bool      is_ptr;
+            bool       is_ptr;
         } field;
 
         struct {

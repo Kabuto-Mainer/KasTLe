@@ -50,6 +50,8 @@ enum KTL_AsmInstr {
     KTL_ASM_REP_STOSB,
     KTL_ASM_REP_MOVSB,
     KTL_ASM_RET,
+
+    KTL_ASM_DEBUG,
 };
 
 /* System Registers */

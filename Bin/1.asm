@@ -7,14 +7,6 @@ section .data
 
 section .rodata
 ; Constant Strings
-__string__0x7b49c39e00b0:
-    db "%d", 0x00
-__string__0x7b49c39e00f0:
-    db "X = %d", 0x0A, 0x00
-__string__0x7b49c39e0130:
-    db "Fact X = %d", 0x0A, 0x00
-__string__0x7b49c39e0150:
-    db "Poltorashka", 0x0A, 0x00
 
 section .text
     extern printf
@@ -23,95 +15,233 @@ section .text
     extern free
 global _start
 _start:
+    int3
     push rbp
+    int3
     mov  rbp, rsp
+    int3
     sub  rsp, 24
+    int3
     mov  rax, 10
+    int3
     mov  dword [rbp-16], eax
+    int3
     lea  rax, qword [rbp-16]
+    int3
     push rax
-    lea  rax, qword [rel __string__0x7b49c39e00b0]
-    push rax
-    pop  rdi
-    pop  rsi
-    call scanf WRT ..plt
+    int3
     lea  rax, qword [rbp-16]
+    int3
     mov  eax, dword [rax]
+    int3
     push rax
-    lea  rax, qword [rel __string__0x7b49c39e00f0]
-    push rax
+    int3
     pop  rdi
-    pop  rsi
-    call printf WRT ..plt
-    lea  rax, qword [rbp-16]
-    push rax
-    lea  rax, qword [rbp-16]
-    mov  eax, dword [rax]
-    push rax
-    pop  rdi
+    int3
     sub  rsp, 8
+    int3
     call __func__fact
+    int3
     add  rsp, 8
+    int3
     pop  rdi
+    int3
     mov  dword [rdi], eax
-    lea  rax, qword [rbp-16]
-    mov  eax, dword [rax]
-    push rax
-    lea  rax, qword [rel __string__0x7b49c39e0130]
-    push rax
-    pop  rdi
-    pop  rsi
-    call printf WRT ..plt
-    lea  rax, qword [rel __string__0x7b49c39e0150]
-    push rax
-    pop  rdi
-    call printf WRT ..plt
+    int3
     mov  rax, 60
+    int3
     xor  rdi, rdi
+    int3
     syscall
 global __func__fact
 __func__fact:
+    int3
     push rbp
+    int3
     mov  rbp, rsp
+    int3
     sub  rsp, 16
+    int3
     mov  qword [rbp-8], rdi
+    int3
     lea  rax, qword [rbp-8]
+    int3
     mov  eax, dword [rax]
+    int3
     push rax
+    int3
     mov  rax, 1
+    int3
     pop  rdi
+    int3
     cmp  rdi, rax
+    int3
     sete al
+    int3
     movzx rax, al
+    int3
     test rax, rax
+    int3
     jz   .L0
+    int3
     mov  rax, 1
+    int3
     mov  rsp, rbp
+    int3
     pop  rbp
+    int3
     ret
+    int3
     jmp  .L0
 .L0:
 .L0:
+    int3
     lea  rax, qword [rbp-8]
+    int3
     mov  eax, dword [rax]
+    int3
     push rax
+    int3
     lea  rax, qword [rbp-8]
+    int3
     mov  eax, dword [rax]
+    int3
     push rax
+    int3
     mov  rax, 1
+    int3
     pop  rdi
+    int3
     sub  rdi, rax
+    int3
     mov  rax, rdi
+    int3
     push rax
+    int3
     pop  rdi
+    int3
     sub  rsp, 8
+    int3
     call __func__fact
+    int3
     add  rsp, 8
+    int3
     pop  rdi
+    int3
     imul rax, rdi
+    int3
     mov  rsp, rbp
+    int3
     pop  rbp
+    int3
     ret
+    int3
     mov  rsp, rbp
+    int3
     pop  rbp
+    int3
+    ret
+global __func__number_fibonacci
+__func__number_fibonacci:
+    int3
+    push rbp
+    int3
+    mov  rbp, rsp
+    int3
+    sub  rsp, 16
+    int3
+    mov  qword [rbp-8], rdi
+    int3
+    lea  rax, qword [rbp-8]
+    int3
+    mov  rax, qword [rax]
+    int3
+    push rax
+    int3
+    mov  rax, 2
+    int3
+    pop  rdi
+    int3
+    cmp  rdi, rax
+    int3
+    setle al
+    int3
+    movzx rax, al
+    int3
+    test rax, rax
+    int3
+    jz   .L1
+    int3
+    mov  rax, 1
+    int3
+    mov  rsp, rbp
+    int3
+    pop  rbp
+    int3
+    ret
+    int3
+    jmp  .L1
+.L1:
+.L1:
+    int3
+    lea  rax, qword [rbp-8]
+    int3
+    mov  rax, qword [rax]
+    int3
+    push rax
+    int3
+    mov  rax, 1
+    int3
+    pop  rdi
+    int3
+    sub  rdi, rax
+    int3
+    mov  rax, rdi
+    int3
+    push rax
+    int3
+    pop  rdi
+    int3
+    call __func__number_fibonacci
+    int3
+    push rax
+    int3
+    lea  rax, qword [rbp-8]
+    int3
+    mov  rax, qword [rax]
+    int3
+    push rax
+    int3
+    mov  rax, 2
+    int3
+    pop  rdi
+    int3
+    sub  rdi, rax
+    int3
+    mov  rax, rdi
+    int3
+    push rax
+    int3
+    pop  rdi
+    int3
+    sub  rsp, 8
+    int3
+    call __func__number_fibonacci
+    int3
+    add  rsp, 8
+    int3
+    pop  rdi
+    int3
+    add  rax, rdi
+    int3
+    mov  rsp, rbp
+    int3
+    pop  rbp
+    int3
+    ret
+    int3
+    mov  rsp, rbp
+    int3
+    pop  rbp
+    int3
     ret

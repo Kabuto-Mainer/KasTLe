@@ -70,6 +70,7 @@ static const char *KTL_INSTR_NAMES[] = {
     [KTL_ASM_REP_MOVSB] = "rep movsb",
     [KTL_ASM_RET]       = "ret",
     [KTL_ASM_SYSCALL]   = "syscall",
+    [KTL_ASM_DEBUG]     = "int3",
 };
 
 

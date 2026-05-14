@@ -26,7 +26,8 @@ label_map_f =   Structs/LabelMap/LabelMap.cpp
 
 parse_f =       Frontend/Parsing/Parse.cpp
 analysis_f = 	Frontend/Analysis/Analysis.cpp
-backend_f = 	Backend/Backend.cpp Backend/GenNASM.cpp Backend/BackIR.cpp Backend/GenByte.cpp
+backend_f = 	Backend/Backend.cpp Backend/GenNASM.cpp Backend/BackIR.cpp \
+				Backend/GenByte.cpp Backend/GenElf.cpp
 
 common_f = 		Common/Common.cpp
 ast_common_f =  Frontend/ASTCommon.cpp

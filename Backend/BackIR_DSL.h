@@ -154,18 +154,25 @@ static KTL_BackIR_InstrOperand op_label(KTL_StrID name) {
 
 static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr) {
     assert(cont);
+    KTL_BackIR_AddInstr(cont->cur_buf, KTL_ASM_DEBUG);
     KTL_BackIR_AddInstr(cont->cur_buf, instr);
 }
 
 static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr,
                    KTL_BackIR_InstrOperand op) {
     assert(cont);
+    KTL_BackIR_AddInstr(cont->cur_buf, KTL_ASM_DEBUG);
     KTL_BackIR_AddInstr(cont->cur_buf, instr, &op);
 }
+
+
+// TODO: rename txt to emit_text   ;  low level emitter  ll_emit_text
+// TODO: add emitter to TXT Nasm (for debugging)
 
 static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr,
                    KTL_BackIR_InstrOperand dst, KTL_BackIR_InstrOperand src) {
     assert(cont);
+    KTL_BackIR_AddInstr(cont->cur_buf, KTL_ASM_DEBUG);
     KTL_BackIR_AddInstr(cont->cur_buf, instr, &dst, &src);
 }
 

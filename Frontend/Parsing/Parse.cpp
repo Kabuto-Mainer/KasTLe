@@ -1802,7 +1802,7 @@ static KTL_AstNode *ktl_parse_use(KTL_ParseContext *cont) {
                     get_std_func_type(cont->type_map, KTL_STANDARD_FUNC_INFO[idx].p_types[i]), KTL_VAR_MUTABLE | KTL_VAR_STACK);
     }
 
-    KTL_SymbolFuncSetParams(func, params, idx);
+    KTL_SymbolFuncSetParams(func, params, KTL_STANDARD_FUNC_INFO[idx].amount_param);
     func->func.has_optional = KTL_STANDARD_FUNC_INFO[idx].has_optional_param;
 
     return node;

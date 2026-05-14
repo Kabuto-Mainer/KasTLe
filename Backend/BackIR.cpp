@@ -270,6 +270,7 @@ int get_amount_operand(KTL_AsmInstr instr) {
     case KTL_ASM_SYSCALL:
     case KTL_ASM_CDQE:
     case KTL_ASM_CQO:
+    case KTL_ASM_DEBUG:
         return 0;
 
     default:
