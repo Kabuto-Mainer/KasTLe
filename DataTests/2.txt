@@ -1,28 +1,12 @@
-typedef i32 -> myint
-
-block Point {
-    i32 x;
-    i32 y;
-}
-
-var i32 counter = 0;
-
-func i32 add(i32 a, i32 b) {
-    return a + b;
-}
+use print
+use scan
 
 main {
-    var i32 x = 5;
-    var i32 y = 10;
-    var i32 z = add(x, y);
-    if (z > 0) {
-        counter = counter + 1;
-    }
-    while (x > 0) {
-        x = x - 1;
-        if (x == 5) {
-            break;
+    for (var i64 x = 0; x < 10; x = x + 1) {
+        for (var i64 y = 0; y < 10; y = y + 1) {
+            printf("*");
         }
+        printf("\n");
     }
     exit;
 }

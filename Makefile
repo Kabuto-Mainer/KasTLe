@@ -6,6 +6,7 @@ flags = -D_DEBUG -g -O3 -std=c++20 \
 -Wformat=2 -Wformat-security -Wpointer-arith -Wredundant-decls \
 -Wunused -Wundef -Wunreachable-code -Winline \
 -Wdocumentation -Wcomma -Wtautological-compare \
+-Wstack-protector \
 -Wmissing-prototypes -Wstrict-prototypes \
 -fstack-protector-strong -fno-omit-frame-pointer \
 -fsanitize=address,undefined,float-divide-by-zero \

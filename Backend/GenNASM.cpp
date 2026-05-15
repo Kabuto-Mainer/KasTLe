@@ -80,7 +80,9 @@ static const char *KTL_INSTR_NAMES[] = {
 
 static const char *reg_name(KTL_RegID reg, int size) {
     assert(reg >= 0 && reg < KTL_REG_COUNT);
-    int idx;
+    int idx = -1;
+
+    // printf("SIZE: %d\n", size);
     switch (size) {
         case 8: idx = 0; break;
         case 4: idx = 1; break;

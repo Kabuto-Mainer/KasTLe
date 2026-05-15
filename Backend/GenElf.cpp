@@ -11,7 +11,13 @@ static constexpr const char *STANDARD_LIB    = "libc.so.6";
 static constexpr        int  STANDARD_HASH_SIZE = 32;
 static constexpr        int  SIZE_PLT_STAB      = 16;
 static constexpr   uint64_t  PAGE_SIZE      = 0x1000;
+
+#ifdef ASM_DEBUG
+static constexpr   uint64_t  DYNAMIC_AMOUNT = 13;
+#else
 static constexpr   uint64_t  DYNAMIC_AMOUNT = 12;
+#endif
+
 
 static void           fill_interp        (KTL_ElfContext *cont);
 static void           fill_import_symbol (KTL_ElfContext *cont);
@@ -180,6 +186,17 @@ static void fill_import_symbol(KTL_ElfContext *cont) {
     return ;
 }
 
+static KTL_LabelDecl_Entry *find_label(KTL_LabelDecl_Map *map, KTL_StrID name) {
+    assert(map);
+    assert(StrIDCheck(name));
+
+    for (int i = 0; i < map->size; i++) {
+        if (map->data[i].name == name)  return map->data + i;
+    }
+
+    return NULL;
+}
+
 static void fill_symbols(KTL_ElfContext *cont) {
     assert(cont);
 
@@ -209,8 +226,32 @@ static void fill_symbols(KTL_ElfContext *cont) {
     // TODO: Add support global vars
     // fix_map = cont->gen_cont->data_reloc_map;
 
+    fix_map = cont->gen_cont->file_inside_fix_map;
+    for (int i = 0; i < fix_map->size; i++) {
+        KTL_LabelFix_Entry *fix = fix_map->data + i;
+
+        KTL_LabelDecl_Entry *lbl = find_label(cont->gen_cont->file_inside_decl_map, fix->target);
+
+        printf("FIX: %s\n", fix->target);
+        if (lbl == NULL) {
+            continue;
+        }
+
+        uint64_t call_addr = cont->text.vaddr + (uint64_t)fix->ads_offset + (uint64_t)fix->inner_offset + 4;
+        uint64_t vaddr = cont->virt_adr + cont->rodata.file_off;
+        int32_t  offset = 0;
+
+        memcpy(&offset, cont->text.data.bytes +fix->ads_offset + fix->inner_offset, 4);
+        vaddr += (uint64_t)offset;
+
+        int32_t rel32 = (int32_t)(vaddr - call_addr);
+        memcpy(cont->text.data.bytes + fix->ads_offset + fix->inner_offset, &rel32, 4);
+    }
+
     return ;
 }
+
+
 
 static uint64_t get_size_hash(KTL_ElfContext *cont) {
     assert(cont);

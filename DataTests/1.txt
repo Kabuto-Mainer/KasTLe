@@ -1,112 +1,56 @@
-if elif else while for break continue return = in out typedef block var func and
-or equal not_equal less grater less_ot_equal grater_or_equal
+use print
+use scan
+use alloc
+use free
 
-.,;(){}<>[]+-*/&!#$%
-== != <= >= ->
-typedef i8 -> stack_value
+typedef i32 -> StackValue_t
 
-var const i32 MAX_STACK_SIZE = 10;
-
-block stack_t {
-    i32     head;
-    i32     size;
-    stack_value[10]  data;
+block Stack_t {
+    i32 size;
+    i32 head;
+    StackValue_t *data;
 }
 
-func bool stack_init(stack_t* stk,
-                    i32 size)
-{
-    if (size <= 0 or size > MAX_STACK_SIZE) {
-        return 0;
-    }
-
-    for (var i32 i = 0; i < MAX_STACK_SIZE; i = i + 1) {
-        stk->data[i] = 0;
-    }
-
-    stk->head = 0;
-    stk->size = size;
-
-    return 1;
-}
-
-var i32 counter = 'a';
-
-func i32 add(i32 a, i32 b) {
-    return a + b;
-}
 
 main {
-    var i32 x = 5;
-    var i32 y = 10;
-    var i32 z = add(x, y);
-    if (z > 0) {
-        counter = counter + 1;
-    }
-    while (x > 0) {
-        x = x - 1;
-        if (x == 5) {
-            break;
-        }
-    }
-    var chr symbol = 'k';
-    exit;
-}
-typedef i8 -> stack_value
+    var i32 x = cast <i32> 10;
 
-var const i32 MAX_STACK_SIZE = 10;
+    // var i32** ptr = cast<i32**> 10;
+    // *ptr = 10;
 
-block stack_t {
-    i32     head;
-    i32     size;
-    stack_value[10]  data;
-}
+    scanf("%d", &x);
+    // var i32* y = &5;
 
-func bool stack_init(stack_t* stk,
-                    i32 size)
-{
-    if (size <= 0 or size > MAX_STACK_SIZE) {
-        return 0;
-    }
+/*
+    var StackValue_t[10] data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
-    for (var i32 i = 0; i < MAX_STACK_SIZE; i = i + 1) {
-        stk->data[i] = 0;
-    }
+    var Stack_t stk;
+    stk.size = 10;
+    stk.head = 0;
+    stk.data = data;
+*/
+    // printf("%d\n", stk.data[2]);
 
-    stk->head = 0;
-    stk->size = size;
+    // x = fact(x);
+    // x = number_fibonacci(x);
+    printf("Fibonacci X = %d\n", x);
 
-    return 1;
-}
-
-var i32 counter = 0;
-
-func i32 add(i32 a, i32 b) {
-    return a + b;
-}
-
-main {
-    var i32 x = 5;
-    var i32 y = 10;
-    var i32 z = add(x, y);
-
-    var i32[10] value = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-
-    if (z > 0) {
-        counter = counter + 1;
-    }
-    while (x > 0) {
-        x = x - 1;
-        if (x == 5) {
-            break;
-        }
-    }
-
-    for ( ; x < 10; x = x + 1) {
-        x = x - 1;
-    }
+    /* printf("Fact X = %d\n", x); */
+    // printf("Poltorashka\n");
 
     exit;
 }
 
+func i32 fact(i32 a) {
+    if (a == 1) {
+        return cast <i32> 1;
+    }
+    return a * fact( a - cast <i32> 1);
+}
 
+func i32 number_fibonacci(i64 num) {
+    if (num <= 2) {
+        return cast <i32> 1;
+    }
+    return number_fibonacci(num - 1) + number_fibonacci( num - 2);
+}

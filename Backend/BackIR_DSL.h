@@ -4,6 +4,8 @@
 #include "BackendType.h"
 #include "BackIR.h"
 
+// #define ASM_DEBUG
+
 // =======================================================================
 // MACROS FOR SIMPLE USE
 // =======================================================================
@@ -154,15 +156,22 @@ static KTL_BackIR_InstrOperand op_label(KTL_StrID name) {
 
 static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr) {
     assert(cont);
+
+#ifdef ASM_DEBUG
     KTL_BackIR_AddInstr(cont->cur_buf, KTL_ASM_DEBUG);
+#endif
     KTL_BackIR_AddInstr(cont->cur_buf, instr);
 }
 
 static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr,
                    KTL_BackIR_InstrOperand op) {
     assert(cont);
+
+#ifdef ASM_DEBUG
     KTL_BackIR_AddInstr(cont->cur_buf, KTL_ASM_DEBUG);
-    KTL_BackIR_AddInstr(cont->cur_buf, instr, &op);
+#endif
+
+KTL_BackIR_AddInstr(cont->cur_buf, instr, &op);
 }
 
 
@@ -172,7 +181,11 @@ static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr,
 static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr,
                    KTL_BackIR_InstrOperand dst, KTL_BackIR_InstrOperand src) {
     assert(cont);
+
+#ifdef ASM_DEBUG
     KTL_BackIR_AddInstr(cont->cur_buf, KTL_ASM_DEBUG);
+#endif
+
     KTL_BackIR_AddInstr(cont->cur_buf, instr, &dst, &src);
 }
 

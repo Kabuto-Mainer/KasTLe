@@ -148,7 +148,7 @@ KTL_Error KTL_BackendRun(KTL_BackendContext *cont, KTL_AstNode *root) {
     assert(root);
 
     layout_global(cont, root);
-        layout_all_functions(cont, root);
+    layout_all_functions(cont, root);
 
     emit_header(cont, root);
     // emit_globals(cont, root);
@@ -702,6 +702,7 @@ static void emit_var_decl(KTL_BackendContext *cont, KTL_AstNode *node) {
                     ? KTL_SYSTEM_PTR_SIZE
                     : type->dt.base.size;
 
+        printf("%s:%d::%d\n", __FILE__,__LINE__,size);
         _MOV(_MEM_IDX(_NR(RBP), var->loc.stack.offset, size), _REG(_NR(RAX), size));
     }
     else {
@@ -719,11 +720,14 @@ static void emit_var_decl_array(KTL_BackendContext *cont, KTL_AstNode *node) {
     int            size_elem  = get_size(cont->type_map, type_array->dt.arr.base_type);
     KTL_BackendVarInfo *var   = KTL_BackendFindVar(&cont->table, node->data.var_decl.entry);
 
+    printf("SIZE ELEM: %d\n", size_elem);
+
     // TODO: Check size elem
     if (type_elem->kind == KTL_TYPE_PTR ||
         type_elem->kind == KTL_TYPE_BASE) {
         for (int i = 0; i < array->move.n.amount; i++) {
             emit_expr(cont, array->move.n.children[i]);
+            printf("%s:%d::%d\n", __FILE__,__LINE__,size_elem);
             _MOV(_MEM_IDX(_NR(RBP), var->loc.stack.offset + i*size_elem, size_elem),
                  _REG(_NR(RAX), size_elem));
 
@@ -751,6 +755,8 @@ static void emit_var_decl_zero(KTL_BackendContext *cont, KTL_AstNode *node) {
 
     if (type_var->kind == KTL_TYPE_PTR ||
         type_var->kind == KTL_TYPE_BASE) {
+
+        printf("%s:%d::%d\n", __FILE__,__LINE__,size);
 
         _XOR(_REG_64(_NR(RAX)), _REG_64(_NR(RAX)));
         _MOV(_MEM_IDX(_NR(RBP), var->loc.stack.offset, size), _REG(_NR(RAX), size));
@@ -1074,6 +1080,8 @@ static void emit_assign(KTL_BackendContext *cont, KTL_AstNode *node) {
     emit_pop(cont, KTL_REG_RDI);
 
     /* mov [rdi], rax(size) */
+    // printf("SIZE::: %d\n", size);
+        printf("%s:%d::%d\n", __FILE__,__LINE__,size);
     _MOV(_MEM_IDX(_NR(RDI), 0, size), _REG(_NR(RAX), size));
 
     return ;
@@ -1133,6 +1141,8 @@ static void emit_func_call(KTL_BackendContext *cont, KTL_AstNode *node) {
         _SUB(_REG_64(_NR(RSP)), _IMM_64(8));
         cont->stack_depth += 8;
     }
+
+    _XOR(_REG_64(_NR(RAX)), _REG_64(_NR(RAX)));
 
     if (node->kind == KTL_AST_FUNCTION_STD_CALL) {
         _CALL_PLT(_SYM_FUNC_GOT(node->data.func_call.info.res.entry->str_id));
@@ -1196,8 +1206,15 @@ static void emit_expr(KTL_BackendContext *cont, KTL_AstNode *node) {
         }
 
         int size = get_size(cont->type_map, type_id);
+        KTL_TypeEntry *type = KTL_TypeGetEntry(cont->type_map, type_id);
+
+        printf("%s:%d::%d\n", __FILE__,__LINE__,size);
+        if (type->kind == KTL_TYPE_BASE ||
+            type->kind == KTL_TYPE_PTR) {
+                _MOV(_REG(_NR(RAX), size), _MEM_IDX(_NR(RAX), 0, size));
+        }
         debug_out("SIZE IN EXPR: %d\n", size);
-        _MOV(_REG(_NR(RAX), size), _MEM_IDX(_NR(RAX), 0, size));
+
         return ;
     }
 
