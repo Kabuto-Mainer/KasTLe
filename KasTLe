@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+COMPILER="./Bin/KasTle.elf"
+RUN_AFTER=0
+DUMP_AST=0
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [options] <source>
+
+Options:
+  -r, --run         запустить после сборки
+  -d, --dump-ast    создать dump.html с AST
+  -h, --help        показать справку
+
+Examples:
+  ./ktl hello.ktl
+  ./ktl -r -d hello.ktl
+EOF
+}
+
+# =============================================================================
+# Аргументы
+# =============================================================================
+SOURCE=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -r|--run)       RUN_AFTER=1; shift ;;
+        -d|--dump-ast)  DUMP_AST=1;  shift ;;
+        -h|--help)      usage; exit 0 ;;
+        -*)             echo "unknown option: $1" >&2; usage; exit 1 ;;
+        *)
+            if [[ -n "$SOURCE" ]]; then
+                echo "error: несколько исходников" >&2; exit 1
+            fi
+            SOURCE="$1"; shift ;;
+    esac
+done
+
+if [[ -z "$SOURCE" ]]; then
+    echo "error: не указан исходный файл" >&2
+    usage; exit 1
+fi
+if [[ ! -f "$SOURCE" ]]; then
+    echo "error: файл не найден: $SOURCE" >&2
+    exit 1
+fi
+
+echo "==> сборка KasTle"
+make -s
+
+
+NAME="$(basename "${SOURCE%.*}")"
+ASM="$NAME.asm"
+OBJ="$NAME.o"
+ELF="./$NAME"
+
+
+echo "==> компиляция $SOURCE"
+ARGS=("$SOURCE" -o "$ASM")
+[[ $DUMP_AST -eq 1 ]] && ARGS+=(--dump-ast dump.html)
+"$COMPILER" "${ARGS[@]}"
+
+echo "==> ассемблирование"
+nasm -f elf64 -o "$OBJ" "$ASM"
+
+echo "==> линковка"
+gcc -nostartfiles -no-pie -o "$ELF" "$OBJ"
+chmod +x "$ELF"
+
+echo "==> готово: $ELF"
+
+
+if [[ $RUN_AFTER -eq 1 ]]; then
+    echo "==> запуск"
+    echo "----------------------------------------"
+    set +e
+    "$ELF"
+    rc=$?
+    set -e
+    echo "----------------------------------------"
+    echo "exit code: $rc"
+    exit $rc
+fi
