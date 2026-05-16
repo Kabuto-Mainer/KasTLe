@@ -5,6 +5,11 @@
 #include <stdint.h>
 #include <assert.h>
 
+
+// =======================================================================
+// TYPES
+// =======================================================================
+
 typedef uint64_t KTL_Hash;
 
 enum KTL_Error {
@@ -13,6 +18,14 @@ enum KTL_Error {
     KTL_BAD_ARG_ERR   = -2,
     KTL_LOGICAL_ERR   = -3,
 };
+
+struct KTL_Process {
+    int stage;
+};
+
+// =======================================================================
+// DEFINE
+// =======================================================================
 
 // #define DEBUG
 
@@ -26,6 +39,14 @@ enum KTL_Error {
     #define debug_out(fmt, ...) ((void)0)
 #endif
 
+#define _NEXT_STAGE  KTL_NextStage()
+#define _PRINT_STAGE KTL_PrintStage()
+
+
+
+// =======================================================================
+// DECLARATION
+// =======================================================================
 
 char *               ktl_sup_create_file_buffer(const char *file);
 int                  ktl_sup_get_file_size     (const char *file);
@@ -41,7 +62,10 @@ constexpr KTL_Hash   ktl_gnu_hash              (const char *string) {
 
     return hash;
 }
+void KTL_NextStage();
+void KTL_PrintStage();
 
+// =======================================================================
 
 
 #endif /* COMMON_H */

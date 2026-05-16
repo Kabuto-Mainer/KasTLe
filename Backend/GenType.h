@@ -5,6 +5,7 @@
 #include "BackIRType.h"
 #include "LabelMapType.h"
 
+// =====================================================================
 enum class KTL_Gen_CondCode {
     CC_E  = 0x4,
     CC_NE = 0x5,
@@ -15,6 +16,15 @@ enum class KTL_Gen_CondCode {
     CC_Z  = 0x4,
     CC_NZ = 0x5,
 };
+
+enum class KTL_GenPosKind {
+    TEXT,
+    DATA,
+    RODATA
+};
+
+// =====================================================================
+// Generation comands opcodes
 
 struct KTL_Gen_AluDesc {
     uint8_t op_rm_r_8;
@@ -32,6 +42,9 @@ struct KTL_GenRex {
     bool    needed;
 };
 
+// =====================================================================
+// Generation save structs
+
 struct KTL_GenPos {
     KTL_BackIR_Buffer *buf;
     size_t offset;
@@ -41,12 +54,6 @@ struct KTL_GenPos {
 struct KTL_GenFlat {
     uint8_t *bytes;
     int      len;
-};
-
-enum class KTL_GenPosKind {
-    TEXT,
-    DATA,
-    RODATA
 };
 
 struct KTL_GenContext {
@@ -84,6 +91,8 @@ struct KTL_GenContext {
     } out_flat;
 };
 
+// =====================================================================
+// Elf generation
 
 struct KTL_ElfImport {
     KTL_StrID             name;
@@ -104,7 +113,6 @@ struct KTL_ElfPart {
 
     KTL_GenFlat data;
 };
-
 
 struct KTL_ElfContext {
     KTL_GenContext *gen_cont;
@@ -129,7 +137,6 @@ struct KTL_ElfContext {
     KTL_ElfPart text;
     KTL_ElfPart data;
     KTL_ElfPart rodata;
-
 
 
     uint64_t virt_adr;

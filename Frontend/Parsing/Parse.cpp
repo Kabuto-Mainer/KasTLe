@@ -2001,11 +2001,7 @@ KTL_Error KTL_ParseProcess(KTL_ParseContext *cont) {
     assert(cont->tokens);
     assert(cont->global_map);
 
-    printf("[ 30%%] START PARSING\n");
-
     cont->root = ktl_parse_file(cont);
-
-    printf("[ 50%%] START PARSING\n");
 
     if (cont->root == NULL)     return KTL_LOGICAL_ERR;
 

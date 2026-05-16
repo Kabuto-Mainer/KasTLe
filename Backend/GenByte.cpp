@@ -8,7 +8,6 @@
 #include "LabelMap.h"
 #include "BackIR.h"
 #include "GenType.h"
-#include "GenByte.h"
 #include "Gen.h"
 
 #define XXX static constexpr uint8_t
@@ -169,6 +168,195 @@ static int  align_up              (int offset, int align);
 static int  get_size              (KTL_BackIR_Buffer *buf);
 static void flatter               (KTL_GenFlat       *flat, KTL_BackIR_Buffer *buf);
 static void flatter               (KTL_GenContext    *cont);
+
+
+// =======================================================================
+// API
+// =======================================================================
+
+void KTL_GenElf(KTL_BackIR_Buffer *text,
+                KTL_BackIR_Buffer *data,
+                KTL_BackIR_Buffer *rodata,
+                FILE *stream) {
+    assert(text);
+    assert(data);
+    assert(rodata);
+    assert(stream);
+
+    KTL_GenContext cont = {};
+
+    cont.in.data   = {data,   0, 0};
+    cont.in.rodata = {rodata, 0, 0};
+    cont.in.text   = {text,   0, 0};
+    cont.sizes     = {0, 0, 0};
+
+    KTL_BackIR_Buffer out_text   = {};
+    KTL_BackIR_Buffer out_data   = {};
+    KTL_BackIR_Buffer out_rodata = {};
+
+    KTL_BackIR_Init(&out_text);
+    KTL_BackIR_Init(&out_data);
+    KTL_BackIR_Init(&out_rodata);
+
+    cont.out = { {.buf = &out_text,   0, 0},
+                 {.buf = &out_data,   0, 0},
+                 {.buf = &out_rodata, 0, 0} };
+
+    KTL_LabelFix_Map  func_fix_map         = {},
+                      file_inside_fix_map  = {},
+                      file_outside_fix_map = {},
+                      data_reloc_map       = {};
+    KTL_LabelDecl_Map func_decl_map        = {},
+                      file_inside_decl_map = {};
+
+    KTL_LabelDecl_Init(&func_decl_map);
+    KTL_LabelDecl_Init(&file_inside_decl_map);
+
+    KTL_LabelFix_Init(&func_fix_map);
+    KTL_LabelFix_Init(&file_inside_fix_map);
+    KTL_LabelFix_Init(&file_outside_fix_map);
+    KTL_LabelFix_Init(&data_reloc_map);
+    cont.func_decl_map        = &func_decl_map;
+    cont.func_fix_map         = &func_fix_map;
+    cont.file_inside_decl_map = &file_inside_decl_map;
+    cont.file_inside_fix_map  = &file_inside_fix_map;
+    cont.data_reloc_map       = &data_reloc_map;
+    cont.file_outside_fix_map = &file_outside_fix_map;
+
+    KTL_GenProcess(&cont);
+    KTL_ElfEmit(&cont, stream);
+    KTL_GenUninit(&cont);
+
+    return ;
+}
+
+void KTL_GenByte(KTL_GenContext    *cont,
+                 KTL_BackIR_Buffer *text,
+                 KTL_BackIR_Buffer *data,
+                 KTL_BackIR_Buffer *rodata) {
+    assert(text);
+    assert(data);
+    assert(rodata);
+
+    cont->in.data   = {data,   0, 0};
+    cont->in.rodata = {rodata, 0, 0};
+    cont->in.text   = {text,   0, 0};
+    cont->sizes     = {0, 0, 0};
+
+    KTL_BackIR_Buffer out_text   = {};
+    KTL_BackIR_Buffer out_data   = {};
+    KTL_BackIR_Buffer out_rodata = {};
+
+    KTL_BackIR_Init(&out_text);
+    KTL_BackIR_Init(&out_data);
+    KTL_BackIR_Init(&out_rodata);
+
+    cont->out = { {.buf = &out_text,   0, 0},
+                  {.buf = &out_data,   0, 0},
+                  {.buf = &out_rodata, 0, 0} };
+
+    KTL_LabelFix_Map  func_fix_map         = {},
+                      file_inside_fix_map  = {},
+                      file_outside_fix_map = {},
+                      data_reloc_map       = {};
+    KTL_LabelDecl_Map func_decl_map        = {},
+                      file_inside_decl_map = {};
+
+    KTL_LabelDecl_Init(&func_decl_map);
+    KTL_LabelDecl_Init(&file_inside_decl_map);
+
+    KTL_LabelFix_Init(&func_fix_map);
+    KTL_LabelFix_Init(&file_inside_fix_map);
+    KTL_LabelFix_Init(&file_outside_fix_map);
+    KTL_LabelFix_Init(&data_reloc_map);
+    cont->func_decl_map        = &func_decl_map;
+    cont->func_fix_map         = &func_fix_map;
+    cont->file_inside_decl_map = &file_inside_decl_map;
+    cont->file_inside_fix_map  = &file_inside_fix_map;
+    cont->data_reloc_map       = &data_reloc_map;
+    cont->file_outside_fix_map = &file_outside_fix_map;
+
+    KTL_GenProcess(cont);
+
+    return ;
+}
+
+
+void KTL_GenProcess(KTL_GenContext *cont) {
+
+    assert(cont);
+
+    emit_rodata(cont);
+    emit_data(cont);
+
+    while (cont->in.text.pos < (size_t) cont->in.text.buf->size) {
+        KTL_BackIR_Item item = read_item(&cont->in.text);
+
+        // printf("[%d]\n", cont->in.text.pos);
+        if (item.kind == KTL_BACK_IR_ITEM_LABEL) {
+            if (item.label_decl.is_global) {
+                fix_labels_inside_func(cont);
+
+                KTL_LabelDecl_Add(cont->file_inside_decl_map, item.label_decl.name, (int) cont->out.text.offset);
+            }
+            else {
+                KTL_LabelDecl_Add(cont->func_decl_map, item.label_decl.name, (int) cont->out.text.offset);
+            }
+
+            advance(&cont->in.text);
+            continue;
+        }
+
+        if (item.kind == KTL_BACK_IR_ITEM_INSTR) {
+            encode_one_instr(cont);
+            continue;
+        }
+
+        advance(&cont->in.text);
+    }
+
+    fix_labels_inside_func(cont);
+    fix_labels_inside_file(cont);
+
+    flatter(cont);
+
+    return ;
+}
+
+
+void KTL_GenDumpFlat(KTL_GenFlat *flat) {
+    assert(flat);
+
+    for (int i = 0; i < flat->len; i++) {
+        printf("0x%02x, ", flat->bytes[i]);
+    }
+    printf("\n");
+    return ;
+}
+
+void KTL_GenUninit(KTL_GenContext *cont) {
+    assert(cont);
+
+    KTL_LabelFix_Uninit(cont->data_reloc_map);
+    KTL_LabelFix_Uninit(cont->file_inside_fix_map);
+    KTL_LabelFix_Uninit(cont->file_outside_fix_map);
+    KTL_LabelFix_Uninit(cont->func_fix_map);
+
+    KTL_LabelDecl_Uninit(cont->file_inside_decl_map);
+    KTL_LabelDecl_Uninit(cont->func_decl_map);
+
+    free(cont->out.data.buf->data);
+    free(cont->out.text.buf->data);
+    free(cont->out.rodata.buf->data);
+
+    free(cont->out_flat.data.bytes);
+    free(cont->out_flat.text.bytes);
+    free(cont->out_flat.rodata.bytes);
+
+    return ;
+}
+
+
 
 // =======================================================================
 // HELPERS
@@ -1177,7 +1365,7 @@ static void fix_labels_inside_file(KTL_GenContext *cont) {
         KTL_LabelFix_Entry   *fix = cont->file_inside_fix_map->data + i;
         KTL_LabelDecl_Entry *decl = KTL_LabelDecl_Find(cont->file_inside_decl_map, fix->target);
 
-        printf("fix target: %s\n", fix->target);
+        // printf("fix target: %s\n", fix->target);
         assert(decl && "don't find label in table");
         assert(cont->out.text.buf->size >= fix->index);
 
@@ -1416,139 +1604,4 @@ static void flatter(KTL_GenContext *cont) {
 
     return ;
 }
-
-
-
-// =======================================================================
-// API
-
-void KTL_GenByte(KTL_BackIR_Buffer *text,
-                 KTL_BackIR_Buffer *data,
-                 KTL_BackIR_Buffer *rodata) {
-    assert(text);
-    assert(data);
-    assert(rodata);
-
-    KTL_GenContext cont = {};
-
-    cont.in.data   = {data,   0, 0};
-    cont.in.rodata = {rodata, 0, 0};
-    cont.in.text   = {text,   0, 0};
-    cont.sizes     = {0, 0, 0};
-
-    KTL_BackIR_Buffer out_text   = {};
-    KTL_BackIR_Buffer out_data   = {};
-    KTL_BackIR_Buffer out_rodata = {};
-
-    KTL_BackIR_Init(&out_text);
-    KTL_BackIR_Init(&out_data);
-    KTL_BackIR_Init(&out_rodata);
-
-    cont.out = { {.buf = &out_text,   0, 0},
-                 {.buf = &out_data,   0, 0},
-                 {.buf = &out_rodata, 0, 0} };
-
-    KTL_LabelFix_Map  func_fix_map         = {},
-                      file_inside_fix_map  = {},
-                      file_outside_fix_map = {},
-                      data_reloc_map       = {};
-    KTL_LabelDecl_Map func_decl_map        = {},
-                      file_inside_decl_map = {};
-
-    KTL_LabelDecl_Init(&func_decl_map);
-    KTL_LabelDecl_Init(&file_inside_decl_map);
-
-    KTL_LabelFix_Init(&func_fix_map);
-    KTL_LabelFix_Init(&file_inside_fix_map);
-    KTL_LabelFix_Init(&file_outside_fix_map);
-    KTL_LabelFix_Init(&data_reloc_map);
-
-    cont.func_decl_map        = &func_decl_map;
-    cont.func_fix_map         = &func_fix_map;
-    cont.file_inside_decl_map = &file_inside_decl_map;
-    cont.file_inside_fix_map  = &file_inside_fix_map;
-    cont.data_reloc_map       = &data_reloc_map;
-    cont.file_outside_fix_map = &file_outside_fix_map;
-
-    KTL_GenProcess(&cont);
-    KTL_ElfEmit(&cont);
-    KTL_GenUninit(&cont);
-
-    return ;
-}
-
-void KTL_GenProcess(KTL_GenContext *cont) {
-
-    assert(cont);
-
-    emit_rodata(cont);
-    emit_data(cont);
-
-    while (cont->in.text.pos < (size_t) cont->in.text.buf->size) {
-        KTL_BackIR_Item item = read_item(&cont->in.text);
-
-        // printf("[%d]\n", cont->in.text.pos);
-        if (item.kind == KTL_BACK_IR_ITEM_LABEL) {
-            if (item.label_decl.is_global) {
-                fix_labels_inside_func(cont);
-
-                KTL_LabelDecl_Add(cont->file_inside_decl_map, item.label_decl.name, (int) cont->out.text.offset);
-            }
-            else {
-                KTL_LabelDecl_Add(cont->func_decl_map, item.label_decl.name, (int) cont->out.text.offset);
-            }
-
-            advance(&cont->in.text);
-            continue;
-        }
-
-        if (item.kind == KTL_BACK_IR_ITEM_INSTR) {
-            encode_one_instr(cont);
-            continue;
-        }
-
-        advance(&cont->in.text);
-    }
-
-    fix_labels_inside_func(cont);
-    fix_labels_inside_file(cont);
-
-    flatter(cont);
-
-    return ;
-}
-
-
-void KTL_GenDumpFlat(KTL_GenFlat *flat) {
-    assert(flat);
-
-    for (int i = 0; i < flat->len; i++) {
-        printf("0x%02x, ", flat->bytes[i]);
-    }
-    printf("\n");
-    return ;
-}
-
-void KTL_GenUninit(KTL_GenContext *cont) {
-    assert(cont);
-
-    KTL_LabelFix_Uninit(cont->data_reloc_map);
-    KTL_LabelFix_Uninit(cont->file_inside_fix_map);
-    KTL_LabelFix_Uninit(cont->file_outside_fix_map);
-    KTL_LabelFix_Uninit(cont->func_fix_map);
-
-    KTL_LabelDecl_Uninit(cont->file_inside_decl_map);
-    KTL_LabelDecl_Uninit(cont->func_decl_map);
-
-    free(cont->out.data.buf->data);
-    free(cont->out.text.buf->data);
-    free(cont->out.rodata.buf->data);
-
-    free(cont->out_flat.data.bytes);
-    free(cont->out_flat.text.bytes);
-    free(cont->out_flat.rodata.bytes);
-
-    return ;
-}
-
 

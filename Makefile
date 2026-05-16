@@ -58,11 +58,12 @@ system_d =      Structs/BackMap
 ast_common_d =  Frontend
 ast_dump_d =    Frontend/Dump
 diagnostic_d =  $(common_d)
+data_d =  		Backend/Data
 
 dir_flags =  -I$(token_d) 		-I$(type_map_d) 	-I$(str_map_d) 		-I$(sym_map_d) \
 			 -I$(parse_d)       -I$(common_d)		-I$(ast_common_d) 	-I$(ast_dump_d) \
 			 -I$(analysis_d)    -I$(system_d)		-I$(backend_d)		-I$(back_map_d) \
-			 -I$(label_map_d)
+			 -I$(label_map_d) 	-I$(data_d)
 
 
 # ===================================================================
@@ -88,11 +89,12 @@ build:
 	$(ast_dump_f) $(ast_common_f) $(diagnostic_f) $(analysis_f) $(backend_f) \
 	$(flags) $(dir_flags) -o Bin/KasTle.elf
 
-
-build_prog:
-	nasm -f elf64 -o Bin/1.o Bin/1.asm
+call_nasm:
+	nasm -f elf64
 	gcc -nostartfiles -no-pie -lSDL2 Bin/1.o -o Bin/1.elf
 	chmod +x Bin/1.elf
+
+build_prog:
 
 # ===================================================================
 # RUN

@@ -111,31 +111,20 @@ KTL_Error KTL_AnalysisInit(KTL_AnalysisContext *cont,
 KTL_Error KTL_AnalysisProcess(KTL_AnalysisContext *cont) {
     assert(cont);
 
-    printf("[ 60%%] START RESOLVING\n");
-
     bool is_correct = process_resolving_children(cont, cont->root);
     if (is_correct == false)    return KTL_LOGICAL_ERR;
 
-    printf("[ 80%%] START TYP'S ANALYSIS\n");
-
     is_correct = analyze_file(cont, cont->root);
-
-    printf("[ 90%%] END ANALYSIS\n");
 
     if (is_correct == false)    return KTL_LOGICAL_ERR;
 
     is_correct = checking_consts(cont, cont->root);
-
-    printf("[100%%] END ANALYSIS\n");
 
     if (is_correct == false)    return KTL_LOGICAL_ERR;
 
     is_correct = checking_addr_param(cont, cont->root);
 
     if (is_correct == false)    return KTL_LOGICAL_ERR;
-
-    printf("[100%%] END ANALYSIS\n");
-
 
     return KTL_OK;
 }

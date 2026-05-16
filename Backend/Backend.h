@@ -4,13 +4,26 @@
 #include "BackendType.h"
 #include "ASTType.h"
 
-KTL_Error KTL_BackendInit         (KTL_BackendContext *cont,
-                                   KTL_TypeMap        *type_map,
-                                   KTL_StrMap         *str_map,
-                                   KTL_SymbolMap      *global_scope,
-                                   KTL_BackIR_Buffer  *text,
-                                   KTL_BackIR_Buffer  *data,
-                                   KTL_BackIR_Buffer  *rodata);
+
+#ifdef EMIT_DEBUG
+KTL_Error KTL_BackendInit(KTL_BackendContext *cont,
+                          KTL_TypeMap        *type_map,
+                          KTL_StrMap         *str_map,
+                          KTL_SymbolMap      *global_scope,
+                          KTL_BackIR_Buffer  *text,
+                          KTL_BackIR_Buffer  *data,
+                          KTL_BackIR_Buffer  *rodata
+                          FILE               *debug_out);
+#else
+KTL_Error KTL_BackendInit(KTL_BackendContext *cont,
+                          KTL_TypeMap        *type_map,
+                          KTL_StrMap         *str_map,
+                          KTL_SymbolMap      *global_scope,
+                          KTL_BackIR_Buffer  *text,
+                          KTL_BackIR_Buffer  *data,
+                          KTL_BackIR_Buffer  *rodata);
+#endif
+
 KTL_Error KTL_BackendUninit       (KTL_BackendContext *cont);
 KTL_Error KTL_BackendRun          (KTL_BackendContext *cont,
                                    KTL_AstNode        *root);

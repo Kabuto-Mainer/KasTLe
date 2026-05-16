@@ -15,19 +15,15 @@
 // CONSTANTS
 // =======================================================================
 
-// constexpr static int KTL_BACKEND_VARS_INIT  = 16;
-// constexpr static int KTL_BACKEND_FUNCS_INIT = 8;
-// constexpr static int KTL_BACKEND_GROW_MOD   = 2;
-
 constexpr const char *KTL_GLOBAL_PREFIX = "__global__";
 constexpr const char *KTL_FUNC_PREFIX   = "__func__";
 constexpr const char *KTL_STRING_PREFIX = "__string__";
-
 
 const KTL_RegID KTL_PARAM_REGS[6] = {
     KTL_REG_RDI, KTL_REG_RSI, KTL_REG_RDX,
     KTL_REG_RCX, KTL_REG_R8,  KTL_REG_R9,
 };
+
 
 // =======================================================================
 // HELPER FUNCTION'S DECLARATION
@@ -104,6 +100,46 @@ KTL_StrID get_name       (KTL_StrMap *str_map, const char *prefix_1,
 // API
 // =======================================================================
 
+#ifdef EMIT_DEBUG
+
+KTL_Error KTL_BackendInit(KTL_BackendContext *cont,
+                          KTL_TypeMap        *type_map,
+                          KTL_StrMap         *str_map,
+                          KTL_SymbolMap      *global_scope,
+                          KTL_BackIR_Buffer  *text,
+                          KTL_BackIR_Buffer  *data,
+                          KTL_BackIR_Buffer  *rodata
+                          FILE               *debug_out) {
+    assert(cont);
+    assert(type_map);
+    assert(str_map);
+    assert(global_scope);
+    assert(text);
+    assert(data);
+    assert(rodata);
+    assert(debug_out);
+
+    cont->type_map     = type_map;
+    cont->str_map      = str_map;
+    cont->global_scope = global_scope;
+
+    cont->output.text   = text;
+    cont->output.data   = data;
+    cont->output.rodata = rodata;
+
+    cont->current_func        = NULL;
+    cont->loop_label_break    = -1;
+    cont->loop_label_continue = -1;
+    cont->label_counter       = 0;
+
+    cont->symbol_prefix = "";
+    cont->debug_emit    = debug_out;
+
+    return KTL_BackendTableInit(&cont->table);
+}
+
+#else
+
 KTL_Error KTL_BackendInit(KTL_BackendContext *cont,
                           KTL_TypeMap        *type_map,
                           KTL_StrMap         *str_map,
@@ -136,6 +172,8 @@ KTL_Error KTL_BackendInit(KTL_BackendContext *cont,
 
     return KTL_BackendTableInit(&cont->table);
 }
+#endif
+
 
 KTL_Error KTL_BackendUninit(KTL_BackendContext *cont) {
     assert(cont);
@@ -470,7 +508,7 @@ static void emit_text(KTL_BackendContext *cont, KTL_AstNode *root) {
     assert(cont);
     assert(root);
 
-    ir_section_text(cont);
+    _SWITCH_TEXT;
     cont->stack_depth = 0;
 
     for (int i = 0; i < root->move.n.amount; i++) {
@@ -702,7 +740,7 @@ static void emit_var_decl(KTL_BackendContext *cont, KTL_AstNode *node) {
                     ? KTL_SYSTEM_PTR_SIZE
                     : type->dt.base.size;
 
-        printf("%s:%d::%d\n", __FILE__,__LINE__,size);
+        // printf("%s:%d::%d\n", __FILE__,__LINE__,size);
         _MOV(_MEM_IDX(_NR(RBP), var->loc.stack.offset, size), _REG(_NR(RAX), size));
     }
     else {
@@ -720,14 +758,14 @@ static void emit_var_decl_array(KTL_BackendContext *cont, KTL_AstNode *node) {
     int            size_elem  = get_size(cont->type_map, type_array->dt.arr.base_type);
     KTL_BackendVarInfo *var   = KTL_BackendFindVar(&cont->table, node->data.var_decl.entry);
 
-    printf("SIZE ELEM: %d\n", size_elem);
+    // printf("SIZE ELEM: %d\n", size_elem);
 
     // TODO: Check size elem
     if (type_elem->kind == KTL_TYPE_PTR ||
         type_elem->kind == KTL_TYPE_BASE) {
         for (int i = 0; i < array->move.n.amount; i++) {
             emit_expr(cont, array->move.n.children[i]);
-            printf("%s:%d::%d\n", __FILE__,__LINE__,size_elem);
+            // printf("%s:%d::%d\n", __FILE__,__LINE__,size_elem);
             _MOV(_MEM_IDX(_NR(RBP), var->loc.stack.offset + i*size_elem, size_elem),
                  _REG(_NR(RAX), size_elem));
 
@@ -756,7 +794,7 @@ static void emit_var_decl_zero(KTL_BackendContext *cont, KTL_AstNode *node) {
     if (type_var->kind == KTL_TYPE_PTR ||
         type_var->kind == KTL_TYPE_BASE) {
 
-        printf("%s:%d::%d\n", __FILE__,__LINE__,size);
+        // printf("%s:%d::%d\n", __FILE__,__LINE__,size);
 
         _XOR(_REG_64(_NR(RAX)), _REG_64(_NR(RAX)));
         _MOV(_MEM_IDX(_NR(RBP), var->loc.stack.offset, size), _REG(_NR(RAX), size));
@@ -1081,7 +1119,7 @@ static void emit_assign(KTL_BackendContext *cont, KTL_AstNode *node) {
 
     /* mov [rdi], rax(size) */
     // printf("SIZE::: %d\n", size);
-        printf("%s:%d::%d\n", __FILE__,__LINE__,size);
+        // printf("%s:%d::%d\n", __FILE__,__LINE__,size);
     _MOV(_MEM_IDX(_NR(RDI), 0, size), _REG(_NR(RAX), size));
 
     return ;
@@ -1208,7 +1246,7 @@ static void emit_expr(KTL_BackendContext *cont, KTL_AstNode *node) {
         int size = get_size(cont->type_map, type_id);
         KTL_TypeEntry *type = KTL_TypeGetEntry(cont->type_map, type_id);
 
-        printf("%s:%d::%d\n", __FILE__,__LINE__,size);
+        // printf("%s:%d::%d\n", __FILE__,__LINE__,size);
         if (type->kind == KTL_TYPE_BASE ||
             type->kind == KTL_TYPE_PTR) {
                 _MOV(_REG(_NR(RAX), size), _MEM_IDX(_NR(RAX), 0, size));

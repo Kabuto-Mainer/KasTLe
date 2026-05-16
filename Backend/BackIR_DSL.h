@@ -4,8 +4,6 @@
 #include "BackendType.h"
 #include "BackIR.h"
 
-// #define ASM_DEBUG
-
 // =======================================================================
 // MACROS FOR SIMPLE USE
 // =======================================================================
@@ -20,61 +18,90 @@
 #define _NR(_name_)                  KTL_REG_##_name_
 
 /* Instraction */
-#define _MOV(_dst_,_src_)            ir_txt(cont, KTL_ASM_MOV, _dst_, _src_)
-#define _MOVSX(_dst_,_src_)          ir_txt(cont, KTL_ASM_MOVSX, _dst_, _src_)
-#define _MOVZX(_dst_,_src_)          ir_txt(cont, KTL_ASM_MOVZX, _dst_, _src_)
-#define _LEA(_dst_,_src_)            ir_txt(cont, KTL_ASM_LEA, _dst_,_src_)
+#define _MOV(_dst_,_src_)            ll_emit_txt(cont, KTL_ASM_MOV, _dst_, _src_)
+#define _MOVSX(_dst_,_src_)          ll_emit_txt(cont, KTL_ASM_MOVSX, _dst_, _src_)
+#define _MOVZX(_dst_,_src_)          ll_emit_txt(cont, KTL_ASM_MOVZX, _dst_, _src_)
+#define _LEA(_dst_,_src_)            ll_emit_txt(cont, KTL_ASM_LEA, _dst_,_src_)
 
-#define _PUSH(_src_)                 ir_txt(cont, KTL_ASM_PUSH,_src_)
-#define _POP(_src_)                  ir_txt(cont, KTL_ASM_POP, _src_)
+#define _PUSH(_src_)                 ll_emit_txt(cont, KTL_ASM_PUSH,_src_)
+#define _POP(_src_)                  ll_emit_txt(cont, KTL_ASM_POP, _src_)
 
-#define _ADD(_dst_,_src_)            ir_txt(cont, KTL_ASM_ADD, _dst_, _src_)
-#define _SUB(_dst_,_src_)            ir_txt(cont, KTL_ASM_SUB, _dst_, _src_)
-#define _IMUL(_dst_,_src_)           ir_txt(cont, KTL_ASM_IMUL, _dst_, _src_)
-#define _IDIV1(_src_)                ir_txt(cont, KTL_ASM_IDIV1, _src_)  /* 1-op */
+#define _ADD(_dst_,_src_)            ll_emit_txt(cont, KTL_ASM_ADD, _dst_, _src_)
+#define _SUB(_dst_,_src_)            ll_emit_txt(cont, KTL_ASM_SUB, _dst_, _src_)
+#define _IMUL(_dst_,_src_)           ll_emit_txt(cont, KTL_ASM_IMUL, _dst_, _src_)
+#define _IDIV1(_src_)                ll_emit_txt(cont, KTL_ASM_IDIV1, _src_)  /* 1-op */
 
-#define _CMP(_dst_,_src_)            ir_txt(cont, KTL_ASM_CMP, _dst_, _src_)
-#define _TEST(_dst_,_src_)           ir_txt(cont, KTL_ASM_TEST, _dst_, _src_)
-#define _AND(_dst_,_src_)            ir_txt(cont, KTL_ASM_AND, _dst_, _src_)
-#define _XOR(_dst_,_src_)            ir_txt(cont, KTL_ASM_XOR, _dst_, _src_)
-#define _NEG(_src_)                  ir_txt(cont, KTL_ASM_NEG, _src_)
+#define _CMP(_dst_,_src_)            ll_emit_txt(cont, KTL_ASM_CMP, _dst_, _src_)
+#define _TEST(_dst_,_src_)           ll_emit_txt(cont, KTL_ASM_TEST, _dst_, _src_)
+#define _AND(_dst_,_src_)            ll_emit_txt(cont, KTL_ASM_AND, _dst_, _src_)
+#define _XOR(_dst_,_src_)            ll_emit_txt(cont, KTL_ASM_XOR, _dst_, _src_)
+#define _NEG(_src_)                  ll_emit_txt(cont, KTL_ASM_NEG, _src_)
 
-#define _JMP(_label_)                ir_txt(cont, KTL_ASM_JMP, _label_)
-#define _JZ(_label_)                 ir_txt(cont, KTL_ASM_JZ, _label_)
-#define _JNZ(_label_)                ir_txt(cont, KTL_ASM_JNZ, _label_)
+#define _JMP(_label_)                ll_emit_txt(cont, KTL_ASM_JMP, _label_)
+#define _JZ(_label_)                 ll_emit_txt(cont, KTL_ASM_JZ, _label_)
+#define _JNZ(_label_)                ll_emit_txt(cont, KTL_ASM_JNZ, _label_)
 
-#define _REP_MOVSB                   ir_txt(cont, KTL_ASM_REP_MOVSB)
-#define _REP_STOSB                   ir_txt(cont, KTL_ASM_REP_STOSB)
+#define _REP_MOVSB                   ll_emit_txt(cont, KTL_ASM_REP_MOVSB)
+#define _REP_STOSB                   ll_emit_txt(cont, KTL_ASM_REP_STOSB)
 
-#define _SYSCALL                     ir_txt(cont, KTL_ASM_SYSCALL)
-#define _CALL(_op_)                  ir_txt(cont, KTL_ASM_CALL, _op_)
-#define _CALL_PLT(_op_)              ir_txt(cont, KTL_ASM_CALL_PLT, _op_)
-#define _RET                         ir_txt(cont, KTL_ASM_RET)
+#define _SYSCALL                     ll_emit_txt(cont, KTL_ASM_SYSCALL)
+#define _CALL(_op_)                  ll_emit_txt(cont, KTL_ASM_CALL, _op_)
+#define _CALL_PLT(_op_)              ll_emit_txt(cont, KTL_ASM_CALL_PLT, _op_)
+#define _RET                         ll_emit_txt(cont, KTL_ASM_RET)
 
-#define _CDQE                        ir_txt(cont, KTL_ASM_CDQE)
-#define _CQO                         ir_txt(cont, KTL_ASM_CQO)
+#define _CDQE                        ll_emit_txt(cont, KTL_ASM_CDQE)
+#define _CQO                         ll_emit_txt(cont, KTL_ASM_CQO)
 
-#define _SET(_cc_,_dst_)             ir_txt(cont, KTL_ASM_SET##_cc_, _dst_)
+#define _SET(_cc_,_dst_)             ll_emit_txt(cont, KTL_ASM_SET##_cc_, _dst_)
 
 /* Data & Rodata Init */
-#define _INT(_val_,_size_)           ir_data_int(cont, _val_, _size_)
-#define _ZERO(_size_)                ir_data_zero(cont, _size_)
-#define _BYTE(_name_)                ir_data_bytes(cont, _name_, (int) strlen(_name_) + 1)
-#define _LBYTE(_name_,_len_)         ir_data_bytes(cont, _name_, _len_)
+#define _INT(_val_,_size_)           ll_emit_data_int(cont, _val_, _size_)
+#define _ZERO(_size_)                ll_emit_data_zero(cont, _size_)
+#define _BYTE(_name_)                ll_emit_data_bytes(cont, _name_, (int) strlen(_name_) + 1)
+#define _LBYTE(_name_,_len_)         ll_emit_data_bytes(cont, _name_, _len_)
 #define _SYM_FUNC(_sym_)             op_sym(_sym_, KTL_BACK_IR_SYM_LOCAL_FUNC, 0)
 #define _SYM_FUNC_GOT(_sym_)         op_sym(_sym_, KTL_BACK_IR_SYM_GOT_FUNC, 0)
 
 
 /* Support */
-#define _COMMENT(_text_)             ir_comment(cont, _text_)
+#define _COMMENT(_text_)             ll_emit_comment(cont, _text_)
 #define _TEXT(_text_)                KTL_StrMapFind(cont->str_map, _text_)
-#define _LABEL(_name_)               ir_label(cont, _name_, false)
-#define _GLABEL(_name_)              ir_label(cont, _name_, true)
-#define _SWITCH_DATA                 ir_section_data(cont)
-#define _SWITCH_RODATA               ir_section_rodata(cont)
-#define _SWITCH_TEXT                 ir_section_text(cont)
-#define _ALIGN(_size_)               ir_align(cont, _size_)
+#define _LABEL(_name_)               ll_emit_label(cont, _name_, false)
+#define _GLABEL(_name_)              ll_emit_label(cont, _name_, true)
+#define _SWITCH_DATA                 ll_emit_section_data(cont)
+#define _SWITCH_RODATA               ll_emit_section_rodata(cont)
+#define _SWITCH_TEXT                 ll_emit_section_text(cont)
+#define _ALIGN(_size_)               ll_emit_align(cont, _size_)
 
+
+// =======================================================================
+// DATA FOR DEBUG OUT
+// =======================================================================
+
+#ifdef EMIT_DEBUG
+static const char *KTL_REG_NAMES[KTL_REG_COUNT][4] = {
+    #include "Data_NameReg.h"
+};
+
+static const char *KTL_DATA_PREFIX[] = {
+    "db", "dw",
+    "dd", "dq"
+};
+
+static const char *KTL_IMM_PREFIX[] = {
+    "b_", "w_",
+    "d_", "q_"
+};
+
+static const char *KTL_MEM_PREFIX[] = {
+    #include "Data_MemPrefix.h"
+};
+
+
+static const char *KTL_INSTR_NAMES[] = {
+    #include "Data_NameInstr.h"
+};
+#endif
 
 // =======================================================================
 // DECLARATION
@@ -90,26 +117,47 @@ static KTL_BackIR_InstrOperand op_sym    (KTL_StrID sym,
                                           KTL_BackIR_SymbolKind kind, int size);
 static KTL_BackIR_InstrOperand op_label  (KTL_StrID name);
 
-static void ir_txt           (KTL_BackendContext *cont, KTL_AsmInstr instr);
-static void ir_txt           (KTL_BackendContext *cont, KTL_AsmInstr instr,
-                              KTL_BackIR_InstrOperand op);
-static void ir_txt           (KTL_BackendContext *cont, KTL_AsmInstr instr,
-                              KTL_BackIR_InstrOperand dst, KTL_BackIR_InstrOperand src);
-static void ir_label         (KTL_BackendContext *cont, KTL_StrID name, bool is_global);
-static void ir_comment       (KTL_BackendContext *cont, KTL_StrID text);
-static void ir_align         (KTL_BackendContext *cont, int align);
-static void ir_data_zero     (KTL_BackendContext *cont, int count);
-static void ir_data_int      (KTL_BackendContext *cont, int64_t value, int size);
-static void ir_data_bytes    (KTL_BackendContext *cont, KTL_StrID bytes, int len);
-/*
-static void ir_data_symbol   (KTL_BackendContext *cont, KTL_StrID sym,
-                              KTL_BackIR_SymbolKind kind, int64_t addend, int size);*/
-static void ir_section_text  (KTL_BackendContext *cont);
-static void ir_section_data  (KTL_BackendContext *cont);
-static void ir_section_rodata(KTL_BackendContext *cont);
+static void ll_emit_txt           (KTL_BackendContext *cont, KTL_AsmInstr instr);
+static void ll_emit_txt           (KTL_BackendContext *cont, KTL_AsmInstr instr,
+                                   KTL_BackIR_InstrOperand op);
+static void ll_emit_txt           (KTL_BackendContext *cont, KTL_AsmInstr instr,
+                                   KTL_BackIR_InstrOperand dst, KTL_BackIR_InstrOperand src);
+static void ll_emit_label         (KTL_BackendContext *cont, KTL_StrID name, bool is_global);
+static void ll_emit_comment       (KTL_BackendContext *cont, KTL_StrID text);
+static void ll_emit_align         (KTL_BackendContext *cont, int align);
+static void ll_emit_data_zero     (KTL_BackendContext *cont, int count);
+static void ll_emit_data_int      (KTL_BackendContext *cont, int64_t value, int size);
+static void ll_emit_data_bytes    (KTL_BackendContext *cont, KTL_StrID bytes, int len);
+static void ll_emit_section_text  (KTL_BackendContext *cont);
+static void ll_emit_section_data  (KTL_BackendContext *cont);
+static void ll_emit_section_rodata(KTL_BackendContext *cont);
+
+#ifdef EMIT_DEBUG
+
+static void debug_emit_instr         (KTL_BackendContext *cont,
+                                      KTL_AsmInstr        instr);
+static void debug_emit_op            (KTL_BackendContext *cont,
+                                      KTL_BackIR_InstrOperand op);
+static void debug_emit_start         (KTL_BackendContext *cont);
+static void debug_emit_end           (KTL_BackendContext *cont);
+static void debug_emit_label         (KTL_BackendContext *cont,
+                                      KTL_StrID           name);
+static void debug_emit_zero          (KTL_BackendContext *cont,
+                                      int len);
+static void debug_emit_byte          (KTL_BackendContext *cont,
+                                      KTL_StrID bytes, int len);
+static void debug_emit_section_txt   (KTL_BackendContext *cont);
+static void debug_emit_section_data  (KTL_BackendContext *cont);
+static void debug_emit_section_rodata(KTL_BackendContext *cont);
+static void debug_emit_align         (KTL_BackendContext *cont,
+                                      int algin);
+static void debug_emit_imm            (KTL_BackendContext *cont,
+                                       uint64_t value, int size);
+
+#endif /* EMIT_DEBUG */
 
 // =======================================================================
-// BODY
+// BODIES
 // =======================================================================
 
 static KTL_BackIR_InstrOperand op_reg(KTL_RegID reg, int size) {
@@ -154,16 +202,23 @@ static KTL_BackIR_InstrOperand op_label(KTL_StrID name) {
                                      .label      = { .name = name } };
 }
 
-static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr) {
+static void ll_emit_txt(KTL_BackendContext *cont, KTL_AsmInstr instr) {
     assert(cont);
 
 #ifdef ASM_DEBUG
     KTL_BackIR_AddInstr(cont->cur_buf, KTL_ASM_DEBUG);
 #endif
+
+#ifdef EMIT_DEBUG
+    debug_emit_start(cont);
+    debug_emit_instr(cont, instr);
+    debug_emit_end(cont);
+#endif
+
     KTL_BackIR_AddInstr(cont->cur_buf, instr);
 }
 
-static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr,
+static void ll_emit_txt(KTL_BackendContext *cont, KTL_AsmInstr instr,
                    KTL_BackIR_InstrOperand op) {
     assert(cont);
 
@@ -171,25 +226,40 @@ static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr,
     KTL_BackIR_AddInstr(cont->cur_buf, KTL_ASM_DEBUG);
 #endif
 
-KTL_BackIR_AddInstr(cont->cur_buf, instr, &op);
+#ifdef EMIT_DEBUG
+    debug_emit_start(cont);
+    debug_emit_instr(cont, instr);
+    debug_emit_op(cont, op);
+    debug_emit_end(cont);
+#endif
+
+    KTL_BackIR_AddInstr(cont->cur_buf, instr, &op);
 }
 
 
 // TODO: rename txt to emit_text   ;  low level emitter  ll_emit_text
 // TODO: add emitter to TXT Nasm (for debugging)
 
-static void ir_txt(KTL_BackendContext *cont, KTL_AsmInstr instr,
-                   KTL_BackIR_InstrOperand dst, KTL_BackIR_InstrOperand src) {
+static void ll_emit_txt(KTL_BackendContext *cont, KTL_AsmInstr instr,
+                        KTL_BackIR_InstrOperand dst, KTL_BackIR_InstrOperand src) {
     assert(cont);
 
 #ifdef ASM_DEBUG
     KTL_BackIR_AddInstr(cont->cur_buf, KTL_ASM_DEBUG);
 #endif
 
+#ifdef EMIT_DEBUG
+    debug_emit_start(cont);
+    debug_emit_instr(cont, instr);
+    debug_emit_op(cont, dst);
+    debug_emit_op(cont, src);
+    debug_emit_end(cont);
+#endif
+
     KTL_BackIR_AddInstr(cont->cur_buf, instr, &dst, &src);
 }
 
-static void ir_label(KTL_BackendContext *cont, KTL_StrID name, bool is_global) {
+static void ll_emit_label(KTL_BackendContext *cont, KTL_StrID name, bool is_global) {
     assert(cont);
     assert(StrIDCheck(name));
 
@@ -199,55 +269,223 @@ static void ir_label(KTL_BackendContext *cont, KTL_StrID name, bool is_global) {
     item.label_decl.is_global = is_global;
 
     add_item(cont->cur_buf, &item);
+
+#ifdef EMIT_DEBUG
+    debug_emit_start(cont);
+    debug_emit_label(cont, name);
+    debug_emit_end(cont);
+#endif
+
 }
 
-static void ir_comment(KTL_BackendContext *cont, KTL_StrID text) {
+static void ll_emit_comment(KTL_BackendContext *cont, KTL_StrID text) {
     assert(cont);
     assert(StrIDCheck(text));
 
     KTL_BackIR_AddComment(cont->cur_buf, text);
 }
 
-static void ir_align(KTL_BackendContext *cont, int align) {
+static void ll_emit_align(KTL_BackendContext *cont, int align) {
     assert(cont);
     KTL_BackIR_AddAlign(cont->cur_buf, align);
+
+#ifdef EMIT_DEBUG
+    debug_emit_align(cont, align);
+    debug_emit_end(cont);
+#endif
+
 }
 
-static void ir_data_zero(KTL_BackendContext *cont, int count) {
+static void ll_emit_data_zero(KTL_BackendContext *cont, int count) {
     assert(cont);
     KTL_BackIR_AddZeroData(cont->cur_buf, count);
+
+#ifdef EMIT_DEBUG
+    debug_emit_start(cont);
+    debug_emit_zero(cont, count);
+    debug_emit_end(cont);
+#endif
+
 }
 
-static void ir_data_int(KTL_BackendContext *cont, int64_t value, int size) {
+static void ll_emit_data_int(KTL_BackendContext *cont, int64_t value, int size) {
     assert(cont);
     KTL_BackIR_AddIntData(cont->cur_buf, value, (uint8_t) size);
+
+#ifdef EMIT_DEBUG
+    debug_emit_imm(cont, value, size);
+#endif
+
 }
 
-static void ir_data_bytes(KTL_BackendContext *cont, KTL_StrID bytes, int len) {
+static void ll_emit_data_bytes(KTL_BackendContext *cont, KTL_StrID bytes, int len) {
     assert(cont);
     KTL_BackIR_AddByteData(cont->cur_buf, bytes, len);
+
+#ifdef EMIT_DEBUG
+    debug_emit_start(cont);
+    debug_emit_byte(cont, bytes, len);
+    debug_emit_end(cont);
+#endif
+
 }
-/*
-static void ir_data_symbol(KTL_BackendContext *cont, KTL_StrID sym,
-                           KTL_BackIR_SymbolKind kind, int64_t addend, int size) {
-    assert(cont);
-    KTL_BackIR_AddSymbolData(cont->cur_buf, sym, kind, addend, (uint8_t) size);
-}
-*/
-static void ir_section_text(KTL_BackendContext *cont) {
+
+static void ll_emit_section_text(KTL_BackendContext *cont) {
     assert(cont);
     cont->cur_buf = cont->output.text;
+
+#ifdef EMIT_DEBUG
+    debug_emit_section_txt(cont);
+    debug_emit_end(cont);
+#endif
+
 }
 
-static void ir_section_data(KTL_BackendContext *cont) {
+static void ll_emit_section_data(KTL_BackendContext *cont) {
     assert(cont);
     cont->cur_buf = cont->output.data;
+
+#ifdef EMIT_DEBUG
+    debug_emit_section_data(cont);
+    debug_emit_end(cont);
+#endif
+
 }
 
-static void ir_section_rodata(KTL_BackendContext *cont) {
+static void ll_emit_section_rodata(KTL_BackendContext *cont) {
     assert(cont);
     cont->cur_buf = cont->output.rodata;
+
+#ifdef EMIT_DEBUG
+    debug_emit_section_rodata(cont);
+    debug_emit_end(cont);
+#endif
+
 }
 
+
+#ifdef EMIT_DEBUG
+
+static void debug_emit_instr(KTL_BackendContext *cont,
+                             KTL_AsmInstr        instr) {
+    fprintf(cont->debug_emit, "%s  ", KTL_INSTR_NAMES[instr]);
+}
+
+static void debug_emit_op(KTL_BackendContext *cont,
+                         KTL_BackIR_InstrOperand op) {
+    int idx = 0;
+    int size = 0;
+    switch (op.kind) {
+        case KTL_BACK_IR_OP_LABEL:      break;
+
+        case KTL_BACK_IR_OP_IMM:        size = op.imm.size;
+        case KTL_BACK_IR_OP_MEM:        size = op.mem.size;
+        case KTL_BACK_IR_OP_MEM_RIP:    size = op.mem_rip.size;
+        case KTL_BACK_IR_OP_REG:        size = op.reg.size;
+        case KTL_BACK_IR_OP_SYMBOL:     size = op.sym.size;
+
+        default:
+            switch (idx) {
+            case 1:     idx = 0;    break;
+            case 2:     idx = 1;    break;
+            case 4:     idx = 2;    break;
+            case 8:     idx = 3;    break;
+
+            default:
+                idx = -1;
+            }
+    }
+
+    switch (op.kind) {
+
+    case KTL_BACK_IR_OP_IMM: {
+        fprintf(cont->debug_emit, "%s %0x  ", KTL_IMM_PREFIX[idx], op.imm.imm);
+        return ;
+    }
+
+    case KTL_BACK_IR_OP_LABEL: {
+        fprintf(cont->debug_emit, "%s:", op.label.name);
+        return ;
+    }
+    case KTL_BACK_IR_OP_MEM: {
+        fprintf(cont->debug_emit, "%s ", KTL_MEM_PREFIX[idx]);
+        fprintf(cont->debug_emit, "[%s ", KTL_REG_NAMES[op.mem.base][4]);
+        if (op.mem.idx != KTL_REG_INVALID) {
+            fprintf(cont->debug_emit, "%s * %0x ", KTL_REG_NAMES[op.mem.idx][4], op.mem.scale);
+        }
+        fprintf(cont->debug_emit, "%0x]", op.mem.offset);
+        return ;
+    }
+    case KTL_BACK_IR_OP_MEM_RIP: {
+        fprintf(cont->debug_emit, "%s ", KTL_MEM_PREFIX[idx]);
+        fprintf(cont->debug_emit, "[rel %s]  ");
+        return ;
+    }
+    case KTL_BACK_IR_OP_REG: {
+        fprintf(cont->debug_emit, "%s  ", KTL_REG_NAMES[op.reg.reg][idx]);
+        return ;
+    }
+    case KTL_BACK_IR_OP_SYMBOL: {
+        fprintf(cont->debug_emit, "%s  ", op.sym.sym);
+        if (op.sym.kind == KTL_BACK_IR_SYM_GOT_FUNC) {
+            fprintf(cont->debug_emit, "WRT ..plt ");
+        }
+        return ;
+    }
+
+    default:
+        assert(0 && "unknown kind");
+        return ;
+    }
+}
+
+static void debug_emit_start(KTL_BackendContext *cont) {
+    fprintf(cont->debug_emit, "\t");
+}
+
+static void debug_emit_end(KTL_BackendContext *cont) {
+    fprintf(cont->debug_emit, "\n");
+}
+
+static void debug_emit_label(KTL_BackendContext *cont,
+                             KTL_StrID           name) {
+    fprintf(cont->debug_emit, "%s:", name);
+}
+
+static void debug_emit_zero(KTL_BackendContext *cont,
+                            int len) {
+    fprintf(cont->debug_emit, "times %d db 0", len);
+}
+
+static void debug_emit_byte(KTL_BackendContext *cont,
+                            KTL_StrID bytes, int len) {
+    for (int i = 0; i < len; i++) {
+        fprintf(cont->debug_emit, "%x", bytes[i]);
+    }
+}
+
+static void debug_emit_imm(KTL_BackendContext *cont,
+                           uint64_t value, int size) {
+    fprintf(cont->debug_emit, "[%d] %x", size, value);
+}
+
+static void debug_emit_section_txt(KTL_BackendContext *cont) {
+    fprintf(cont->debug_emit, "section .txt");
+}
+
+static void debug_emit_section_data(KTL_BackendContext *cont) {
+    fprintf(cont->debug_emit, "section .data");
+}
+
+static void debug_emit_section_rodata(KTL_BackendContext *cont) {
+    fprintf(cont->debug_emit, "section .rodata");
+}
+
+static void debug_emit_align(KTL_BackendContext *cont,
+                             int align) {
+    fprintf(cont->debug_emit, "align %d", align);
+}
+
+#endif /* EMIT_DEBUG */
 
 #endif /* BACK_IR_DLL_H */

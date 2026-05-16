@@ -14,6 +14,7 @@ extern const KTL_RegID KTL_PARAM_REGS[6];
 constexpr int KTL_PARAM_REGS_COUNT = 6;
 constexpr int KTL_SYSTEM_PTR_SIZE  = 8;
 
+// #define EMIT_DEBUG
 
 struct KTL_BackendContext {
     KTL_TypeMap   *type_map;
@@ -41,6 +42,11 @@ struct KTL_BackendContext {
     int main_frame_size;
 
     const char *symbol_prefix;  /* for MacOS users */
+
+#ifdef EMIT_DEBUG
+    FILE *debug_emit;
+#endif
+
 };
 
 #define print_asm(_fmt_, ...)     fprintf(cont->output, _fmt_,  ##__VA_ARGS__)

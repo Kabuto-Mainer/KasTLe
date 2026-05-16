@@ -7,11 +7,11 @@ section .data
 
 section .rodata
 ; Constant Strings
-__string__0x7c18aebe00d0:
+__string__0x7bb81e7e00d0:
     db "*", 0x00
-__string__0x7c18aebe00f0:
+__string__0x7bb81e7e00f0:
     db "_", 0x00
-__string__0x7c18aebe0110:
+__string__0x7bb81e7e0110:
     db 0x0A, 0x00
 
 section .text
@@ -97,14 +97,14 @@ _start:
     movzx rax, al
     test rax, rax
     jz   .L4
-    lea  rax, qword [rel __string__0x7c18aebe00d0]
+    lea  rax, qword [rel __string__0x7bb81e7e00d0]
     push rax
     pop  rdi
     xor  rax, rax
     call printf WRT ..plt
     jmp  .L5
 .L4:
-    lea  rax, qword [rel __string__0x7c18aebe00f0]
+    lea  rax, qword [rel __string__0x7bb81e7e00f0]
     push rax
     pop  rdi
     xor  rax, rax
@@ -122,7 +122,7 @@ _start:
     mov  qword [rdi], rax
     jmp  .L3
 .L2:
-    lea  rax, qword [rel __string__0x7c18aebe0110]
+    lea  rax, qword [rel __string__0x7bb81e7e0110]
     push rax
     pop  rdi
     xor  rax, rax

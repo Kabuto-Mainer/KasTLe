@@ -5,51 +5,61 @@
 #include "GenType.h"
 #include "Gen.h"
 
+// =====================================================================
+// CONSTANTS
+// =====================================================================
+
 static constexpr const char *STANDARD_LOADER = "/lib64/ld-linux-x86-64.so.2";
-static constexpr const char *STANDARD_OUTPUT = "Bin/prog.elf";
+// static constexpr const char *STANDARD_OUTPUT = "Bin/prog.elf";
 static constexpr const char *STANDARD_LIB    = "libc.so.6";
 static constexpr        int  STANDARD_HASH_SIZE = 32;
 static constexpr        int  SIZE_PLT_STAB      = 16;
 static constexpr   uint64_t  PAGE_SIZE      = 0x1000;
-
-#ifdef ASM_DEBUG
-static constexpr   uint64_t  DYNAMIC_AMOUNT = 13;
-#else
 static constexpr   uint64_t  DYNAMIC_AMOUNT = 12;
-#endif
 
+// =====================================================================
+// HELPER DECLARATION
+// =====================================================================
 
 static void           fill_interp        (KTL_ElfContext *cont);
 static void           fill_import_symbol (KTL_ElfContext *cont);
 static void           fill_symbols       (KTL_ElfContext *cont);
-static uint64_t       get_size_hash      (KTL_ElfContext *cont);
 uint32_t              elf_hash           (const uint8_t *name);
 static void           fill_hash          (KTL_ElfContext *cont);
-static void           fill_layout_context(KTL_ElfContext *cont);
 static uint64_t       align_up_u64       (uint64_t        val, uint64_t alg);
 static void           fill_rela_plt      (KTL_ElfContext *cont);
 static void           fill_plt           (KTL_ElfContext *cont);
 static void           fill_text          (KTL_ElfContext *cont);
 static void           fill_rodata        (KTL_ElfContext *cont);
 static void           fill_data          (KTL_ElfContext *cont);
+static void           fill_got_plt       (KTL_ElfContext *cont);
+static void           fill_dynamic       (KTL_ElfContext *cont);
+
+static void           fill_layout_context(KTL_ElfContext *cont);
 static int            get_plt_size       (KTL_ElfContext *cont);
+static uint64_t       get_size_hash      (KTL_ElfContext *cont);
 static int            get_rela_plt_size  (KTL_ElfContext *cont);
 static int            get_dynamic_size   (KTL_ElfContext *cont);
 static int            get_got_plt_size   (KTL_ElfContext *cont);
-static void           fill_got_plt       (KTL_ElfContext *cont);
-static void           fill_dynamic       (KTL_ElfContext *cont);
+
 static KTL_ElfImport *find_import        (KTL_ElfContext *cont, KTL_StrID name) ;
 static void           emit_elf_header    (KTL_ElfContext *cont);
 static void           emit_elf_phdr      (KTL_ElfContext *cont);
+
 static void           write_to_file      (KTL_ElfContext *cont);
 
 
-void KTL_ElfEmit(KTL_GenContext *cont) {
+// =====================================================================
+// API
+// =====================================================================
+
+void KTL_ElfEmit(KTL_GenContext *cont, FILE *stream) {
     assert(cont);
+    assert(stream);
 
     KTL_ElfContext elf_cont = {};
     elf_cont.gen_cont = cont;
-    elf_cont.stream   = fopen(STANDARD_OUTPUT, "wb");
+    elf_cont.stream   = stream;
     elf_cont.virt_adr = 0x40'00'00;
     elf_cont.phdr_amount = 6;
 
@@ -82,9 +92,9 @@ void KTL_ElfEmit(KTL_GenContext *cont) {
     return ;
 }
 
-
-
-
+// =====================================================================
+// SYMBOL PRECESSING
+// =====================================================================
 
 static void fill_interp(KTL_ElfContext *cont) {
     assert(cont);
@@ -119,7 +129,7 @@ static void fill_import_symbol(KTL_ElfContext *cont) {
         KTL_LabelFix_Entry *fix_e = fix_map->data + i;
         KTL_ElfImport      *imp   = find_import(cont, fix_e->target);
 
-        printf("IMPORT: %s\n", fix_e->target);
+        // printf("IMPORT: %s\n", fix_e->target);
 
         if (imp == NULL) {
             imp = cont->import.imps + cont->import.size;
@@ -167,7 +177,7 @@ static void fill_import_symbol(KTL_ElfContext *cont) {
 
     syms[STN_UNDEF] = {};
     for (int i = 0; i < cont->import.size; i++) {
-        printf("NAME: %s\n", cont->import.imps[i].name);
+        // printf("NAME: %s\n", cont->import.imps[i].name);
         auto len = strlen(cont->import.imps[i].name);
         memcpy(dynstr->bytes + pos, cont->import.imps[i].name, len + 1);
 
@@ -211,7 +221,7 @@ static void fill_symbols(KTL_ElfContext *cont) {
 
         KTL_ElfImport *import = find_import(cont, fix->target);
         if (import == NULL) {
-            printf("IMPORT: %s\n", fix->target);
+            // printf("IMPORT: %s\n", fix->target);
             assert(0);
             return ;
         }
@@ -232,7 +242,7 @@ static void fill_symbols(KTL_ElfContext *cont) {
 
         KTL_LabelDecl_Entry *lbl = find_label(cont->gen_cont->file_inside_decl_map, fix->target);
 
-        printf("FIX: %s\n", fix->target);
+        // printf("FIX: %s\n", fix->target);
         if (lbl == NULL) {
             continue;
         }
@@ -251,12 +261,21 @@ static void fill_symbols(KTL_ElfContext *cont) {
     return ;
 }
 
-
-
-static uint64_t get_size_hash(KTL_ElfContext *cont) {
+static KTL_ElfImport *find_import(KTL_ElfContext *cont, KTL_StrID name) {
     assert(cont);
-    return (2 + (uint64_t)STANDARD_HASH_SIZE + (uint64_t)cont->import.size + 1) * 4;
+    assert(StrIDCheck(name));
+
+    for (int i = 0; i < cont->import.size; i++) {
+        if (cont->import.imps[i].name == name)  return cont->import.imps + i;
+    }
+
+    return NULL;
 }
+
+
+// =====================================================================
+// HASH GEN
+// =====================================================================
 
 uint32_t elf_hash(const uint8_t *name) {
     uint32_t h = 0, g = 0, i = 0;
@@ -305,6 +324,10 @@ static void fill_hash(KTL_ElfContext *cont) {
     return ;
 }
 
+// =====================================================================
+// SIZES AND LAYOUT
+// =====================================================================
+
 static void fill_layout_context(KTL_ElfContext *cont) {
     assert(cont);
 
@@ -344,6 +367,37 @@ static void fill_layout_context(KTL_ElfContext *cont) {
 static uint64_t align_up_u64(uint64_t val, uint64_t alg) {
     return (val + alg - 1) & ~(alg - 1);
 }
+
+static uint64_t get_size_hash(KTL_ElfContext *cont) {
+    assert(cont);
+    return (2 + (uint64_t)STANDARD_HASH_SIZE + (uint64_t)cont->import.size + 1) * 4;
+}
+
+static int get_plt_size(KTL_ElfContext *cont) {
+    assert(cont);
+    return (cont->import.size + 1) * SIZE_PLT_STAB;
+}
+
+static int get_rela_plt_size(KTL_ElfContext *cont) {
+    assert(cont);
+    return cont->import.size * (int)sizeof(Elf64_Rela);
+}
+
+static int get_dynamic_size(KTL_ElfContext *cont) {
+    assert(cont);
+    (void) cont;
+    return DYNAMIC_AMOUNT * sizeof(Elf64_Dyn);
+}
+
+static int get_got_plt_size(KTL_ElfContext *cont) {
+    assert(cont);
+
+    return (3 + cont->import.size) * 8;
+}
+
+// =====================================================================
+// DYNAMIC ELEMENTS
+// =====================================================================
 
 static void fill_rela_plt(KTL_ElfContext *cont) {
     assert(cont);
@@ -419,46 +473,6 @@ static void fill_plt(KTL_ElfContext *cont) {
     return ;
 }
 
-static void fill_text(KTL_ElfContext *cont) {
-    assert(cont);
-
-    cont->text.data = cont->gen_cont->out_flat.text;
-}
-
-static void fill_rodata(KTL_ElfContext *cont) {
-    assert(cont);
-
-    cont->rodata.data = cont->gen_cont->out_flat.rodata;
-}
-
-static void fill_data(KTL_ElfContext *cont) {
-    assert(cont);
-
-    cont->data.data = cont->gen_cont->out_flat.data;
-}
-
-static int get_plt_size(KTL_ElfContext *cont) {
-    assert(cont);
-    return (cont->import.size + 1) * SIZE_PLT_STAB;
-}
-
-static int get_rela_plt_size(KTL_ElfContext *cont) {
-    assert(cont);
-    return cont->import.size * (int)sizeof(Elf64_Rela);
-}
-
-static int get_dynamic_size(KTL_ElfContext *cont) {
-    assert(cont);
-    (void) cont;
-    return DYNAMIC_AMOUNT * sizeof(Elf64_Dyn);
-}
-
-static int get_got_plt_size(KTL_ElfContext *cont) {
-    assert(cont);
-
-    return (3 + cont->import.size) * 8;
-}
-
 static void fill_got_plt(KTL_ElfContext *cont) {
     assert(cont);
 
@@ -530,16 +544,32 @@ static void fill_dynamic(KTL_ElfContext *cont) {
     return ;
 }
 
-static KTL_ElfImport *find_import(KTL_ElfContext *cont, KTL_StrID name) {
+// =====================================================================
+// READY CODE
+// =====================================================================
+
+static void fill_text(KTL_ElfContext *cont) {
     assert(cont);
-    assert(StrIDCheck(name));
 
-    for (int i = 0; i < cont->import.size; i++) {
-        if (cont->import.imps[i].name == name)  return cont->import.imps + i;
-    }
-
-    return NULL;
+    cont->text.data = cont->gen_cont->out_flat.text;
 }
+
+static void fill_rodata(KTL_ElfContext *cont) {
+    assert(cont);
+
+    cont->rodata.data = cont->gen_cont->out_flat.rodata;
+}
+
+static void fill_data(KTL_ElfContext *cont) {
+    assert(cont);
+
+    cont->data.data = cont->gen_cont->out_flat.data;
+}
+
+
+// =====================================================================
+// HEADERS
+// =====================================================================
 
 static void emit_elf_header(KTL_ElfContext *cont) {
     assert(cont);
@@ -652,7 +682,7 @@ static void write_to_file(KTL_ElfContext *cont) {
     fwrite(cont->rodata.data.bytes,   1,         cont->rodata.size,       stream);
 
     long cur      = ftell(stream);
-    long expected = (long)cont->rodata.file_off + (long)cont->rodata.size;
+    // long expected = (long)cont->rodata.file_off + (long)cont->rodata.size;
     long target   = (long)cont->dynamic.file_off;
     if (cur < target) {
         long gap = target - cur;
