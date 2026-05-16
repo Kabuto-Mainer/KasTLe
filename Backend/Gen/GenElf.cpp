@@ -240,12 +240,17 @@ static void fill_symbols(KTL_ElfContext *cont) {
     for (int i = 0; i < fix_map->size; i++) {
         KTL_LabelFix_Entry *fix = fix_map->data + i;
 
+        if (fix->kind != KTL_BACK_IR_SYM_LOCAL_VAR) {
+            continue;
+        }
+
         KTL_LabelDecl_Entry *lbl = find_label(cont->gen_cont->file_inside_decl_map, fix->target);
 
         // printf("FIX: %s\n", fix->target);
         if (lbl == NULL) {
             continue;
         }
+
 
         uint64_t call_addr = cont->text.vaddr + (uint64_t)fix->ads_offset + (uint64_t)fix->inner_offset + 4;
         uint64_t vaddr = cont->virt_adr + cont->rodata.file_off;

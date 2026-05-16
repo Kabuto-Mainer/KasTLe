@@ -1,8 +1,6 @@
 use print
 use scan
 
-
-
 main {
     for (var i64 x = 0; x < 11; x = x + 1) {
         for (var i64 y = 0; y < 11; y = y + 1) {

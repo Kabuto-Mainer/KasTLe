@@ -1,4 +1,4 @@
-build/compiler.o: compiler.cpp Frontend/Parsing/Parse.h \
+build/System/compiler.o: System/compiler.cpp Frontend/Parsing/Parse.h \
   Frontend/Parsing/ParseType.h Frontend/Tokenize/TokenType.h \
   Frontend/Tokenize/TokenEnum.h Structs/StrMap/StrMapType.h \
   Common/Common.h Structs/StrMap/StrMap.h Structs/TypeMap/TypeMap.h \

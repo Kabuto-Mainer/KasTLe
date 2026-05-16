@@ -1,6 +1,9 @@
+#define ASM_DEBUG
+
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include "Parse.h"
 #include "Token.h"
 #include "DumpAst.h"
@@ -9,29 +12,33 @@
 #include "BackIR.h"
 #include "Gen.h"
 
+enum KTL_EmitMode {
+    KTL_EMIT_ELF,
+    KTL_EMIT_ASM,
+};
+
 struct KTL_Options {
-    const char *source;
-    const char *output_asm;
-    const char *output_elf;
-    const char *dump_ast_path;
-    bool emit_elf;
-    bool dump_ast;
-    int  verbose;
+    const char  *source;
+    const char  *output;
+    const char  *dump_ast_path;
+    KTL_EmitMode emit_mode;
+    bool         dump_ast;
+    int          verbose;
 };
 
 static int  compile    (const KTL_Options *opts);
 static void print_usage(const char *prog);
 static int  parse_args (int argc, char **argv, KTL_Options *opts);
 
-
 static void print_usage(const char *prog) {
     fprintf(stderr,
         "Usage: %s [options] <source>\n"
-        "  -o, --output <file>     output .asm file (default: out.asm)\n"
-        "      --emit-elf <file>   also emit ELF binary\n"
-        "      --dump-ast <file>   dump AST as HTML\n"
-        "  -v, --verbose           verbose output\n"
-        "  -h, --help              show this help\n",
+        "  -o, --output <file>     output path (default: a.out для elf, out.asm для asm)\n"
+        "      --emit-elf          сгенерировать ELF собственным генератором (default)\n"
+        "      --emit-asm          сгенерировать NASM-ассемблер\n"
+        "  -d, --dump-ast <file>   сдампить AST в HTML\n"
+        "  -v, --verbose           подробный вывод\n"
+        "  -h, --help              справка\n",
         prog);
 }
 
@@ -40,46 +47,33 @@ static int parse_args(int argc, char **argv, KTL_Options *opts) {
     assert(opts);
 
     enum {
-        OPT_EMIT_ELF = 256,
-        OPT_DUMP_AST
+        OPT_EMIT_ASM = 256,
+        OPT_EMIT_ELF,
     };
 
     static struct option long_opts[] = {
         {"output",   required_argument, 0, 'o'},
-        {"emit-elf", required_argument, 0, OPT_EMIT_ELF},
-        {"dump-ast", required_argument, 0, OPT_DUMP_AST},
+        {"emit-asm", no_argument,       0, OPT_EMIT_ASM},
+        {"emit-elf", no_argument,       0, OPT_EMIT_ELF},
+        {"dump-ast", required_argument, 0, 'd'},
         {"verbose",  no_argument,       0, 'v'},
         {"help",     no_argument,       0, 'h'},
         {0, 0, 0, 0}
     };
 
     int c = -1;
-    while ((c = getopt_long(argc, argv, "o:vh", long_opts, NULL)) != -1) {
+    while ((c = getopt_long(argc, argv, "o:d:vh", long_opts, NULL)) != -1) {
         switch (c) {
-            case 'o':
-                opts->output_asm = optarg;
-                break;
-
-            case OPT_EMIT_ELF:
-                opts->emit_elf = true;
-                opts->output_elf = optarg;
-                break;
-
-            case OPT_DUMP_AST:
+            case 'o':           opts->output = optarg;          break;
+            case OPT_EMIT_ASM:  opts->emit_mode = KTL_EMIT_ASM; break;
+            case OPT_EMIT_ELF:  opts->emit_mode = KTL_EMIT_ELF; break;
+            case 'd':
                 opts->dump_ast = true;
                 opts->dump_ast_path = optarg;
                 break;
-
-            case 'v':
-                opts->verbose++;
-                break;
-
-            case 'h':
-                print_usage(argv[0]);
-                exit(0);
-
-            default:
-                return -1;
+            case 'v':           opts->verbose++;                break;
+            case 'h':           print_usage(argv[0]); exit(0);
+            default:            return -1;
         }
     }
 
@@ -89,11 +83,15 @@ static int parse_args(int argc, char **argv, KTL_Options *opts) {
     }
     opts->source = argv[optind];
 
+    if (opts->output == NULL) {
+        opts->output = (opts->emit_mode == KTL_EMIT_ASM) ? "out.asm" : "a.out";
+    }
+
     return 0;
 }
 
 int main(int argc, char **argv) {
-    KTL_Options opts = {.output_asm = "out.asm"};
+    KTL_Options opts = {.emit_mode = KTL_EMIT_ELF};
 
     if (parse_args(argc, argv, &opts) != 0) {
         print_usage(argv[0]);
@@ -102,7 +100,6 @@ int main(int argc, char **argv) {
 
     return compile(&opts);
 }
-
 
 static int compile(const KTL_Options *opts) {
     assert(opts);
@@ -157,29 +154,35 @@ static int compile(const KTL_Options *opts) {
     _PRINT_STAGE;
     KTL_BackendRun(&back_cont, an_cont.root);
 
-    if (opts->output_asm) {
-        out = fopen(opts->output_asm, "wb");
-        if (out == NULL) {
-            perror(opts->output_asm);
-            ret_val = 1;
-            goto cleanup;
-        }
+    _NEXT_STAGE;
+    _PRINT_STAGE;
 
-        KTL_GenerateNasm(&text, &data, &rodata, out);
-        fclose(out);
-        out = NULL;
+    // =========================================================================
+    // Вывод по выбранному режиму
+    // =========================================================================
+    out = fopen(opts->output, "wb");
+    if (out == NULL) {
+        perror(opts->output);
+        ret_val = 1;
+        goto cleanup;
     }
 
-    if (opts->emit_elf) {
-        out = fopen(opts->output_elf, "wb");
-        if (!out) {
-            perror(opts->output_elf);
-            ret_val = 1;
-            goto cleanup;
-        }
+    switch (opts->emit_mode) {
+        case KTL_EMIT_ASM:
+            KTL_GenerateNasm(&text, &data, &rodata, out);
+            break;
+        case KTL_EMIT_ELF:
+            KTL_GenElf(&text, &data, &rodata, out);
+            break;
+    }
+    fclose(out);
+    out = NULL;
 
-        KTL_GenElf(&text, &data, &rodata, out);
-        fclose(out); out = NULL;
+    _NEXT_STAGE;
+    _PRINT_STAGE;
+
+    if (opts->emit_mode == KTL_EMIT_ELF) {
+        chmod(opts->output, 0755);
     }
 
     if (opts->dump_ast) {

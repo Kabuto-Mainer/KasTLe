@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+# ktl - запуск KasTle-компилятора на исходнике
 set -euo pipefail
 
 COMPILER="./Bin/KasTle.elf"
+EMIT="elf"        # asm | elf | nasm
 RUN_AFTER=0
 DUMP_AST=0
 
@@ -10,13 +12,18 @@ usage() {
 Usage: $(basename "$0") [options] <source>
 
 Options:
-  -r, --run         запустить после сборки
-  -d, --dump-ast    создать dump.html с AST
+  -e, --emit MODE   что генерировать (default: elf)
+                      elf    — ELF собственным генератором
+                      asm    — только .asm
+                      nasm   — ELF через nasm + gcc
+  -r, --run         запустить итоговый бинарь (для elf/nasm)
+  -d, --dump-ast    сдампить AST в dump.html
   -h, --help        показать справку
 
 Examples:
-  ./ktl hello.ktl
-  ./ktl -r -d hello.ktl
+  ./ktl hello.ktl                # ELF своим генератором -> ./hello
+  ./ktl -e asm hello.ktl         # .asm -> ./hello.asm
+  ./ktl -e nasm -r hello.ktl     # ELF через nasm + запуск
 EOF
 }
 
@@ -26,6 +33,13 @@ EOF
 SOURCE=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        -e|--emit)
+            EMIT="$2"
+            case "$EMIT" in
+                asm|elf|nasm) ;;
+                *) echo "error: неизвестный режим: $EMIT (asm|elf|nasm)" >&2; exit 1 ;;
+            esac
+            shift 2 ;;
         -r|--run)       RUN_AFTER=1; shift ;;
         -d|--dump-ast)  DUMP_AST=1;  shift ;;
         -h|--help)      usage; exit 0 ;;
@@ -47,33 +61,64 @@ if [[ ! -f "$SOURCE" ]]; then
     exit 1
 fi
 
-echo "==> сборка KasTle"
+# =============================================================================
+# Сборка компилятора (make сам решит, что пересобирать)
+# =============================================================================
+echo "==> Build KasTLe"
 make -s
 
-
+# =============================================================================
+# Имена выходных файлов
+# =============================================================================
 NAME="$(basename "${SOURCE%.*}")"
 ASM="$NAME.asm"
 OBJ="$NAME.o"
 ELF="./$NAME"
 
+# Общие аргументы для компилятора
+COMPILE_ARGS=("$SOURCE")
+[[ $DUMP_AST -eq 1 ]] && COMPILE_ARGS+=(--dump-ast dump.html)
 
-echo "==> компиляция $SOURCE"
-ARGS=("$SOURCE" -o "$ASM")
-[[ $DUMP_AST -eq 1 ]] && ARGS+=(--dump-ast dump.html)
-"$COMPILER" "${ARGS[@]}"
+# =============================================================================
+# Сборка по режиму
+# =============================================================================
+case "$EMIT" in
+    asm)
+        echo "==> Compilation to ASM: $SOURCE -> $ASM"
+        "$COMPILER" "${COMPILE_ARGS[@]}" --emit-asm -o "$ASM"
+        echo "==> Ready: $ASM"
+        ;;
 
-echo "==> ассемблирование"
-nasm -f elf64 -o "$OBJ" "$ASM"
+    elf)
+        echo "==> Compilation to own ELF: $SOURCE -> $ELF"
+        "$COMPILER" "${COMPILE_ARGS[@]}" --emit-elf -o "$ELF"
+        echo "==> Ready: $ELF"
+        ;;
 
-echo "==> линковка"
-gcc -nostartfiles -no-pie -o "$ELF" "$OBJ"
-chmod +x "$ELF"
+    nasm)
+        echo "==> Compilation to ASM: $SOURCE -> $ASM"
+        "$COMPILER" "${COMPILE_ARGS[@]}" --emit-asm -o "$ASM"
 
-echo "==> готово: $ELF"
+        echo "==> Assembly: nasm -> $OBJ"
+        nasm -f elf64 -o "$OBJ" "$ASM"
 
+        echo "==> Link: gcc -> $ELF"
+        gcc -nostartfiles -no-pie -o "$ELF" "$OBJ"
+        chmod +x "$ELF"
 
+        echo "==> Ready: $ELF"
+        ;;
+esac
+
+# =============================================================================
+# Запуск
+# =============================================================================
 if [[ $RUN_AFTER -eq 1 ]]; then
-    echo "==> запуск"
+    if [[ "$EMIT" == "asm" ]]; then
+        echo "warning: --run doesn't work with --emit asm, skipped" >&2
+        exit 0
+    fi
+    echo "==> run $ELF"
     echo "----------------------------------------"
     set +e
     "$ELF"

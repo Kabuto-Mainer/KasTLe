@@ -8,12 +8,7 @@
 
 static KTL_Process CURRENT_STAGE = {0};
 static const char* STAGE_TEXT[] = {
-    "[  0%] START TOKEN PROCESS\n",
-    "[ 20%] START PARSING\n",
-    "[ 40%] START ANALYZE\n",
-    "[ 60%] START CODE GENERATION\n",
-    "[ 80%] START GENERATION ELF\n",
-    "[100%] END COMPILATION\n"
+    #include "StageText.h"
 };
 
 

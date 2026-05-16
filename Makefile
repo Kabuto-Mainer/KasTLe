@@ -32,11 +32,11 @@ LDR_FLAGS  := -pie
 SRC_DIRS := Frontend Frontend/Tokenize Frontend/Parsing Frontend/Analysis \
             Frontend/Dump Backend/GenIR Backend/Gen Backend/IR Backend/Data \
 			Common Structs/TypeMap Structs/SymMap Structs/StrMap \
-            Structs/BackMap Structs/LabelMap Common/Std
+            Structs/BackMap Structs/LabelMap Common/Std System
 
 INCLUDES := $(addprefix -I,$(SRC_DIRS))
 
-SRC := compiler.cpp $(foreach d,$(SRC_DIRS),$(wildcard $(d)/*.cpp))
+SRC := $(foreach d,$(SRC_DIRS),$(wildcard $(d)/*.cpp))
 OBJ := $(SRC:%.cpp=$(OBJ_DIR)/%.o)
 DEP := $(OBJ:.o=.d)
 
@@ -67,14 +67,17 @@ run: $(BIN)
 
 clean:
 	@rm -rf $(OBJ_DIR) $(BIN_DIR)
-	@echo "✓ очищено"
+	@echo "All Cleared"
 
 help:
-	@echo "Цели:"
-	@echo "  make             собрать компилятор"
-	@echo "  make run         собрать и запустить (ARGS='...' для аргументов)"
-	@echo "  make clean       удалить артефакты"
+	@echo "Goals:"
+	@echo "  make             build compiler"
+	@echo "  make run         build & run (ARGS='...' for arguments)"
+	@echo "  make clean       clean all object's files"
 	@echo ""
-	@echo "  make run ARGS='-d hello.ktl --dump-ast dump.html'"
+	@echo "For fast compilation use ./KasTle:"
+	@echo "  ./ktl hello.ktl                generate own ELF (default)"
+	@echo "  ./ktl -e nasm hello.ktl        generate ELF by NASM + gcc"
+	@echo "  ./ktl -e asm hello.ktl         only .asm"
 
 -include $(DEP)
