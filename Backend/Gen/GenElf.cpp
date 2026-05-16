@@ -11,11 +11,12 @@
 
 static constexpr const char *STANDARD_LOADER = "/lib64/ld-linux-x86-64.so.2";
 // static constexpr const char *STANDARD_OUTPUT = "Bin/prog.elf";
-static constexpr const char *STANDARD_LIB    = "libc.so.6";
+static constexpr const char *STANDARD_LIB         = "libc.so.6";
+static constexpr const char *STANDARD_GRAPHIC_LIB = "libSDL2-2.0.so.0";
 static constexpr        int  STANDARD_HASH_SIZE = 32;
 static constexpr        int  SIZE_PLT_STAB      = 16;
 static constexpr   uint64_t  PAGE_SIZE      = 0x1000;
-static constexpr   uint64_t  DYNAMIC_AMOUNT = 12;
+static constexpr   uint64_t  DYNAMIC_AMOUNT = 13;
 
 // =====================================================================
 // HELPER DECLARATION
@@ -144,7 +145,7 @@ static void fill_import_symbol(KTL_ElfContext *cont) {
         }
     }
 
-    dynstr_size += strlen(STANDARD_LIB) + 1;
+    dynstr_size += strlen(STANDARD_LIB) + strlen(STANDARD_GRAPHIC_LIB) + 2;
 
     uint64_t hash_size    = get_size_hash(cont);
     cont->dynsym.file_off = cont->interp.file_off + cont->interp.size + hash_size;
@@ -174,6 +175,9 @@ static void fill_import_symbol(KTL_ElfContext *cont) {
     int pos = 1;
     memcpy(dynstr->bytes + pos, STANDARD_LIB, strlen(STANDARD_LIB) + 1);
     pos += strlen(STANDARD_LIB) + 1;
+    memcpy(dynstr->bytes + pos, STANDARD_GRAPHIC_LIB, strlen(STANDARD_GRAPHIC_LIB) + 1);
+    pos += strlen(STANDARD_GRAPHIC_LIB) + 1;
+
 
     syms[STN_UNDEF] = {};
     for (int i = 0; i < cont->import.size; i++) {
@@ -509,6 +513,9 @@ static void fill_dynamic(KTL_ElfContext *cont) {
 
     dyn[i].d_tag        = DT_NEEDED;
     dyn[i++].d_un.d_val = 1;
+
+    dyn[i].d_tag        = DT_NEEDED;
+    dyn[i++].d_un.d_val = 1 + strlen(STANDARD_LIB) + 1;
 
     dyn[i].d_tag        = DT_HASH;
     dyn[i++].d_un.d_ptr = cont->hash.vaddr;

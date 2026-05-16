@@ -7,6 +7,7 @@
 #include "BackIRType.h"
 #include "Common.h"
 #include "Gen.h"
+#include "StdType.h"
 
 // =====================================================================
 // TABLES
@@ -28,6 +29,10 @@ static const char *KTL_INSTR_NAMES[] = {
 
 static const char *KTL_MEM_PREFIX[] = {
     #include "Data_MemPrefix.h"
+};
+
+static const KTL_StandardFunc_Gen KTL_STANDARD_FUNC_INFO[] = {
+    #include "StdFuncData.h"
 };
 
 
@@ -74,10 +79,9 @@ KTL_Error KTL_GenerateNasm(KTL_BackIR_Buffer *text,
     fputc('\n', stream);
 
     fputs("section .text\n", stream);
-    fputs("    extern printf\n"
-          "    extern scanf\n"
-          "    extern calloc\n"
-          "    extern free\n", stream);
+    for (int i = 0; i < (int)sizeof(KTL_STANDARD_FUNC_INFO)/(int)sizeof(KTL_STANDARD_FUNC_INFO[0]); i++) {
+        fprintf(stream, "extern %s\n", KTL_STANDARD_FUNC_INFO[i].b_name);
+    }
     print_buffer(stream, text);
 
     return KTL_OK;

@@ -31,6 +31,23 @@ constexpr int KTL_CHAR_TYPE_ID = KTL_I8_TYPE_ID;
 
 constexpr int KTL_STANDARD_MAX_PARAM = 6;
 
+
+#define _VOID     {KTL_VOID_TYPE_ID,  0}
+
+#define _I8       {KTL_I8_TYPE_ID,  0}
+#define _I16      {KTL_I16_TYPE_ID, 0}
+#define _I32      {KTL_I32_TYPE_ID, 0}
+#define _I64      {KTL_I64_TYPE_ID, 0}
+
+#define _I8_ptr   {KTL_I8_TYPE_ID,  1}
+#define _I16_ptr  {KTL_I16_TYPE_ID, 1}
+#define _I32_ptr  {KTL_I32_TYPE_ID, 1}
+#define _I64_ptr  {KTL_I64_TYPE_ID, 1}
+
+
+
+
+
 struct KTL_StandardFunc_Type {
     KTL_TypeID base_type;
     int        ptr_lvl;

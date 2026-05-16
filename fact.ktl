@@ -1,6 +1,8 @@
 use print
 use scan
 
+include "fact_func.ktl"
+
 main {
     var i32 x = cast <i32> 10;
 
@@ -15,18 +17,4 @@ main {
     printf("Poltorashka\n");
 
     exit;
-}
-
-func i32 fact(i32 a) {
-    if (a == 1) {
-        return cast <i32> 1;
-    }
-    return a + fact( a - cast <i32> 1);
-}
-
-func i32 number_fibonacci(i64 num) {
-    if (num <= 2) {
-        return cast <i32> 1;
-    }
-    return number_fibonacci(num - 1) + number_fibonacci( num - 2);
 }

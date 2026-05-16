@@ -26,6 +26,8 @@ static KTL_TokenStatus ktl_token_number   (KTL_TokenContext *cont);
 static KTL_TokenStatus ktl_token_punct    (KTL_TokenContext *cont);
 static KTL_TokenStatus ktl_token_str_lit  (KTL_TokenContext *cont);
 static KTL_TokenStatus ktl_token_char     (KTL_TokenContext *cont);
+static KTL_TokenStatus ktl_token_include  (KTL_TokenContext *cont);
+static void            ktl_tokenize_loop  (KTL_TokenContext *cont);
 
 static KTL_Error       ktl_skip_trivia    (KTL_TokenContext *cont);
 static KTL_Error       ktl_add_token      (KTL_TokenContext *cont,
@@ -94,22 +96,7 @@ KTL_Error KTL_TokenProcess(KTL_TokenContext *cont) {
     assert(cont->str_map);
     assert(cont->diag);
 
-    while (true) {
-        ktl_skip_trivia(cont);
-        // ktl_dump_buffer(cont);
-        if (get_c(cont) == '\0')  break;
-
-        if (ktl_token_number  (cont) == KTL_TOKEN_THIS_OK)  continue;
-        if (ktl_token_char    (cont) == KTL_TOKEN_THIS_OK)  continue;
-        if (ktl_token_str_lit (cont) == KTL_TOKEN_THIS_OK)  continue;
-        if (ktl_token_word    (cont) == KTL_TOKEN_THIS_OK)  continue;
-        if (ktl_token_punct   (cont) == KTL_TOKEN_THIS_OK)  continue;
-
-        KTL_DiagEmit(cont->diag, cont->source_pos,
-                     KTL_DIAG_LEX_UNKNOWN_CHAR,
-                     KTL_DIAG_SEV_ERROR);
-        advance(cont);
-    }
+    ktl_tokenize_loop(cont);
 
     /* Create buffer with eof tokens */
     KTL_Token eof_token = {};
@@ -128,6 +115,7 @@ KTL_Error KTL_TokenUninit(KTL_TokenContext *cont) {
 
     free(cont->buffer);
     free(cont->tokens);
+
     cont->buffer = NULL;
     cont->tokens = NULL;
 
@@ -196,11 +184,6 @@ void KTL_TokenDump(KTL_TokenContext *cont) {
 // HELPER FUNCTIONS
 // =======================================================================
 
-// static inline void ktl_dump_buffer(KTL_TokenContext *cont) {
-//     assert(cont);
-//
-//     printf("=================\n%s\n=================\n", cont->buffer + cont->buffer_pos);
-// }
 
 static KTL_TokenStatus ktl_token_word(KTL_TokenContext *cont) {
     assert(cont);
@@ -438,6 +421,28 @@ static KTL_TokenStatus ktl_token_punct(KTL_TokenContext *cont) {
     return KTL_TOKEN_NOT_THIS;
 }
 
+static void ktl_tokenize_loop(KTL_TokenContext *cont) {
+    assert(cont);
+
+    while (true) {
+        ktl_skip_trivia(cont);
+        if (get_c(cont) == '\0')  break;
+
+        if (ktl_token_include (cont) == KTL_TOKEN_THIS_OK)  continue;
+
+        if (ktl_token_number  (cont) == KTL_TOKEN_THIS_OK)  continue;
+        if (ktl_token_char    (cont) == KTL_TOKEN_THIS_OK)  continue;
+        if (ktl_token_str_lit (cont) == KTL_TOKEN_THIS_OK)  continue;
+        if (ktl_token_word    (cont) == KTL_TOKEN_THIS_OK)  continue;
+        if (ktl_token_punct   (cont) == KTL_TOKEN_THIS_OK)  continue;
+
+        KTL_DiagEmit(cont->diag, cont->source_pos,
+                     KTL_DIAG_LEX_UNKNOWN_CHAR,
+                     KTL_DIAG_SEV_ERROR);
+        advance(cont);
+    }
+}
+
 static KTL_Error ktl_skip_trivia(KTL_TokenContext *cont) {
     assert(cont);
 
@@ -486,6 +491,100 @@ static KTL_Error ktl_skip_trivia(KTL_TokenContext *cont) {
         break;
     }
     return KTL_OK;
+}
+
+static KTL_TokenStatus ktl_token_include(KTL_TokenContext *cont) {
+    assert(cont);
+
+    const char *kw     = "include";
+    int         kw_len = (int) strlen(kw);
+
+    if (cont->buffer_pos + kw_len >= cont->buffer_capacity) {
+        return KTL_TOKEN_NOT_THIS;
+    }
+
+    for (int i = 0; i < kw_len; i++) {
+        if (cont->buffer[cont->buffer_pos + i] != kw[i]) {
+            return KTL_TOKEN_NOT_THIS;
+        }
+    }
+
+    char after = cont->buffer[cont->buffer_pos + kw_len];
+    if (ktl_is_id_cont(after)) {
+        return KTL_TOKEN_NOT_THIS;
+    }
+
+    KTL_SourcePos start_pos = cont->source_pos;
+    advance_n(cont, kw_len);
+
+    while (get_c(cont) == ' ' || get_c(cont) == '\t') {
+        advance(cont);
+    }
+
+    if (get_c(cont) != '"') {
+        KTL_DiagEmit(cont->diag, start_pos,
+                     KTL_DIAG_LEX_BAD_FILE,
+                     KTL_DIAG_SEV_ERROR);
+        return KTL_TOKEN_ERROR;
+    }
+    advance(cont);
+
+    char name_f[KTL_MAX_WORD_SIZE] = "";
+    int  name_len = 0;
+
+    while (get_c(cont) != '"'  &&
+           get_c(cont) != '\0' &&
+           get_c(cont) != '\n')
+    {
+        if (name_len + 1 >= KTL_MAX_WORD_SIZE) {
+            KTL_DiagEmit(cont->diag, start_pos,
+                         KTL_DIAG_LEX_BAD_FILE,
+                         KTL_DIAG_SEV_ERROR);
+            return KTL_TOKEN_ERROR;
+        }
+        name_f[name_len++] = get_c(cont);
+        advance(cont);
+    }
+    name_f[name_len] = '\0';
+
+    if (get_c(cont) != '"') {
+        KTL_DiagEmit(cont->diag, start_pos,
+                     KTL_DIAG_LEX_UNTERMINATED_STR,
+                     KTL_DIAG_SEV_ERROR);
+        return KTL_TOKEN_ERROR;
+    }
+    advance(cont);
+
+    char *new_buffer = ktl_sup_create_file_buffer(name_f);
+    if (new_buffer == NULL) {
+        KTL_DiagEmit(cont->diag, start_pos,
+                     KTL_DIAG_LEX_BAD_FILE,
+                     KTL_DIAG_SEV_ERROR);
+        return KTL_TOKEN_ERROR;
+    }
+
+    int new_size = ktl_sup_get_file_size(name_f);
+
+    char         *old_buffer       = cont->buffer;
+    int           old_buf_pos      = cont->buffer_pos;
+    int           old_buf_capacity = cont->buffer_capacity;
+    KTL_SourcePos old_source_pos   = cont->source_pos;
+
+    cont->buffer          = new_buffer;
+    cont->buffer_pos      = 0;
+    cont->buffer_capacity = new_size;
+    cont->source_pos.line   = 0;
+    cont->source_pos.column = 0;
+
+    ktl_tokenize_loop(cont);
+
+    free(new_buffer);
+    cont->buffer          = old_buffer;
+    cont->buffer_pos      = old_buf_pos;
+    cont->buffer_capacity = old_buf_capacity;
+    cont->source_pos      = old_source_pos;
+
+    return KTL_TOKEN_THIS_OK;
 }
 
 // =======================================================================
