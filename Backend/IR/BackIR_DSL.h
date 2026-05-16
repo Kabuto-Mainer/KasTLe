@@ -376,6 +376,7 @@ static void debug_emit_op(KTL_BackendContext *cont,
     int idx = 0;
     int size = 0;
     switch (op.kind) {
+
         case KTL_BACK_IR_OP_LABEL:      break;
 
         case KTL_BACK_IR_OP_IMM:        size = op.imm.size;     break;
@@ -386,6 +387,7 @@ static void debug_emit_op(KTL_BackendContext *cont,
 
         default:    break;
     }
+
     switch (size) {
 
     case 1:     idx = 3;    break;
