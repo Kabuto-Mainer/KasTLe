@@ -12,7 +12,7 @@ KTL_Error KTL_BackendInit(KTL_BackendContext *cont,
                           KTL_SymbolMap      *global_scope,
                           KTL_BackIR_Buffer  *text,
                           KTL_BackIR_Buffer  *data,
-                          KTL_BackIR_Buffer  *rodata
+                          KTL_BackIR_Buffer  *rodata,
                           FILE               *debug_out);
 #else
 KTL_Error KTL_BackendInit(KTL_BackendContext *cont,

@@ -101,14 +101,13 @@ KTL_StrID get_name       (KTL_StrMap *str_map, const char *prefix_1,
 // =======================================================================
 
 #ifdef EMIT_DEBUG
-
 KTL_Error KTL_BackendInit(KTL_BackendContext *cont,
                           KTL_TypeMap        *type_map,
                           KTL_StrMap         *str_map,
                           KTL_SymbolMap      *global_scope,
                           KTL_BackIR_Buffer  *text,
                           KTL_BackIR_Buffer  *data,
-                          KTL_BackIR_Buffer  *rodata
+                          KTL_BackIR_Buffer  *rodata,
                           FILE               *debug_out) {
     assert(cont);
     assert(type_map);
@@ -137,9 +136,7 @@ KTL_Error KTL_BackendInit(KTL_BackendContext *cont,
 
     return KTL_BackendTableInit(&cont->table);
 }
-
 #else
-
 KTL_Error KTL_BackendInit(KTL_BackendContext *cont,
                           KTL_TypeMap        *type_map,
                           KTL_StrMap         *str_map,

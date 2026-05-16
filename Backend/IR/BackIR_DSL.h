@@ -79,7 +79,7 @@
 // =======================================================================
 
 #ifdef EMIT_DEBUG
-static const char *KTL_REG_NAMES[KTL_REG_COUNT][4] = {
+static const char *KTL_REG_NAMES[][4] = {
     #include "Data_NameReg.h"
 };
 
@@ -378,28 +378,29 @@ static void debug_emit_op(KTL_BackendContext *cont,
     switch (op.kind) {
         case KTL_BACK_IR_OP_LABEL:      break;
 
-        case KTL_BACK_IR_OP_IMM:        size = op.imm.size;
-        case KTL_BACK_IR_OP_MEM:        size = op.mem.size;
-        case KTL_BACK_IR_OP_MEM_RIP:    size = op.mem_rip.size;
-        case KTL_BACK_IR_OP_REG:        size = op.reg.size;
-        case KTL_BACK_IR_OP_SYMBOL:     size = op.sym.size;
+        case KTL_BACK_IR_OP_IMM:        size = op.imm.size;     break;
+        case KTL_BACK_IR_OP_MEM:        size = op.mem.size;     break;
+        case KTL_BACK_IR_OP_MEM_RIP:    size = op.mem_rip.size; break;
+        case KTL_BACK_IR_OP_REG:        size = op.reg.size;     break;
+        case KTL_BACK_IR_OP_SYMBOL:     size = op.sym.size;     break;
 
-        default:
-            switch (idx) {
-            case 1:     idx = 0;    break;
-            case 2:     idx = 1;    break;
-            case 4:     idx = 2;    break;
-            case 8:     idx = 3;    break;
-
-            default:
-                idx = -1;
-            }
+        default:    break;
     }
+    switch (size) {
+
+    case 1:     idx = 3;    break;
+    case 2:     idx = 2;    break;
+    case 4:     idx = 1;    break;
+    case 8:     idx = 0;    break;
+
+    default:    break;
+    }
+
 
     switch (op.kind) {
 
     case KTL_BACK_IR_OP_IMM: {
-        fprintf(cont->debug_emit, "%s %0x  ", KTL_IMM_PREFIX[idx], op.imm.imm);
+        fprintf(cont->debug_emit, "%s 0x%0x  ", KTL_IMM_PREFIX[idx], op.imm.imm);
         return ;
     }
 
@@ -409,11 +410,11 @@ static void debug_emit_op(KTL_BackendContext *cont,
     }
     case KTL_BACK_IR_OP_MEM: {
         fprintf(cont->debug_emit, "%s ", KTL_MEM_PREFIX[idx]);
-        fprintf(cont->debug_emit, "[%s ", KTL_REG_NAMES[op.mem.base][4]);
+        fprintf(cont->debug_emit, "[%s ", KTL_REG_NAMES[op.mem.base][0]);
         if (op.mem.idx != KTL_REG_INVALID) {
-            fprintf(cont->debug_emit, "%s * %0x ", KTL_REG_NAMES[op.mem.idx][4], op.mem.scale);
+            fprintf(cont->debug_emit, "%s * 0x%0x ", KTL_REG_NAMES[op.mem.idx][0], op.mem.scale);
         }
-        fprintf(cont->debug_emit, "%0x]", op.mem.offset);
+        fprintf(cont->debug_emit, "+ 0x%0x]", op.mem.offset);
         return ;
     }
     case KTL_BACK_IR_OP_MEM_RIP: {
@@ -460,13 +461,13 @@ static void debug_emit_zero(KTL_BackendContext *cont,
 static void debug_emit_byte(KTL_BackendContext *cont,
                             KTL_StrID bytes, int len) {
     for (int i = 0; i < len; i++) {
-        fprintf(cont->debug_emit, "%x", bytes[i]);
+        fprintf(cont->debug_emit, "0x%0x", bytes[i]);
     }
 }
 
 static void debug_emit_imm(KTL_BackendContext *cont,
                            uint64_t value, int size) {
-    fprintf(cont->debug_emit, "[%d] %x", size, value);
+    fprintf(cont->debug_emit, "[%d] 0x%0x", size, value);
 }
 
 static void debug_emit_section_txt(KTL_BackendContext *cont) {

@@ -13,7 +13,7 @@
 // =====================================================================
 
 /*   idx:   0=8byte, 1=4byte, 2=2byte, 3=1byte */
-static const char *KTL_REG_NAMES[KTL_REG_COUNT][4] = {
+static const char *KTL_REG_NAMES[][4] = {
     #include "Data_NameReg.h"
 };
 

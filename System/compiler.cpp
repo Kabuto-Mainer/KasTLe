@@ -26,6 +26,10 @@ struct KTL_Options {
     int          verbose;
 };
 
+#ifdef EMIT_DEBUG
+static const char *DEBUG_EMIT_OUTPUT = "System/emit.asm";
+#endif
+
 static int  compile    (const KTL_Options *opts);
 static void print_usage(const char *prog);
 static int  parse_args (int argc, char **argv, KTL_Options *opts);
@@ -117,6 +121,10 @@ static int compile(const KTL_Options *opts) {
                         rodata = {};
     FILE *out = NULL;
 
+#ifdef EMIT_DEBUG
+    FILE *debug = fopen(DEBUG_EMIT_OUTPUT, "wb");
+#endif
+
     KTL_StrMapCreate(&str_map, 5000);
     KTL_DiagCreate(&diag, 10);
 
@@ -147,19 +155,27 @@ static int compile(const KTL_Options *opts) {
     KTL_BackIR_Init(&text);
     KTL_BackIR_Init(&data);
     KTL_BackIR_Init(&rodata);
+
+#ifdef EMIT_DEBUG
+    KTL_BackendInit(&back_cont, &type_map, &str_map,
+                    an_cont.global_scope, &text, &data, &rodata, debug);
+#else
     KTL_BackendInit(&back_cont, &type_map, &str_map,
                     an_cont.global_scope, &text, &data, &rodata);
+#endif
+
 
     _NEXT_STAGE;
     _PRINT_STAGE;
     KTL_BackendRun(&back_cont, an_cont.root);
 
+#ifdef EMIT_DEBUG
+    fclose(debug);
+#endif
+
     _NEXT_STAGE;
     _PRINT_STAGE;
 
-    // =========================================================================
-    // Вывод по выбранному режиму
-    // =========================================================================
     out = fopen(opts->output, "wb");
     if (out == NULL) {
         perror(opts->output);

@@ -12,7 +12,7 @@ OBJ_DIR  := build
 WARNINGS := -Wall -Wextra -Wshadow -Wcast-align -Wcast-qual -Wconversion \
             -Wformat=2 -Wformat-security -Wpointer-arith -Wredundant-decls \
             -Wundef -Wunreachable-code -Wunused -Wcomma \
-            -Wtautological-compare
+            -Wtautological-compare -DEMIT_DEBUG
 
 CD_FLAGS   := -std=c++20 -g -O0 -D_DEBUG $(WARNINGS) \
               -fno-omit-frame-pointer -fstack-protector-strong \
