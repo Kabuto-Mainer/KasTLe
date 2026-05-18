@@ -1,0 +1,39 @@
+include "graphic.ktl"
+use print
+
+main {
+    var i64 WIDTH  = 64;
+    var i64 HEIGHT = 64;
+
+    var i64 RADIUS = WIDTH / 2;
+
+    gfx_init(cast<i32> WIDTH + 1, cast<i32> HEIGHT + 1, cast<i32> 10);
+
+    var i32 color_b = gfx_get_color(cast<i8> 0,   cast<i8> 0,   cast<i8> 0);
+    var i32 color_w = gfx_get_color(cast<i8> 255, cast<i8> 127, cast<i8> 255);
+
+    printf("%x\n%x\n", color_b, color_w);
+    printf("%d\n", RADIUS);
+
+    for (var i64 x = 0; x < WIDTH; x = x + 1) {
+        for (var i64 y = 0; y < HEIGHT; y = y + 1) {
+            if ((x - RADIUS) * (x - RADIUS) +
+                (y - RADIUS) * (y - RADIUS) < 888) {
+                gfx_pixel(cast<i32> x, cast<i32> y, color_w);
+            }
+            else {
+                gfx_pixel(cast<i32> x, cast<i32>y, color_b);
+            }
+        }
+    }
+    // gfx_pixel(0, 0, 12345);
+    gfx_present();
+    while (1) {
+        if (gfx_poll_event() == 1) {
+            break;
+        }
+    }
+    gfx_close();
+
+    exit;
+}

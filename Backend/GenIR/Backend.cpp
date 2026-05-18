@@ -1354,6 +1354,11 @@ static void emit_oper(KTL_BackendContext *cont, KTL_AstNode *node) {
         }
         else {
             _CQO;
+
+            emit_push(cont, KTL_REG_RAX);
+            _MOV(_REG_64(_NR(RAX)), _REG_64(_NR(RDI)));
+            emit_pop(cont, KTL_REG_RDI);
+
             _IDIV1(_REG_64(_NR(RDI)));
             if (op == KTL_OPER_MOD) {
                 _MOV(_REG_64(_NR(RAX)), _REG_64(_NR(RDX)));

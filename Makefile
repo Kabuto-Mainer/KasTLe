@@ -34,11 +34,16 @@ SRC_DIRS := Frontend Frontend/Tokenize Frontend/Parsing Frontend/Analysis \
 			Common Structs/TypeMap Structs/SymMap Structs/StrMap \
             Structs/BackMap Structs/LabelMap Common/Std System
 
+STD_GFX  := System/gfx
+
 INCLUDES := $(addprefix -I,$(SRC_DIRS))
 
 SRC := $(foreach d,$(SRC_DIRS),$(wildcard $(d)/*.cpp))
 OBJ := $(SRC:%.cpp=$(OBJ_DIR)/%.o)
 DEP := $(OBJ:.o=.d)
+
+SRC_GFX := $(foreach d,$(STD_GFX),$(wildcard $(d)/*.cpp))
+
 
 BIN := $(BIN_DIR)/$(TARGET).elf
 
@@ -61,6 +66,9 @@ $(OBJ_DIR)/%.o: %.cpp
 
 $(BIN_DIR):
 	@mkdir -p $@
+
+gfx:
+	gcc -shared -fPIC -O2 $(SRC_GFX) -lSDL2 -o $(STD_GFX)/libgfx.so
 
 run: $(BIN)
 	./$(BIN) $(ARGS)

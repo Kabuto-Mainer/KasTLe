@@ -1,0 +1,13 @@
+use gfx_init
+use gfx_close
+use gfx_clear
+use gfx_pixel
+use gfx_rect
+use gfx_present
+use gfx_delay
+use gfx_poll_event
+use gfx_key_pressed
+use gfx_mouse_x
+use gfx_mouse_y
+use gfx_mouse_pressed
+use gfx_get_color

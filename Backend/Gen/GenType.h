@@ -141,6 +141,7 @@ struct KTL_ElfContext {
 
     uint64_t virt_adr;
     uint32_t phdr_amount;
+    uint32_t path_offset;
 };
 
 

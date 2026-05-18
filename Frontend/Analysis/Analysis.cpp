@@ -66,7 +66,7 @@ static KTL_TypeCastKind check_type_compat_cast(KTL_TypeMap *map,
                                                KTL_TypeID   target,
                                                KTL_TypeID   source);
 static KTL_TypeID find_type_by_name_field     (KTL_TypeEntry *entry, KTL_StrID name);
-static bool apply_type_compat                 (KTL_AnalysisContext *cont,
+static bool       apply_type_compat           (KTL_AnalysisContext *cont,
                                                KTL_AstNode         *node,
                                                KTL_TypeID           target,
                                                KTL_TypeID           source);

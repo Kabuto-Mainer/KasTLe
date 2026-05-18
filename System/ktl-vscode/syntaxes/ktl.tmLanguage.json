@@ -65,7 +65,7 @@
 
     "keywords-decl": {
       "name": "keyword.other.ktl",
-      "match": "\\b(var|func|typedef|block|use|cast)\\b"
+      "match": "\\b(var|func|typedef|block|use|cast|include)\\b"
     },
 
     "keywords-operator": {

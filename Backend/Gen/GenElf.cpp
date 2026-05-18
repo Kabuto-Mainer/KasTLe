@@ -9,14 +9,19 @@
 // CONSTANTS
 // =====================================================================
 
+static const char *STANDARD_LIBS[] = {
+    "libc.so.6",
+    "libgfx.so",
+    "libSDL2-2.0.so.0"
+};
+static constexpr        int  AMOUNT_STD_LIBS = sizeof(STANDARD_LIBS)/sizeof(STANDARD_LIBS[0]);
+static const char           *LIB_PATH = "$ORIGIN/System/gfx";
 static constexpr const char *STANDARD_LOADER = "/lib64/ld-linux-x86-64.so.2";
-// static constexpr const char *STANDARD_OUTPUT = "Bin/prog.elf";
-static constexpr const char *STANDARD_LIB         = "libc.so.6";
-static constexpr const char *STANDARD_GRAPHIC_LIB = "libSDL2-2.0.so.0";
 static constexpr        int  STANDARD_HASH_SIZE = 32;
 static constexpr        int  SIZE_PLT_STAB      = 16;
 static constexpr   uint64_t  PAGE_SIZE      = 0x1000;
-static constexpr   uint64_t  DYNAMIC_AMOUNT = 13;
+static constexpr   uint64_t  DYNAMIC_AMOUNT = 12 + AMOUNT_STD_LIBS;
+static constexpr        int  PHDR_AMOUNT = 6;
 
 // =====================================================================
 // HELPER DECLARATION
@@ -62,7 +67,7 @@ void KTL_ElfEmit(KTL_GenContext *cont, FILE *stream) {
     elf_cont.gen_cont = cont;
     elf_cont.stream   = stream;
     elf_cont.virt_adr = 0x40'00'00;
-    elf_cont.phdr_amount = 6;
+    elf_cont.phdr_amount = PHDR_AMOUNT;
 
     fill_interp        (&elf_cont);
     fill_import_symbol (&elf_cont);
@@ -145,7 +150,10 @@ static void fill_import_symbol(KTL_ElfContext *cont) {
         }
     }
 
-    dynstr_size += strlen(STANDARD_LIB) + strlen(STANDARD_GRAPHIC_LIB) + 2;
+    for (int i = 0; i < AMOUNT_STD_LIBS; i++) {
+        dynstr_size += strlen(STANDARD_LIBS[i]) + 1;
+    }
+    dynstr_size += strlen(LIB_PATH) + 1;
 
     uint64_t hash_size    = get_size_hash(cont);
     cont->dynsym.file_off = cont->interp.file_off + cont->interp.size + hash_size;
@@ -173,11 +181,13 @@ static void fill_import_symbol(KTL_ElfContext *cont) {
     dynstr->len   = dynstr_size;
 
     int pos = 1;
-    memcpy(dynstr->bytes + pos, STANDARD_LIB, strlen(STANDARD_LIB) + 1);
-    pos += strlen(STANDARD_LIB) + 1;
-    memcpy(dynstr->bytes + pos, STANDARD_GRAPHIC_LIB, strlen(STANDARD_GRAPHIC_LIB) + 1);
-    pos += strlen(STANDARD_GRAPHIC_LIB) + 1;
-
+    for (int i = 0; i < AMOUNT_STD_LIBS; i++) {
+        memcpy(dynstr->bytes + pos, STANDARD_LIBS[i], strlen(STANDARD_LIBS[i]) + 1);
+        pos += strlen(STANDARD_LIBS[i]) + 1;
+    }
+    cont->path_offset = pos;
+    memcpy(dynstr->bytes + pos, LIB_PATH, strlen(LIB_PATH) + 1);
+    pos += strlen(LIB_PATH) + 1;
 
     syms[STN_UNDEF] = {};
     for (int i = 0; i < cont->import.size; i++) {
@@ -510,12 +520,13 @@ static void fill_dynamic(KTL_ElfContext *cont) {
     if (dyn == NULL)    ExitF("NULL calloc", );
 
     int i = 0;
+    int dynstr_idx = 1;
 
-    dyn[i].d_tag        = DT_NEEDED;
-    dyn[i++].d_un.d_val = 1;
-
-    dyn[i].d_tag        = DT_NEEDED;
-    dyn[i++].d_un.d_val = 1 + strlen(STANDARD_LIB) + 1;
+    for (int j = 0; j < AMOUNT_STD_LIBS; j++) {
+        dyn[i].d_tag        = DT_NEEDED;
+        dyn[i++].d_un.d_val = (Elf64_Xword)dynstr_idx;
+        dynstr_idx += strlen(STANDARD_LIBS[j]) + 1;
+    }
 
     dyn[i].d_tag        = DT_HASH;
     dyn[i++].d_un.d_ptr = cont->hash.vaddr;
@@ -543,6 +554,9 @@ static void fill_dynamic(KTL_ElfContext *cont) {
 
     dyn[i].d_tag        = DT_PLTREL;
     dyn[i++].d_un.d_val = DT_RELA;
+
+    dyn[i].d_tag        = DT_RUNPATH;
+    dyn[i++].d_un.d_val = cont->path_offset;
 
     dyn[i].d_tag        = DT_RELAENT;
     dyn[i++].d_un.d_val = sizeof(Elf64_Rela);
@@ -603,7 +617,7 @@ static void emit_elf_header(KTL_ElfContext *cont) {
     hdr.e_phoff     = sizeof(Elf64_Ehdr);
     hdr.e_ehsize    = sizeof(Elf64_Ehdr);
     hdr.e_phentsize = sizeof(Elf64_Phdr);
-    hdr.e_phnum     = 6;
+    hdr.e_phnum     = PHDR_AMOUNT;
 
     fwrite(&hdr, sizeof(hdr), 1, cont->stream);
 }
@@ -611,7 +625,7 @@ static void emit_elf_header(KTL_ElfContext *cont) {
 static void emit_elf_phdr(KTL_ElfContext *cont) {
     assert(cont);
 
-    Elf64_Phdr ph[6] = {};
+    Elf64_Phdr ph[PHDR_AMOUNT] = {};
 
     ph[0].p_type   = PT_PHDR;
     ph[0].p_offset = sizeof(Elf64_Ehdr);
@@ -619,7 +633,7 @@ static void emit_elf_phdr(KTL_ElfContext *cont) {
     ph[0].p_vaddr = cont->virt_adr + sizeof(Elf64_Ehdr);
     ph[0].p_paddr = ph[0].p_vaddr;
 
-    ph[0].p_filesz = 6 * sizeof(Elf64_Phdr);
+    ph[0].p_filesz = PHDR_AMOUNT * sizeof(Elf64_Phdr);
     ph[0].p_memsz = ph[0].p_filesz;
 
     ph[0].p_flags = PF_R;

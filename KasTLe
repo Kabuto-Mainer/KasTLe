@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# ktl - запуск KasTle-компилятора на исходнике
 set -euo pipefail
 
 COMPILER="./Bin/KasTle.elf"
-EMIT="elf"        # asm | elf | nasm
+EMIT="elf"
 RUN_AFTER=0
 DUMP_AST=0
 
@@ -12,18 +11,18 @@ usage() {
 Usage: $(basename "$0") [options] <source>
 
 Options:
-  -e, --emit MODE   что генерировать (default: elf)
-                      elf    — ELF собственным генератором
-                      asm    — только .asm
-                      nasm   — ELF через nasm + gcc
-  -r, --run         запустить итоговый бинарь (для elf/nasm)
-  -d, --dump-ast    сдампить AST в dump.html
-  -h, --help        показать справку
+  -e, --emit MODE   type of result file (default: elf)
+                      elf    — own ELF generation
+                      asm    — only .asm
+                      nasm   — NASM + gcc generation
+  -r, --run         run result elf file (for elf/nasm)
+  -d, --dump-ast    dump AST to dump.html
+  -h, --help        show help
 
 Examples:
-  ./ktl hello.ktl                # ELF своим генератором -> ./hello
+  ./ktl hello.ktl                # own ELF -> ./hello
   ./ktl -e asm hello.ktl         # .asm -> ./hello.asm
-  ./ktl -e nasm -r hello.ktl     # ELF через nasm + запуск
+  ./ktl -e nasm -r hello.ktl     # NASM + gcc
 EOF
 }
 
