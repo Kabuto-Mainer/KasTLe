@@ -42,8 +42,8 @@ int32_t gfx_init(int32_t w, int32_t h, int32_t scale) {
         SDL_Quit();
         return -1;
     }
-
-    SDL_SetRenderDrawColor(g_ren, 0, 0, 0, 255);
+    SDL_SetRenderDrawBlendMode(g_ren, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(g_ren, 0, 0, 0, 0);
     SDL_RenderClear(g_ren);
     SDL_RenderPresent(g_ren);
 
@@ -59,16 +59,26 @@ void gfx_close(void) {
 }
 
 static void set_color(int32_t color) {
+    uint8_t a = (color >> 24) & 0xFF;
     uint8_t r = (color >> 16) & 0xFF;
     uint8_t g = (color >>  8) & 0xFF;
     uint8_t b = (color >>  0) & 0xFF;
-    SDL_SetRenderDrawColor(g_ren, r, g, b, 255);
+    SDL_SetRenderDrawColor(g_ren, r, g, b, a);
 }
 
 int32_t gfx_get_color(uint8_t r, uint8_t g, uint8_t b) {
     int32_t color = b & 0xFF;
     color |= (g & 0xFF) << 8;
     color |= (r & 0xFF) << 16;
+    color |= 0xFF << 24;
+    return color;
+}
+
+int32_t gfx_get_color_shadow(uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
+    int32_t color = b & 0xFF;
+    color |= (g & 0xFF) << 8;
+    color |= (r & 0xFF) << 16;
+    color |= (a & 0xFF) << 24;
     return color;
 }
 
@@ -145,3 +155,5 @@ int32_t gfx_key_pressed(int32_t scancode) {
 int32_t gfx_mouse_x(void)       { return g_mouse_x; }
 int32_t gfx_mouse_y(void)       { return g_mouse_y; }
 int32_t gfx_mouse_pressed(void) { return g_mouse_pressed; }
+
+

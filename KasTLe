@@ -26,9 +26,6 @@ Examples:
 EOF
 }
 
-# =============================================================================
-# Аргументы
-# =============================================================================
 SOURCE=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -36,7 +33,7 @@ while [[ $# -gt 0 ]]; do
             EMIT="$2"
             case "$EMIT" in
                 asm|elf|nasm) ;;
-                *) echo "error: неизвестный режим: $EMIT (asm|elf|nasm)" >&2; exit 1 ;;
+                *) echo "error: unknown mode: $EMIT (asm|elf|nasm)" >&2; exit 1 ;;
             esac
             shift 2 ;;
         -r|--run)       RUN_AFTER=1; shift ;;
@@ -45,42 +42,33 @@ while [[ $# -gt 0 ]]; do
         -*)             echo "unknown option: $1" >&2; usage; exit 1 ;;
         *)
             if [[ -n "$SOURCE" ]]; then
-                echo "error: несколько исходников" >&2; exit 1
+                echo "error: must be only one source" >&2; exit 1
             fi
             SOURCE="$1"; shift ;;
     esac
 done
 
 if [[ -z "$SOURCE" ]]; then
-    echo "error: не указан исходный файл" >&2
+    echo "error: no source file" >&2
     usage; exit 1
 fi
 if [[ ! -f "$SOURCE" ]]; then
-    echo "error: файл не найден: $SOURCE" >&2
+    echo "error: file is undefined: $SOURCE" >&2
     exit 1
 fi
 
-# =============================================================================
-# Сборка компилятора (make сам решит, что пересобирать)
-# =============================================================================
 echo "==> Build KasTLe"
 make -s
 
-# =============================================================================
-# Имена выходных файлов
-# =============================================================================
 NAME="$(basename "${SOURCE%.*}")"
 ASM="$NAME.asm"
 OBJ="$NAME.o"
 ELF="./$NAME"
 
-# Общие аргументы для компилятора
 COMPILE_ARGS=("$SOURCE")
 [[ $DUMP_AST -eq 1 ]] && COMPILE_ARGS+=(--dump-ast dump.html)
 
-# =============================================================================
-# Сборка по режиму
-# =============================================================================
+
 case "$EMIT" in
     asm)
         echo "==> Compilation to ASM: $SOURCE -> $ASM"

@@ -11,3 +11,4 @@ use gfx_mouse_x
 use gfx_mouse_y
 use gfx_mouse_pressed
 use gfx_get_color
+use gfx_get_color_shadow

@@ -560,6 +560,7 @@ static KTL_TypeID analyze_type_expr(KTL_AnalysisContext *cont,
     case KTL_AST_INDEX_ACCESS: {
         debug_out("INDEX ACCESS\n");
         KTL_TypeID base_type = analyze_type_expr(cont, node->move.binary.left);
+        // printf("BASE TYPE INDEX: %d\n", base_type);
         debug_out("BASE TYPE IN ACCESS INDEX = %d\n", base_type);
         if (base_type == KTL_BAD_TYPE_ID)  return KTL_BAD_TYPE_ID;
 

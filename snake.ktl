@@ -1,0 +1,88 @@
+include "graphic.ktl"
+
+block pix {
+    i64 x_pix;
+    i64 y_pix;
+}
+
+main {
+    var i64 WIDTH  = 64;
+    var i64 HEIGHT = 64;
+
+    var i32 cap_snake = 10;
+    var pix[10] SNAKE;
+
+
+    gfx_init(cast<i32> WIDTH, cast<i32> HEIGHT, cast<i32> 10);
+
+    var i32 color_b = gfx_get_color(cast<i8> 0,   cast<i8> 0,   cast<i8> 0);
+    var i32 color_w = gfx_get_color(cast<i8> 255, cast<i8> 127, cast<i8> 255);
+
+    var i64 x = 0;
+    var i64 y = 0;
+
+    var i64 pos = 0;
+
+    var i32 sc_up    = 82;
+    var i32 sc_down  = 81;
+    var i32 sc_left  = 80;
+    var i32 sc_right = 79;
+
+    var i32 active = 0;
+
+    while (1) {
+        if (gfx_poll_event() == 1) {
+            break;
+        }
+
+        if (gfx_key_pressed(sc_up)) {
+            y = y - 1;
+            y = y % WIDTH;
+            active = 1;
+        }
+        elif (gfx_key_pressed(sc_down)) {
+            y = y + 1;
+            y = y % WIDTH;
+            active = 1;
+        }
+        elif (gfx_key_pressed(sc_left)) {
+            x = x - 1;
+            x = x % HEIGHT;
+            active = 1;
+        }
+        elif (gfx_key_pressed(sc_right)) {
+            x = x + 1;
+            x = x % HEIGHT;
+            active = 1;
+        }
+
+        if (active) {
+            var pix new_pix;
+            new_pix.x_pix = cast<i32> x;
+            new_pix.y_pix = cast<i32> y;
+
+            SNAKE[pos] = new_pix;
+
+            pos = pos + 1;
+            pos = pos % cap_snake;
+        }
+
+        gfx_clear(color_b);
+        for (var i32 i = 0; i < cap_snake; i = i + 1) {
+            gfx_pixel(cast<i32> SNAKE[i].x_pix, cast<i32> SNAKE[i].y_pix, color_w);
+        }
+
+        gfx_present();
+        gfx_delay(10);
+        continue;
+    }
+    gfx_close();
+    exit;
+}
+
+func bool need_to_add(i32 size, i32 capacity) {
+    if (size >= capacity) {
+        return cast<bool> 1;
+    }
+    return cast<bool> 0;
+}

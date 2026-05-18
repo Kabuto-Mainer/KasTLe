@@ -833,7 +833,7 @@ static void emit_load_address(KTL_BackendContext *cont, KTL_AstNode *node) {
             emit_expr(cont, base);
 
             KTL_TypeEntry *struct_type = KTL_TypeGetEntry(cont->type_map,
-                                                          base_type->dt.ptr.prev_type);
+                                                base_type->dt.ptr.prev_type);
             int offset = get_offset_field(struct_type, node->data.field.name);
             if (offset != 0) {
                 _ADD(_REG_64(_NR(RAX)), _IMM_64(offset));
@@ -841,6 +841,9 @@ static void emit_load_address(KTL_BackendContext *cont, KTL_AstNode *node) {
         }
         else {
             emit_load_address(cont, base);
+
+        // printf("BASE TYPE: %s\n", node->data.field.name);
+        // printf("BASE TYPE: %d\n", base_type->kind);
 
             int offset = get_offset_field(base_type, node->data.field.name);
             if (offset != 0) {

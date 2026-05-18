@@ -18,3 +18,4 @@
     { "gfx_mouse_y",       "gfx_mouse_y",       _I32,  {                            }, 0, false },
     { "gfx_mouse_pressed", "gfx_mouse_pressed", _I32,  {                            }, 0, false },
     { "gfx_get_color",     "gfx_get_color",     _I32,  { _I8,  _I8,  _I8            }, 3, false },
+    { "gfx_get_color_shadow","gfx_get_color_shadow",     _I32,  { _I8,  _I8,  _I8, _I8}, 4, false },

@@ -14,6 +14,9 @@ static const char *STANDARD_LIBS[] = {
     "libgfx.so",
     "libSDL2-2.0.so.0"
 };
+
+//  TODO: Слинковать еще одну библиотеку для теста
+
 static constexpr        int  AMOUNT_STD_LIBS = sizeof(STANDARD_LIBS)/sizeof(STANDARD_LIBS[0]);
 static const char           *LIB_PATH = "$ORIGIN/System/gfx";
 static constexpr const char *STANDARD_LOADER = "/lib64/ld-linux-x86-64.so.2";
@@ -497,7 +500,7 @@ static void fill_got_plt(KTL_ElfContext *cont) {
 
     cont->got_plt.data.bytes = (uint8_t *)calloc((size_t)get_got_plt_size(cont), sizeof(uint8_t));
     if (cont->got_plt.data.bytes == NULL)   ExitF("NULL calloc", );
-    cont->got_plt.data.len  = get_got_plt_size(cont);
+    cont->got_plt.data.len   = get_got_plt_size(cont);
 
 
     uint64_t *data = (uint64_t *)cont->got_plt.data.bytes; // Correct
@@ -510,6 +513,7 @@ static void fill_got_plt(KTL_ElfContext *cont) {
     for (int i = 0; i < cont->import.size; i++) {
         data[pos++] = cont->plt.vaddr + (uint64_t)(i + 1) * SIZE_PLT_STAB + 6;
     }
+
     return ;
 }
 

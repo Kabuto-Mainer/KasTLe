@@ -22,7 +22,7 @@ CD_FLAGS   := -std=c++20 -g -O0 -D_DEBUG $(WARNINGS) \
 LDD_FLAGS  := -fsanitize=address,undefined -pie
 
 
-CR_FLAGS   := -std=c++20 -O3 -DNDEBUG $(WARNINGS) -fPIE -MMD -MP
+CR_FLAGS   := -std=c++20 -O3 -DNDEBUG $(WARNINGS) -fPIE -MMD -MP -DEMIT_DEBUG
 LDR_FLAGS  := -pie
 
 
@@ -68,7 +68,8 @@ $(BIN_DIR):
 	@mkdir -p $@
 
 gfx:
-	gcc -shared -fPIC -O2 $(SRC_GFX) -lSDL2 -o $(STD_GFX)/libgfx.so
+	gcc -c -fPIC $(STD_GFX)/gfx.c -o $(STD_GFX)/gfx.o
+	gcc -shared $(STD_GFX)/gfx.o -o $(STD_GFX)/libgfx.so
 
 run: $(BIN)
 	./$(BIN) $(ARGS)

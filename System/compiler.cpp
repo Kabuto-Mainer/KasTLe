@@ -37,12 +37,11 @@ static int  parse_args (int argc, char **argv, KTL_Options *opts);
 static void print_usage(const char *prog) {
     fprintf(stderr,
         "Usage: %s [options] <source>\n"
-        "  -o, --output <file>     output path (default: a.out для elf, out.asm для asm)\n"
-        "      --emit-elf          сгенерировать ELF собственным генератором (default)\n"
-        "      --emit-asm          сгенерировать NASM-ассемблер\n"
-        "  -d, --dump-ast <file>   сдампить AST в HTML\n"
-        "  -v, --verbose           подробный вывод\n"
-        "  -h, --help              справка\n",
+        "  -o, --output <file>     output path (default: a.out for elf, out.asm for asm)\n"
+        "      --emit-elf          own ELF generate (default)\n"
+        "      --emit-asm          asm file\n"
+        "  -d, --dump-ast <file>   dump AST to HTML\n"
+        "  -h, --help              help\n",
         prog);
 }
 
@@ -151,6 +150,9 @@ static int compile(const KTL_Options *opts) {
     _PRINT_STAGE;
     KTL_AnalysisProcess(&an_cont);
     if (diag.error_count > 0) { ret_val = 1; goto cleanup; }
+
+        // KTL_AstDumpRaw(parse_cont.root, &str_map, parse_cont.global_map,
+        //                &type_map, opts->dump_ast_path);
 
     KTL_BackIR_Init(&text);
     KTL_BackIR_Init(&data);

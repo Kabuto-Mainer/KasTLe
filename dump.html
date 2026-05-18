@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>AST dump</title>
+<style>
+  :root {
+    --bg:        #1e1e1e;
+    --bg2:       #252525;
+    --bg3:       #2a2a2a;
+    --fg:        #d4d4d4;
+    --muted:     #7a7a7a;
+    --accent:    #4ec9b0;
+    --decl:      #569cd6;
+    --ctrl:      #c586c0;
+    --expr:      #dcdcaa;
+    --leaf:      #9cdcfe;
+    --block:     #808080;
+    --bad:       #f48771;
+    --ok:        #6abf69;
+    --warn:      #d7ba7d;
+    --hl:        rgba(78, 201, 176, 0.22);
+  }
+  body { background: var(--bg); color: var(--fg);
+         font-family: 'JetBrains Mono','Cascadia Mono',monospace;
+         font-size: 13px; padding: 16px; margin: 0; }
+  .toolbar { position: sticky; top: 0; background: var(--bg);
+             padding: 8px 0; border-bottom: 1px solid #333;
+             margin-bottom: 8px; z-index: 10; display: flex;
+             gap: 6px; align-items: center; flex-wrap: wrap; }
+  .toolbar button { background: var(--bg3); color: var(--fg);
+                    border: 1px solid #444; padding: 4px 10px;
+                    cursor: pointer; font-family: inherit; font-size: 12px; }
+  .toolbar button:hover { background: #3a3a3a; }
+  .toolbar label { font-size: 12px; color: var(--muted);
+                   user-select: none; cursor: pointer;
+                   margin-left: 8px; }
+  .toolbar label input { vertical-align: middle; margin-right: 3px; }
+  .toolbar .stage-badge { margin-left: auto; padding: 2px 10px;
+                          border-radius: 3px; background: var(--bg3);
+                          font-size: 12px; }
+  .toolbar .stage-badge.parse    { color: var(--warn); }
+  .toolbar .stage-badge.resolved { color: var(--decl); }
+  .toolbar .stage-badge.analyzed { color: var(--ok); }
+  .toolbar .stage-badge.errors   { color: var(--bad);
+                                   border: 1px solid var(--bad); }
+
+  details { margin-left: 14px; border-left: 1px solid #2f2f2f;
+            padding-left: 8px; }
+  details > summary { cursor: pointer; padding: 2px 4px;
+                      list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before { content: '\25B8\00A0'; color: var(--muted); }
+  details[open] > summary::before { content: '\25BE\00A0'; }
+  .node { margin: 1px 0; }
+  .leaf { margin-left: 14px; padding: 2px 4px 2px 22px;
+          border-left: 1px solid #2f2f2f; }
+  .kind { color: var(--muted); margin-right: 6px; font-size: 11px; }
+  .name { color: var(--accent); }
+  .type { color: #ce9178; }
+  .op   { color: var(--expr); font-weight: bold; }
+  .lit  { color: #b5cea8; }
+  .str  { color: #ce9178; }
+  .raw  { color: var(--warn); font-style: italic; font-size: 10px;
+          margin-left: 6px; }
+  .pos  { color: var(--muted); float: right; font-size: 11px; }
+
+  .annot { color: var(--accent); opacity: 0.65;
+           margin-left: 8px; font-size: 11px; font-weight: normal; }
+  .annot .type { color: var(--accent); }
+  .annot.bad { color: var(--bad); opacity: 1; font-weight: bold; }
+  body.hide-annot .annot { display: none; }
+
+  /* sections */
+  details.section { margin: 0 0 12px 0; border-left: 3px solid var(--decl);
+                    padding-left: 10px; background: var(--bg2); }
+  details.section > summary { font-weight: bold; padding: 6px 4px;
+                              color: var(--decl); }
+  details.section.pipeline { border-left-color: var(--ok); }
+  details.section.pipeline > summary { color: var(--ok); }
+  details.scope-syms { margin: 2px 0 4px 14px; border-left-color: #444; }
+  details.scope-syms > summary { color: var(--muted); font-size: 11px;
+                                  font-style: italic; }
+  table.sym-table { border-collapse: collapse; margin: 4px 0 8px 14px;
+                    font-size: 12px; }
+  table.sym-table th, table.sym-table td {
+     border: 1px solid #333; padding: 2px 10px; text-align: left;
+     vertical-align: top; }
+  table.sym-table th { background: var(--bg3); color: var(--muted);
+                       font-weight: normal; font-size: 11px; }
+  table.sym-table tbody tr { cursor: pointer; }
+  table.sym-table tbody tr:hover { background: var(--bg3); }
+  table.sym-table td.idx { color: var(--muted); text-align: right; }
+  .empty { color: var(--muted); font-style: italic;
+           padding: 4px 0 8px 14px; }
+  h4.subhead { color: var(--muted); font-weight: normal;
+               margin: 8px 0 2px 14px; font-size: 12px; }
+
+  /* pipeline status grid */
+  .stat-grid { display: grid; grid-template-columns: auto 1fr;
+               gap: 4px 18px; margin: 6px 0 6px 14px;
+               font-size: 12px; }
+  .stat-grid .label { color: var(--muted); }
+  .stat-grid .ok    { color: var(--ok); }
+  .stat-grid .bad   { color: var(--bad); }
+  .stat-grid .warn  { color: var(--warn); }
+
+  .hl-sym, table.sym-table tbody tr.hl-sym {
+     background: var(--hl) !important;
+     outline: 1px solid var(--accent); }
+
+  .node-FUNCTION_DECL > summary,
+  .node-VARIABLE_DECL,
+  .node-TYPEDEF      > summary,
+  .node-STRUCT_DECL  > summary { border-left-color: var(--decl); }
+  .node-IF_BRANCH    > summary,
+  .node-ELSE_BRANCH  > summary,
+  .node-WHILE_BLOCK  > summary,
+  .node-FOR_BLOCK    > summary,
+  .node-COND_BLOCK   > summary { border-left-color: var(--ctrl); }
+  .node-BLOCK        > summary { color: var(--block); }
+  [data-typed="bad"]  > summary,
+  [data-typed="bad"].leaf { background: rgba(244,135,113,0.07); }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <button onclick="document.querySelectorAll('details').forEach(d=>d.open=true)">Expand all</button>
+  <button onclick="document.querySelectorAll('details').forEach(d=>d.open=false)">Collapse all</button>
+  <button onclick="document.querySelectorAll('.hl-sym').forEach(x=>x.classList.remove('hl-sym'))">Clear highlight</button>
+  <label><input type="checkbox" id="show-types" checked> Show types</label>
+  <span class="stage-badge analyzed">Analyzed</span>
+</div>
+<details class="section pipeline" open>
+  <summary>Pipeline status — Analyzed</summary>
+<div class="stat-grid">
+<span class="label">Total nodes</span><span>226</span>
+<span class="label">Variable refs</span><span>55 <span class="ok">(55 resolved)</span> <span class="label">(0 raw)</span></span>
+<span class="label">Function calls</span><span>0 <span class="label">(0 resolved)</span> <span class="label">(0 raw)</span></span>
+<span class="label">Expressions</span><span>146 <span class="ok">(146 typed)</span> <span class="label">(0 untyped)</span></span>
+<span class="label">Hint</span><span class="label">type analysis completed</span>
+</div>
+</details>
+<details class="section" open>
+  <summary>Global symbols (14)</summary>
+<table class="sym-table">
+<thead><tr><th>#</th><th>name</th><th>kind</th><th>type / signature</th><th>modifiers</th></tr></thead>
+<tbody>
+<tr data-sym-id="0"><td class="idx">0</td><td class="name">gfx_init</td><td>func</td><td class="type">(i32, i32, i32) -&gt; i32</td><td></td></tr>
+<tr data-sym-id="4"><td class="idx">4</td><td class="name">gfx_close</td><td>func</td><td class="type">() -&gt; void</td><td></td></tr>
+<tr data-sym-id="5"><td class="idx">5</td><td class="name">gfx_clear</td><td>func</td><td class="type">(i32) -&gt; void</td><td></td></tr>
+<tr data-sym-id="7"><td class="idx">7</td><td class="name">gfx_pixel</td><td>func</td><td class="type">(i32, i32, i32) -&gt; void</td><td></td></tr>
+<tr data-sym-id="11"><td class="idx">11</td><td class="name">gfx_rect</td><td>func</td><td class="type">(i32, i32, i32, i32, i32) -&gt; void</td><td></td></tr>
+<tr data-sym-id="17"><td class="idx">17</td><td class="name">gfx_present</td><td>func</td><td class="type">() -&gt; void</td><td></td></tr>
+<tr data-sym-id="18"><td class="idx">18</td><td class="name">gfx_delay</td><td>func</td><td class="type">(i32) -&gt; void</td><td></td></tr>
+<tr data-sym-id="20"><td class="idx">20</td><td class="name">gfx_poll_event</td><td>func</td><td class="type">() -&gt; i32</td><td></td></tr>
+<tr data-sym-id="21"><td class="idx">21</td><td class="name">gfx_key_pressed</td><td>func</td><td class="type">(i32) -&gt; i32</td><td></td></tr>
+<tr data-sym-id="23"><td class="idx">23</td><td class="name">gfx_mouse_x</td><td>func</td><td class="type">() -&gt; i32</td><td></td></tr>
+<tr data-sym-id="24"><td class="idx">24</td><td class="name">gfx_mouse_y</td><td>func</td><td class="type">() -&gt; i32</td><td></td></tr>
+<tr data-sym-id="25"><td class="idx">25</td><td class="name">gfx_mouse_pressed</td><td>func</td><td class="type">() -&gt; i32</td><td></td></tr>
+<tr data-sym-id="26"><td class="idx">26</td><td class="name">gfx_get_color</td><td>func</td><td class="type">(i8, i8, i8) -&gt; i32</td><td></td></tr>
+<tr data-sym-id="30"><td class="idx">30</td><td class="name">need_to_add</td><td>func</td><td class="type">(i32, i32) -&gt; bool</td><td></td></tr>
+</tbody></table>
+</details>
+<details class="section">
+  <summary>Types (8)</summary>
+<table class="sym-table">
+<thead><tr><th>#</th><th>kind</th><th>form</th><th>size</th><th>align</th><th>extra</th></tr></thead>
+<tbody>
+<tr><td class="idx">0</td><td>base</td><td class="type">bool</td><td>1</td><td>1</td><td></td></tr>
+<tr><td class="idx">1</td><td>base</td><td class="type">void</td><td>0</td><td>1</td><td></td></tr>
+<tr><td class="idx">2</td><td>base</td><td class="type">i8</td><td>1</td><td>1</td><td></td></tr>
+<tr><td class="idx">3</td><td>base</td><td class="type">i16</td><td>2</td><td>2</td><td></td></tr>
+<tr><td class="idx">4</td><td>base</td><td class="type">i32</td><td>4</td><td>4</td><td></td></tr>
+<tr><td class="idx">5</td><td>base</td><td class="type">i64</td><td>8</td><td>8</td><td></td></tr>
+<tr><td class="idx">6</td><td>block</td><td class="type">pix</td><td>16</td><td>8</td><td>2 fields: x_pix: i64, y_pix: i64</td></tr>
+<tr><td class="idx">7</td><td>array</td><td class="type">pix[10]</td><td>—</td><td>—</td><td>-&gt; #6 &times; 10</td></tr>
+</tbody></table>
+<h4 class="subhead">Aliases (1)</h4>
+<table class="sym-table">
+<thead><tr><th>name</th><th>target</th></tr></thead>
+<tbody>
+<tr><td class="name">char</td><td class="type">i8 <span class="kind">(#2)</span></td></tr>
+</tbody></table>
+</details>
+<details class="node node-FILE" data-kind="FILE" data-pos-line="0" data-pos-col="0" open>
+  <summary><span class="kind">[FILE]</span> FILE<span class="pos">0:0</span></summary>
+<div class="node leaf node-?" data-kind="?" data-pos-line="1" data-pos-col="0"><span class="kind">[?]</span> ?<span class="pos">1:0</span></div>
+<div class="node leaf node-?" data-kind="?" data-pos-line="2" data-pos-col="0"><span class="kind">[?]</span> ?<span class="pos">2:0</span></div>
+<div class="node leaf node-?" data-kind="?" data-pos-line="3" data-pos-col="0"><span class="kind">[?]</span> ?<span class="pos">3:0</span></div>
+<div class="node leaf node-?" data-kind="?" data-pos-line="4" data-pos-col="0"><span class="kind">[?]</span> ?<span class="pos">4:0</span></div>
+<div class="node leaf node-?" data-kind="?" data-pos-line="5" data-pos-col="0"><span class="kind">[?]</span> ?<span class="pos">5:0</span></div>
+<div class="node leaf node-?" data-kind="?" data-pos-line="6" data-pos-col="0"><span class="kind">[?]</span> ?<span class="pos">6:0</span></div>
+<div class="node leaf node-?" data-kind="?" data-pos-line="7" data-pos-col="0"><span class="kind">[?]</span> ?<span class="pos">7:0</span></div>
+<div class="node leaf node-?" data-kind="?" data-pos-line="8" data-pos-col="0"><span class="kind">[?]</span> ?<span class="pos">8:0</span></div>
+<div class="node leaf node-?" data-kind="?" data-pos-line="9" data-pos-col="0"><span class="kind">[?]</span> ?<span class="pos">9:0</span></div>
+<div class="node leaf node-?" data-kind="?" data-pos-line="10" data-pos-col="0"><span class="kind">[?]</span> ?<span class="pos">10:0</span></div>
+<div class="node leaf node-?" data-kind="?" data-pos-line="11" data-pos-col="0"><span class="kind">[?]</span> ?<span class="pos">11:0</span></div>
+<div class="node leaf node-?" data-kind="?" data-pos-line="12" data-pos-col="0"><span class="kind">[?]</span> ?<span class="pos">12:0</span></div>
+<div class="node leaf node-?" data-kind="?" data-pos-line="2" data-pos-col="0"><span class="kind">[?]</span> ?<span class="pos">2:0</span></div>
+<div class="node leaf node-STRUCT_DECL" data-kind="STRUCT_DECL" data-pos-line="2" data-pos-col="0"><span class="kind">[STRUCT_DECL]</span> struct <span class="type">pix</span><span class="pos">2:0</span></div>
+<details class="node node-MAIN" data-kind="MAIN" data-pos-line="7" data-pos-col="0" open>
+  <summary><span class="kind">[MAIN]</span> MAIN<span class="pos">7:0</span></summary>
+<details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="7" data-pos-col="5" open>
+  <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(18 stmts, scope)</span><span class="pos">7:5</span></summary>
+<details class="scope-syms">
+  <summary>Scope symbols (14)</summary>
+<table class="sym-table">
+<thead><tr><th>#</th><th>name</th><th>kind</th><th>type / signature</th><th>modifiers</th></tr></thead>
+<tbody>
+<tr data-sym-id="33"><td class="idx">33</td><td class="name">WIDTH</td><td>var</td><td class="type">i64</td><td>init, register</td></tr>
+<tr data-sym-id="34"><td class="idx">34</td><td class="name">HEIGHT</td><td>var</td><td class="type">i64</td><td>init, register</td></tr>
+<tr data-sym-id="35"><td class="idx">35</td><td class="name">cap_snake</td><td>var</td><td class="type">i32</td><td>init, register</td></tr>
+<tr data-sym-id="36"><td class="idx">36</td><td class="name">SNAKE</td><td>var</td><td class="type">pix[10]</td><td>register</td></tr>
+<tr data-sym-id="37"><td class="idx">37</td><td class="name">color_b</td><td>var</td><td class="type">i32</td><td>init, register</td></tr>
+<tr data-sym-id="38"><td class="idx">38</td><td class="name">color_w</td><td>var</td><td class="type">i32</td><td>init, register</td></tr>
+<tr data-sym-id="39"><td class="idx">39</td><td class="name">x</td><td>var</td><td class="type">i64</td><td>init, register</td></tr>
+<tr data-sym-id="40"><td class="idx">40</td><td class="name">y</td><td>var</td><td class="type">i64</td><td>init, register</td></tr>
+<tr data-sym-id="41"><td class="idx">41</td><td class="name">pos</td><td>var</td><td class="type">i64</td><td>init, register</td></tr>
+<tr data-sym-id="42"><td class="idx">42</td><td class="name">sc_up</td><td>var</td><td class="type">i32</td><td>init, register</td></tr>
+<tr data-sym-id="43"><td class="idx">43</td><td class="name">sc_down</td><td>var</td><td class="type">i32</td><td>init, register</td></tr>
+<tr data-sym-id="44"><td class="idx">44</td><td class="name">sc_left</td><td>var</td><td class="type">i32</td><td>init, register</td></tr>
+<tr data-sym-id="45"><td class="idx">45</td><td class="name">sc_right</td><td>var</td><td class="type">i32</td><td>init, register</td></tr>
+<tr data-sym-id="46"><td class="idx">46</td><td class="name">active</td><td>var</td><td class="type">i32</td><td>init, register</td></tr>
+</tbody></table>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="8" data-pos-col="4" data-sym-id="33">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i64</span> <span class="name">WIDTH</span> = ...<span class="pos">8:4</span></summary>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="8" data-pos-col="21" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i64</span><span class="pos">8:21</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="8" data-pos-col="21" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">64</span><span class="annot">: <span class="type">i32</span></span><span class="pos">8:21</span></div>
+</details>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="9" data-pos-col="4" data-sym-id="34">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i64</span> <span class="name">HEIGHT</span> = ...<span class="pos">9:4</span></summary>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="9" data-pos-col="21" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i64</span><span class="pos">9:21</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="9" data-pos-col="21" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">64</span><span class="annot">: <span class="type">i32</span></span><span class="pos">9:21</span></div>
+</details>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="11" data-pos-col="4" data-sym-id="35">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">cap_snake</span> = ...<span class="pos">11:4</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="11" data-pos-col="24" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">10</span><span class="annot">: <span class="type">i32</span></span><span class="pos">11:24</span></div>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="12" data-pos-col="4" data-sym-id="36">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">pix[10]</span> <span class="name">SNAKE</span><span class="pos">12:4</span></summary>
+</details>
+<details class="node node-STD_FUNCTION_CALL" data-kind="STD_FUNCTION_CALL" data-pos-line="15" data-pos-col="4" data-typed="ok">
+  <summary><span class="kind">[STD_FUNCTION_CALL]</span> <span class="name">gfx_init</span>(<span class="kind">3 args</span>)<span class="annot">: <span class="type">i32</span></span><span class="pos">15:4</span></summary>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="15" data-pos-col="18" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i32</span><span class="pos">15:18</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="15" data-pos-col="28" data-sym-id="33" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">WIDTH</span><span class="annot">: <span class="type">i64</span></span><span class="pos">15:28</span></div>
+</details>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="15" data-pos-col="35" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i32</span><span class="pos">15:35</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="15" data-pos-col="46" data-sym-id="34" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">HEIGHT</span><span class="annot">: <span class="type">i64</span></span><span class="pos">15:46</span></div>
+</details>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="15" data-pos-col="53" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i32</span><span class="pos">15:53</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="15" data-pos-col="58" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">10</span><span class="annot">: <span class="type">i32</span></span><span class="pos">15:58</span></div>
+</details>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="17" data-pos-col="4" data-sym-id="37">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">color_b</span> = ...<span class="pos">17:4</span></summary>
+<details class="node node-STD_FUNCTION_CALL" data-kind="STD_FUNCTION_CALL" data-pos-line="17" data-pos-col="22" data-typed="ok">
+  <summary><span class="kind">[STD_FUNCTION_CALL]</span> <span class="name">gfx_get_color</span>(<span class="kind">3 args</span>)<span class="annot">: <span class="type">i32</span></span><span class="pos">17:22</span></summary>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="17" data-pos-col="41" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i8</span><span class="pos">17:41</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="17" data-pos-col="45" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="annot">: <span class="type">i32</span></span><span class="pos">17:45</span></div>
+</details>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="17" data-pos-col="55" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i8</span><span class="pos">17:55</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="17" data-pos-col="59" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="annot">: <span class="type">i32</span></span><span class="pos">17:59</span></div>
+</details>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="17" data-pos-col="69" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i8</span><span class="pos">17:69</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="17" data-pos-col="73" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="annot">: <span class="type">i32</span></span><span class="pos">17:73</span></div>
+</details>
+</details>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="18" data-pos-col="4" data-sym-id="38">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">color_w</span> = ...<span class="pos">18:4</span></summary>
+<details class="node node-STD_FUNCTION_CALL" data-kind="STD_FUNCTION_CALL" data-pos-line="18" data-pos-col="22" data-typed="ok">
+  <summary><span class="kind">[STD_FUNCTION_CALL]</span> <span class="name">gfx_get_color</span>(<span class="kind">3 args</span>)<span class="annot">: <span class="type">i32</span></span><span class="pos">18:22</span></summary>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="18" data-pos-col="41" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i8</span><span class="pos">18:41</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="18" data-pos-col="45" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">255</span><span class="annot">: <span class="type">i32</span></span><span class="pos">18:45</span></div>
+</details>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="18" data-pos-col="55" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i8</span><span class="pos">18:55</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="18" data-pos-col="59" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">127</span><span class="annot">: <span class="type">i32</span></span><span class="pos">18:59</span></div>
+</details>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="18" data-pos-col="69" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i8</span><span class="pos">18:69</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="18" data-pos-col="73" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">255</span><span class="annot">: <span class="type">i32</span></span><span class="pos">18:73</span></div>
+</details>
+</details>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="20" data-pos-col="4" data-sym-id="39">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i64</span> <span class="name">x</span> = ...<span class="pos">20:4</span></summary>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="20" data-pos-col="16" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i64</span><span class="pos">20:16</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="20" data-pos-col="16" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="annot">: <span class="type">i32</span></span><span class="pos">20:16</span></div>
+</details>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="21" data-pos-col="4" data-sym-id="40">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i64</span> <span class="name">y</span> = ...<span class="pos">21:4</span></summary>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="21" data-pos-col="16" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i64</span><span class="pos">21:16</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="21" data-pos-col="16" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="annot">: <span class="type">i32</span></span><span class="pos">21:16</span></div>
+</details>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="23" data-pos-col="4" data-sym-id="41">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i64</span> <span class="name">pos</span> = ...<span class="pos">23:4</span></summary>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="23" data-pos-col="18" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i64</span><span class="pos">23:18</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="23" data-pos-col="18" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="annot">: <span class="type">i32</span></span><span class="pos">23:18</span></div>
+</details>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="25" data-pos-col="4" data-sym-id="42">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">sc_up</span> = ...<span class="pos">25:4</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="25" data-pos-col="23" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">82</span><span class="annot">: <span class="type">i32</span></span><span class="pos">25:23</span></div>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="26" data-pos-col="4" data-sym-id="43">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">sc_down</span> = ...<span class="pos">26:4</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="26" data-pos-col="23" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">81</span><span class="annot">: <span class="type">i32</span></span><span class="pos">26:23</span></div>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="27" data-pos-col="4" data-sym-id="44">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">sc_left</span> = ...<span class="pos">27:4</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="27" data-pos-col="23" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">80</span><span class="annot">: <span class="type">i32</span></span><span class="pos">27:23</span></div>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="28" data-pos-col="4" data-sym-id="45">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">sc_right</span> = ...<span class="pos">28:4</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="28" data-pos-col="23" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">79</span><span class="annot">: <span class="type">i32</span></span><span class="pos">28:23</span></div>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="30" data-pos-col="4" data-sym-id="46">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">active</span> = ...<span class="pos">30:4</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="30" data-pos-col="21" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="annot">: <span class="type">i32</span></span><span class="pos">30:21</span></div>
+</details>
+<details class="node node-WHILE_BLOCK" data-kind="WHILE_BLOCK" data-pos-line="32" data-pos-col="4">
+  <summary><span class="kind">[WHILE_BLOCK]</span> while<span class="pos">32:4</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="32" data-pos-col="11" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="annot">: <span class="type">i32</span></span><span class="pos">32:11</span></div>
+<details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="32" data-pos-col="14">
+  <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(8 stmts, scope)</span><span class="pos">32:14</span></summary>
+<details class="node node-COND_BLOCK" data-kind="COND_BLOCK" data-pos-line="33" data-pos-col="8">
+  <summary><span class="kind">[COND_BLOCK]</span> cond<span class="pos">33:8</span></summary>
+<details class="node node-IF_BRANCH" data-kind="IF_BRANCH" data-pos-line="33" data-pos-col="8">
+  <summary><span class="kind">[IF_BRANCH]</span> if<span class="pos">33:8</span></summary>
+<details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="33" data-pos-col="29" data-typed="ok">
+  <summary><span class="kind">[BINARY_OPER]</span> <span class="op">==</span><span class="annot">: <span class="type">bool</span></span><span class="pos">33:29</span></summary>
+<details class="node node-STD_FUNCTION_CALL" data-kind="STD_FUNCTION_CALL" data-pos-line="33" data-pos-col="12" data-typed="ok">
+  <summary><span class="kind">[STD_FUNCTION_CALL]</span> <span class="name">gfx_poll_event</span>(<span class="kind">0 args</span>)<span class="annot">: <span class="type">i32</span></span><span class="pos">33:12</span></summary>
+</details>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="33" data-pos-col="32" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="annot">: <span class="type">i32</span></span><span class="pos">33:32</span></div>
+</details>
+<details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="33" data-pos-col="35">
+  <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(1 stmts, scope)</span><span class="pos">33:35</span></summary>
+<div class="node leaf node-BREAK" data-kind="BREAK" data-pos-line="34" data-pos-col="12"><span class="kind">[BREAK]</span> break<span class="pos">34:12</span></div>
+</details>
+</details>
+</details>
+<details class="node node-COND_BLOCK" data-kind="COND_BLOCK" data-pos-line="37" data-pos-col="8">
+  <summary><span class="kind">[COND_BLOCK]</span> cond<span class="pos">37:8</span></summary>
+<details class="node node-IF_BRANCH" data-kind="IF_BRANCH" data-pos-line="37" data-pos-col="8">
+  <summary><span class="kind">[IF_BRANCH]</span> if<span class="pos">37:8</span></summary>
+<details class="node node-STD_FUNCTION_CALL" data-kind="STD_FUNCTION_CALL" data-pos-line="37" data-pos-col="12" data-typed="ok">
+  <summary><span class="kind">[STD_FUNCTION_CALL]</span> <span class="name">gfx_key_pressed</span>(<span class="kind">1 args</span>)<span class="annot">: <span class="type">i32</span></span><span class="pos">37:12</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="37" data-pos-col="33" data-sym-id="42" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">sc_up</span><span class="annot">: <span class="type">i32</span></span><span class="pos">37:33</span></div>
+</details>
+<details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="37" data-pos-col="36">
+  <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(3 stmts, scope)</span><span class="pos">37:36</span></summary>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="38" data-pos-col="14">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">38:14</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="38" data-pos-col="14" data-sym-id="40" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">y</span><span class="annot">: <span class="type">i64</span></span><span class="pos">38:14</span></div>
+<details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="38" data-pos-col="18" data-typed="ok">
+  <summary><span class="kind">[BINARY_OPER]</span> <span class="op">-</span><span class="annot">: <span class="type">i64</span></span><span class="pos">38:18</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="38" data-pos-col="18" data-sym-id="40" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">y</span><span class="annot">: <span class="type">i64</span></span><span class="pos">38:18</span></div>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="38" data-pos-col="20" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="annot">: <span class="type">i32</span></span><span class="pos">38:20</span></div>
+</details>
+</details>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="39" data-pos-col="14">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">39:14</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="39" data-pos-col="14" data-sym-id="40" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">y</span><span class="annot">: <span class="type">i64</span></span><span class="pos">39:14</span></div>
+<details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="39" data-pos-col="18" data-typed="ok">
+  <summary><span class="kind">[BINARY_OPER]</span> <span class="op">%</span><span class="annot">: <span class="type">i64</span></span><span class="pos">39:18</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="39" data-pos-col="18" data-sym-id="40" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">y</span><span class="annot">: <span class="type">i64</span></span><span class="pos">39:18</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="39" data-pos-col="25" data-sym-id="33" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">WIDTH</span><span class="annot">: <span class="type">i64</span></span><span class="pos">39:25</span></div>
+</details>
+</details>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="40" data-pos-col="19">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">40:19</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="40" data-pos-col="19" data-sym-id="46" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">active</span><span class="annot">: <span class="type">i32</span></span><span class="pos">40:19</span></div>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="40" data-pos-col="21" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="annot">: <span class="type">i32</span></span><span class="pos">40:21</span></div>
+</details>
+</details>
+</details>
+<details class="node node-IF_BRANCH" data-kind="IF_BRANCH" data-pos-line="42" data-pos-col="8">
+  <summary><span class="kind">[IF_BRANCH]</span> if<span class="pos">42:8</span></summary>
+<details class="node node-STD_FUNCTION_CALL" data-kind="STD_FUNCTION_CALL" data-pos-line="42" data-pos-col="14" data-typed="ok">
+  <summary><span class="kind">[STD_FUNCTION_CALL]</span> <span class="name">gfx_key_pressed</span>(<span class="kind">1 args</span>)<span class="annot">: <span class="type">i32</span></span><span class="pos">42:14</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="42" data-pos-col="37" data-sym-id="43" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">sc_down</span><span class="annot">: <span class="type">i32</span></span><span class="pos">42:37</span></div>
+</details>
+<details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="42" data-pos-col="40">
+  <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(3 stmts, scope)</span><span class="pos">42:40</span></summary>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="43" data-pos-col="14">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">43:14</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="43" data-pos-col="14" data-sym-id="40" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">y</span><span class="annot">: <span class="type">i64</span></span><span class="pos">43:14</span></div>
+<details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="43" data-pos-col="18" data-typed="ok">
+  <summary><span class="kind">[BINARY_OPER]</span> <span class="op">+</span><span class="annot">: <span class="type">i64</span></span><span class="pos">43:18</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="43" data-pos-col="18" data-sym-id="40" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">y</span><span class="annot">: <span class="type">i64</span></span><span class="pos">43:18</span></div>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="43" data-pos-col="20" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="annot">: <span class="type">i32</span></span><span class="pos">43:20</span></div>
+</details>
+</details>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="44" data-pos-col="14">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">44:14</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="44" data-pos-col="14" data-sym-id="40" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">y</span><span class="annot">: <span class="type">i64</span></span><span class="pos">44:14</span></div>
+<details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="44" data-pos-col="18" data-typed="ok">
+  <summary><span class="kind">[BINARY_OPER]</span> <span class="op">%</span><span class="annot">: <span class="type">i64</span></span><span class="pos">44:18</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="44" data-pos-col="18" data-sym-id="40" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">y</span><span class="annot">: <span class="type">i64</span></span><span class="pos">44:18</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="44" data-pos-col="25" data-sym-id="33" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">WIDTH</span><span class="annot">: <span class="type">i64</span></span><span class="pos">44:25</span></div>
+</details>
+</details>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="45" data-pos-col="19">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">45:19</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="45" data-pos-col="19" data-sym-id="46" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">active</span><span class="annot">: <span class="type">i32</span></span><span class="pos">45:19</span></div>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="45" data-pos-col="21" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="annot">: <span class="type">i32</span></span><span class="pos">45:21</span></div>
+</details>
+</details>
+</details>
+<details class="node node-IF_BRANCH" data-kind="IF_BRANCH" data-pos-line="47" data-pos-col="8">
+  <summary><span class="kind">[IF_BRANCH]</span> if<span class="pos">47:8</span></summary>
+<details class="node node-STD_FUNCTION_CALL" data-kind="STD_FUNCTION_CALL" data-pos-line="47" data-pos-col="14" data-typed="ok">
+  <summary><span class="kind">[STD_FUNCTION_CALL]</span> <span class="name">gfx_key_pressed</span>(<span class="kind">1 args</span>)<span class="annot">: <span class="type">i32</span></span><span class="pos">47:14</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="47" data-pos-col="37" data-sym-id="44" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">sc_left</span><span class="annot">: <span class="type">i32</span></span><span class="pos">47:37</span></div>
+</details>
+<details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="47" data-pos-col="40">
+  <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(3 stmts, scope)</span><span class="pos">47:40</span></summary>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="48" data-pos-col="14">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">48:14</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="48" data-pos-col="14" data-sym-id="39" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="annot">: <span class="type">i64</span></span><span class="pos">48:14</span></div>
+<details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="48" data-pos-col="18" data-typed="ok">
+  <summary><span class="kind">[BINARY_OPER]</span> <span class="op">-</span><span class="annot">: <span class="type">i64</span></span><span class="pos">48:18</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="48" data-pos-col="18" data-sym-id="39" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="annot">: <span class="type">i64</span></span><span class="pos">48:18</span></div>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="48" data-pos-col="20" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="annot">: <span class="type">i32</span></span><span class="pos">48:20</span></div>
+</details>
+</details>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="49" data-pos-col="14">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">49:14</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="49" data-pos-col="14" data-sym-id="39" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="annot">: <span class="type">i64</span></span><span class="pos">49:14</span></div>
+<details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="49" data-pos-col="18" data-typed="ok">
+  <summary><span class="kind">[BINARY_OPER]</span> <span class="op">%</span><span class="annot">: <span class="type">i64</span></span><span class="pos">49:18</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="49" data-pos-col="18" data-sym-id="39" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="annot">: <span class="type">i64</span></span><span class="pos">49:18</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="49" data-pos-col="26" data-sym-id="34" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">HEIGHT</span><span class="annot">: <span class="type">i64</span></span><span class="pos">49:26</span></div>
+</details>
+</details>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="50" data-pos-col="19">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">50:19</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="50" data-pos-col="19" data-sym-id="46" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">active</span><span class="annot">: <span class="type">i32</span></span><span class="pos">50:19</span></div>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="50" data-pos-col="21" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="annot">: <span class="type">i32</span></span><span class="pos">50:21</span></div>
+</details>
+</details>
+</details>
+<details class="node node-IF_BRANCH" data-kind="IF_BRANCH" data-pos-line="52" data-pos-col="8">
+  <summary><span class="kind">[IF_BRANCH]</span> if<span class="pos">52:8</span></summary>
+<details class="node node-STD_FUNCTION_CALL" data-kind="STD_FUNCTION_CALL" data-pos-line="52" data-pos-col="14" data-typed="ok">
+  <summary><span class="kind">[STD_FUNCTION_CALL]</span> <span class="name">gfx_key_pressed</span>(<span class="kind">1 args</span>)<span class="annot">: <span class="type">i32</span></span><span class="pos">52:14</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="52" data-pos-col="38" data-sym-id="45" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">sc_right</span><span class="annot">: <span class="type">i32</span></span><span class="pos">52:38</span></div>
+</details>
+<details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="52" data-pos-col="41">
+  <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(3 stmts, scope)</span><span class="pos">52:41</span></summary>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="53" data-pos-col="14">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">53:14</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="53" data-pos-col="14" data-sym-id="39" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="annot">: <span class="type">i64</span></span><span class="pos">53:14</span></div>
+<details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="53" data-pos-col="18" data-typed="ok">
+  <summary><span class="kind">[BINARY_OPER]</span> <span class="op">+</span><span class="annot">: <span class="type">i64</span></span><span class="pos">53:18</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="53" data-pos-col="18" data-sym-id="39" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="annot">: <span class="type">i64</span></span><span class="pos">53:18</span></div>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="53" data-pos-col="20" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="annot">: <span class="type">i32</span></span><span class="pos">53:20</span></div>
+</details>
+</details>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="54" data-pos-col="14">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">54:14</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="54" data-pos-col="14" data-sym-id="39" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="annot">: <span class="type">i64</span></span><span class="pos">54:14</span></div>
+<details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="54" data-pos-col="18" data-typed="ok">
+  <summary><span class="kind">[BINARY_OPER]</span> <span class="op">%</span><span class="annot">: <span class="type">i64</span></span><span class="pos">54:18</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="54" data-pos-col="18" data-sym-id="39" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="annot">: <span class="type">i64</span></span><span class="pos">54:18</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="54" data-pos-col="26" data-sym-id="34" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">HEIGHT</span><span class="annot">: <span class="type">i64</span></span><span class="pos">54:26</span></div>
+</details>
+</details>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="55" data-pos-col="19">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">55:19</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="55" data-pos-col="19" data-sym-id="46" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">active</span><span class="annot">: <span class="type">i32</span></span><span class="pos">55:19</span></div>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="55" data-pos-col="21" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="annot">: <span class="type">i32</span></span><span class="pos">55:21</span></div>
+</details>
+</details>
+</details>
+</details>
+<details class="node node-COND_BLOCK" data-kind="COND_BLOCK" data-pos-line="58" data-pos-col="8">
+  <summary><span class="kind">[COND_BLOCK]</span> cond<span class="pos">58:8</span></summary>
+<details class="node node-IF_BRANCH" data-kind="IF_BRANCH" data-pos-line="58" data-pos-col="8">
+  <summary><span class="kind">[IF_BRANCH]</span> if<span class="pos">58:8</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="58" data-pos-col="18" data-sym-id="46" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">active</span><span class="annot">: <span class="type">i32</span></span><span class="pos">58:18</span></div>
+<details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="58" data-pos-col="20">
+  <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(6 stmts, scope)</span><span class="pos">58:20</span></summary>
+<details class="scope-syms">
+  <summary>Scope symbols (1)</summary>
+<table class="sym-table">
+<thead><tr><th>#</th><th>name</th><th>kind</th><th>type / signature</th><th>modifiers</th></tr></thead>
+<tbody>
+<tr data-sym-id="47"><td class="idx">47</td><td class="name">new_pix</td><td>var</td><td class="type">pix</td><td>register</td></tr>
+</tbody></table>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="59" data-pos-col="12" data-sym-id="47">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">pix</span> <span class="name">new_pix</span><span class="pos">59:12</span></summary>
+</details>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="60" data-pos-col="26">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">60:26</span></summary>
+<details class="node node-FIELD_ACCESS" data-kind="FIELD_ACCESS" data-pos-line="60" data-pos-col="20" data-typed="ok">
+  <summary><span class="kind">[FIELD_ACCESS]</span> <span class="op">.</span><span class="name">x_pix</span><span class="annot">: <span class="type">i64</span></span><span class="pos">60:20</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="60" data-pos-col="19" data-sym-id="47" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">new_pix</span><span class="annot">: <span class="type">pix</span></span><span class="pos">60:19</span></div>
+</details>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="60" data-pos-col="33" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i64</span><span class="pos">60:33</span></summary>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="60" data-pos-col="33" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i32</span><span class="pos">60:33</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="60" data-pos-col="39" data-sym-id="39" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">x</span><span class="annot">: <span class="type">i64</span></span><span class="pos">60:39</span></div>
+</details>
+</details>
+</details>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="61" data-pos-col="26">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">61:26</span></summary>
+<details class="node node-FIELD_ACCESS" data-kind="FIELD_ACCESS" data-pos-line="61" data-pos-col="20" data-typed="ok">
+  <summary><span class="kind">[FIELD_ACCESS]</span> <span class="op">.</span><span class="name">y_pix</span><span class="annot">: <span class="type">i64</span></span><span class="pos">61:20</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="61" data-pos-col="19" data-sym-id="47" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">new_pix</span><span class="annot">: <span class="type">pix</span></span><span class="pos">61:19</span></div>
+</details>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="61" data-pos-col="33" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i64</span><span class="pos">61:33</span></summary>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="61" data-pos-col="33" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i32</span><span class="pos">61:33</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="61" data-pos-col="39" data-sym-id="40" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">y</span><span class="annot">: <span class="type">i64</span></span><span class="pos">61:39</span></div>
+</details>
+</details>
+</details>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="63" data-pos-col="23">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">63:23</span></summary>
+<details class="node node-INDEX_ACCESS" data-kind="INDEX_ACCESS" data-pos-line="0" data-pos-col="0" data-typed="ok">
+  <summary><span class="kind">[INDEX_ACCESS]</span> <span class="op">[ ]</span><span class="annot">: <span class="type">pix</span></span><span class="pos">0:0</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="63" data-pos-col="17" data-sym-id="36" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">SNAKE</span><span class="annot">: <span class="type">pix[10]</span></span><span class="pos">63:17</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="63" data-pos-col="21" data-sym-id="41" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">pos</span><span class="annot">: <span class="type">i64</span></span><span class="pos">63:21</span></div>
+</details>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="63" data-pos-col="32" data-sym-id="47" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">new_pix</span><span class="annot">: <span class="type">pix</span></span><span class="pos">63:32</span></div>
+</details>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="65" data-pos-col="16">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">65:16</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="65" data-pos-col="16" data-sym-id="41" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">pos</span><span class="annot">: <span class="type">i64</span></span><span class="pos">65:16</span></div>
+<details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="65" data-pos-col="22" data-typed="ok">
+  <summary><span class="kind">[BINARY_OPER]</span> <span class="op">+</span><span class="annot">: <span class="type">i64</span></span><span class="pos">65:22</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="65" data-pos-col="22" data-sym-id="41" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">pos</span><span class="annot">: <span class="type">i64</span></span><span class="pos">65:22</span></div>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="65" data-pos-col="24" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="annot">: <span class="type">i32</span></span><span class="pos">65:24</span></div>
+</details>
+</details>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="66" data-pos-col="16">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">66:16</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="66" data-pos-col="16" data-sym-id="41" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">pos</span><span class="annot">: <span class="type">i64</span></span><span class="pos">66:16</span></div>
+<details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="66" data-pos-col="22" data-typed="ok">
+  <summary><span class="kind">[BINARY_OPER]</span> <span class="op">%</span><span class="annot">: <span class="type">i64</span></span><span class="pos">66:22</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="66" data-pos-col="22" data-sym-id="41" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">pos</span><span class="annot">: <span class="type">i64</span></span><span class="pos">66:22</span></div>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="66" data-pos-col="33" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i64</span><span class="pos">66:33</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="66" data-pos-col="33" data-sym-id="35" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">cap_snake</span><span class="annot">: <span class="type">i32</span></span><span class="pos">66:33</span></div>
+</details>
+</details>
+</details>
+</details>
+</details>
+</details>
+<details class="node node-STD_FUNCTION_CALL" data-kind="STD_FUNCTION_CALL" data-pos-line="69" data-pos-col="8" data-typed="ok">
+  <summary><span class="kind">[STD_FUNCTION_CALL]</span> <span class="name">gfx_clear</span>(<span class="kind">1 args</span>)<span class="annot">: <span class="type">void</span></span><span class="pos">69:8</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="69" data-pos-col="25" data-sym-id="37" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">color_b</span><span class="annot">: <span class="type">i32</span></span><span class="pos">69:25</span></div>
+</details>
+<details class="node node-FOR_BLOCK" data-kind="FOR_BLOCK" data-pos-line="70" data-pos-col="8">
+  <summary><span class="kind">[FOR_BLOCK]</span> for<span class="pos">70:8</span></summary>
+<details class="scope-syms">
+  <summary>Scope symbols (1)</summary>
+<table class="sym-table">
+<thead><tr><th>#</th><th>name</th><th>kind</th><th>type / signature</th><th>modifiers</th></tr></thead>
+<tbody>
+<tr data-sym-id="48"><td class="idx">48</td><td class="name">i</td><td>var</td><td class="type">i32</td><td>init, register</td></tr>
+</tbody></table>
+</details>
+<details class="node node-VARIABLE_DECL" data-kind="VARIABLE_DECL" data-pos-line="70" data-pos-col="13" data-sym-id="48">
+  <summary><span class="kind">[VARIABLE_DECL]</span> <span class="type">i32</span> <span class="name">i</span> = ...<span class="pos">70:13</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="70" data-pos-col="25" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="annot">: <span class="type">i32</span></span><span class="pos">70:25</span></div>
+</details>
+<details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="70" data-pos-col="30" data-typed="ok">
+  <summary><span class="kind">[BINARY_OPER]</span> <span class="op">&lt;</span><span class="annot">: <span class="type">bool</span></span><span class="pos">70:30</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="70" data-pos-col="30" data-sym-id="48" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">i</span><span class="annot">: <span class="type">i32</span></span><span class="pos">70:30</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="70" data-pos-col="41" data-sym-id="35" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">cap_snake</span><span class="annot">: <span class="type">i32</span></span><span class="pos">70:41</span></div>
+</details>
+<details class="node node-ASSIGN" data-kind="ASSIGN" data-pos-line="70" data-pos-col="45">
+  <summary><span class="kind">[ASSIGN]</span> <span class="op">=</span><span class="pos">70:45</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="70" data-pos-col="45" data-sym-id="48" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">i</span><span class="annot">: <span class="type">i32</span></span><span class="pos">70:45</span></div>
+<details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="70" data-pos-col="49" data-typed="ok">
+  <summary><span class="kind">[BINARY_OPER]</span> <span class="op">+</span><span class="annot">: <span class="type">i32</span></span><span class="pos">70:49</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="70" data-pos-col="49" data-sym-id="48" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">i</span><span class="annot">: <span class="type">i32</span></span><span class="pos">70:49</span></div>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="70" data-pos-col="51" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="annot">: <span class="type">i32</span></span><span class="pos">70:51</span></div>
+</details>
+</details>
+<details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="70" data-pos-col="54">
+  <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(1 stmts, scope)</span><span class="pos">70:54</span></summary>
+<details class="node node-STD_FUNCTION_CALL" data-kind="STD_FUNCTION_CALL" data-pos-line="71" data-pos-col="12" data-typed="ok">
+  <summary><span class="kind">[STD_FUNCTION_CALL]</span> <span class="name">gfx_pixel</span>(<span class="kind">3 args</span>)<span class="annot">: <span class="type">void</span></span><span class="pos">71:12</span></summary>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="71" data-pos-col="27" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i32</span><span class="pos">71:27</span></summary>
+<details class="node node-FIELD_ACCESS" data-kind="FIELD_ACCESS" data-pos-line="71" data-pos-col="41" data-typed="ok">
+  <summary><span class="kind">[FIELD_ACCESS]</span> <span class="op">.</span><span class="name">x_pix</span><span class="annot">: <span class="type">bool</span></span><span class="pos">71:41</span></summary>
+<details class="node node-INDEX_ACCESS" data-kind="INDEX_ACCESS" data-pos-line="0" data-pos-col="0" data-typed="ok">
+  <summary><span class="kind">[INDEX_ACCESS]</span> <span class="op">[ ]</span><span class="annot">: <span class="type">bool</span></span><span class="pos">0:0</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="71" data-pos-col="37" data-sym-id="36" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">SNAKE</span><span class="annot">: <span class="type">pix[10]</span></span><span class="pos">71:37</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="71" data-pos-col="39" data-sym-id="48" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">i</span><span class="annot">: <span class="type">i32</span></span><span class="pos">71:39</span></div>
+</details>
+</details>
+</details>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="71" data-pos-col="53" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">i32</span><span class="pos">71:53</span></summary>
+<details class="node node-FIELD_ACCESS" data-kind="FIELD_ACCESS" data-pos-line="71" data-pos-col="67" data-typed="ok">
+  <summary><span class="kind">[FIELD_ACCESS]</span> <span class="op">.</span><span class="name">y_pix</span><span class="annot">: <span class="type">bool</span></span><span class="pos">71:67</span></summary>
+<details class="node node-INDEX_ACCESS" data-kind="INDEX_ACCESS" data-pos-line="0" data-pos-col="0" data-typed="ok">
+  <summary><span class="kind">[INDEX_ACCESS]</span> <span class="op">[ ]</span><span class="annot">: <span class="type">bool</span></span><span class="pos">0:0</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="71" data-pos-col="63" data-sym-id="36" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">SNAKE</span><span class="annot">: <span class="type">pix[10]</span></span><span class="pos">71:63</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="71" data-pos-col="65" data-sym-id="48" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">i</span><span class="annot">: <span class="type">i32</span></span><span class="pos">71:65</span></div>
+</details>
+</details>
+</details>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="71" data-pos-col="81" data-sym-id="38" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">color_w</span><span class="annot">: <span class="type">i32</span></span><span class="pos">71:81</span></div>
+</details>
+</details>
+</details>
+<details class="node node-STD_FUNCTION_CALL" data-kind="STD_FUNCTION_CALL" data-pos-line="74" data-pos-col="8" data-typed="ok">
+  <summary><span class="kind">[STD_FUNCTION_CALL]</span> <span class="name">gfx_present</span>(<span class="kind">0 args</span>)<span class="annot">: <span class="type">void</span></span><span class="pos">74:8</span></summary>
+</details>
+<details class="node node-STD_FUNCTION_CALL" data-kind="STD_FUNCTION_CALL" data-pos-line="75" data-pos-col="8" data-typed="ok">
+  <summary><span class="kind">[STD_FUNCTION_CALL]</span> <span class="name">gfx_delay</span>(<span class="kind">1 args</span>)<span class="annot">: <span class="type">void</span></span><span class="pos">75:8</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="75" data-pos-col="18" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">10</span><span class="annot">: <span class="type">i32</span></span><span class="pos">75:18</span></div>
+</details>
+<div class="node leaf node-CONTINUE" data-kind="CONTINUE" data-pos-line="76" data-pos-col="8"><span class="kind">[CONTINUE]</span> continue<span class="pos">76:8</span></div>
+</details>
+</details>
+<details class="node node-STD_FUNCTION_CALL" data-kind="STD_FUNCTION_CALL" data-pos-line="78" data-pos-col="4" data-typed="ok">
+  <summary><span class="kind">[STD_FUNCTION_CALL]</span> <span class="name">gfx_close</span>(<span class="kind">0 args</span>)<span class="annot">: <span class="type">void</span></span><span class="pos">78:4</span></summary>
+</details>
+<div class="node leaf node-EXIT" data-kind="EXIT" data-pos-line="79" data-pos-col="4"><span class="kind">[EXIT]</span> exit<span class="pos">79:4</span></div>
+</details>
+</details>
+<details class="node node-FUNCTION_DECL" data-kind="FUNCTION_DECL" data-pos-line="82" data-pos-col="0" data-sym-id="30" open>
+  <summary><span class="kind">[FUNCTION_DECL]</span> <span class="name">need_to_add</span>(<span class="type">i32</span> size, <span class="type">i32</span> capacity) -&gt; <span class="type">bool</span><span class="pos">82:0</span></summary>
+<details class="scope-syms">
+  <summary>Scope symbols (2)</summary>
+<table class="sym-table">
+<thead><tr><th>#</th><th>name</th><th>kind</th><th>type / signature</th><th>modifiers</th></tr></thead>
+<tbody>
+<tr data-sym-id="31"><td class="idx">31</td><td class="name">size</td><td>var</td><td class="type">i32</td><td>register</td></tr>
+<tr data-sym-id="32"><td class="idx">32</td><td class="name">capacity</td><td>var</td><td class="type">i32</td><td>register</td></tr>
+</tbody></table>
+</details>
+<details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="82" data-pos-col="46" open>
+  <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(2 stmts, scope)</span><span class="pos">82:46</span></summary>
+<details class="node node-COND_BLOCK" data-kind="COND_BLOCK" data-pos-line="83" data-pos-col="4">
+  <summary><span class="kind">[COND_BLOCK]</span> cond<span class="pos">83:4</span></summary>
+<details class="node node-IF_BRANCH" data-kind="IF_BRANCH" data-pos-line="83" data-pos-col="4">
+  <summary><span class="kind">[IF_BRANCH]</span> if<span class="pos">83:4</span></summary>
+<details class="node node-BINARY_OPER" data-kind="BINARY_OPER" data-pos-line="83" data-pos-col="13" data-typed="ok">
+  <summary><span class="kind">[BINARY_OPER]</span> <span class="op">&gt;=</span><span class="annot">: <span class="type">bool</span></span><span class="pos">83:13</span></summary>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="83" data-pos-col="13" data-sym-id="31" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">size</span><span class="annot">: <span class="type">i32</span></span><span class="pos">83:13</span></div>
+<div class="node leaf node-VARIABLE" data-kind="VARIABLE" data-pos-line="83" data-pos-col="24" data-sym-id="32" data-typed="ok"><span class="kind">[VARIABLE]</span> <span class="name">capacity</span><span class="annot">: <span class="type">i32</span></span><span class="pos">83:24</span></div>
+</details>
+<details class="node node-BLOCK" data-kind="BLOCK" data-pos-line="83" data-pos-col="26">
+  <summary><span class="kind">[BLOCK]</span> BLOCK <span class="kind">(1 stmts, scope)</span><span class="pos">83:26</span></summary>
+<details class="node node-RETURN" data-kind="RETURN" data-pos-line="84" data-pos-col="8">
+  <summary><span class="kind">[RETURN]</span> return<span class="pos">84:8</span></summary>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="84" data-pos-col="20" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">bool</span><span class="pos">84:20</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="84" data-pos-col="26" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">1</span><span class="annot">: <span class="type">i32</span></span><span class="pos">84:26</span></div>
+</details>
+</details>
+</details>
+</details>
+</details>
+<details class="node node-RETURN" data-kind="RETURN" data-pos-line="86" data-pos-col="4">
+  <summary><span class="kind">[RETURN]</span> return<span class="pos">86:4</span></summary>
+<details class="node node-CAST" data-kind="CAST" data-pos-line="86" data-pos-col="16" data-typed="ok">
+  <summary><span class="kind">[CAST]</span> cast -&gt; <span class="type">bool</span><span class="pos">86:16</span></summary>
+<div class="node leaf node-VALUE_INT" data-kind="VALUE_INT" data-pos-line="86" data-pos-col="22" data-typed="ok"><span class="kind">[VALUE_INT]</span> <span class="lit">0</span><span class="annot">: <span class="type">i32</span></span><span class="pos">86:22</span></div>
+</details>
+</details>
+</details>
+</details>
+</details>
+<script>
+document.addEventListener('click', function(e) {
+  var t = e.target.closest('summary, tr, .leaf');
+  if (!t) return;
+  var el = t.closest('[data-sym-id]');
+  if (!el) return;
+  var id = el.getAttribute('data-sym-id');
+  if (!id) return;
+  document.querySelectorAll('.hl-sym').forEach(x=>x.classList.remove('hl-sym'));
+  document.querySelectorAll('[data-sym-id="'+id+'"]').forEach(function(x) {
+    x.classList.add('hl-sym');
+    var p = x.parentElement;
+    while (p) {
+      if (p.tagName === 'DETAILS' && !p.open) p.open = true;
+      p = p.parentElement;
+    }
+  });
+});
+var cb = document.getElementById('show-types');
+if (cb) cb.addEventListener('change', function() {
+  document.body.classList.toggle('hide-annot', !cb.checked);
+});
+</script>
+</body></html>
